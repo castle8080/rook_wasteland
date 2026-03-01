@@ -97,10 +97,10 @@ impl GameState {
 
     /// Try to select a square. Returns true if a piece was selected.
     pub fn select_square(&self, pos: Pos) -> bool {
-        let board = self.board.get();
-        let color = self.active_color.get();
-        let ep = self.en_passant.get();
-        let castling = self.castling.get();
+        let board = self.board.get_untracked();
+        let color = self.active_color.get_untracked();
+        let ep = self.en_passant.get_untracked();
+        let castling = self.castling.get_untracked();
 
         if let Some(piece) = board.get(pos)
             && piece.color == color {
@@ -121,7 +121,7 @@ impl GameState {
     /// Try to execute a move to `to` from the currently selected square.
     /// Returns true if the move was made.
     pub fn try_move_to(&self, to: Pos) -> bool {
-        let valid = self.valid_moves_for_selected.get();
+        let valid = self.valid_moves_for_selected.get_untracked();
 
         // Find the move — prefer promotion to queen by default
         let mv = valid.iter().find(|m| {
@@ -139,9 +139,9 @@ impl GameState {
 
     /// Apply a move and update all state.
     pub fn apply_move(&self, mv: Move) {
-        let board = self.board.get();
-        let color = self.active_color.get();
-        let castling = self.castling.get();
+        let board = self.board.get_untracked();
+        let color = self.active_color.get_untracked();
+        let castling = self.castling.get_untracked();
 
         let captured = board.get(mv.to).or_else(|| {
             // En passant: captured pawn is on the mover's rank, target file
