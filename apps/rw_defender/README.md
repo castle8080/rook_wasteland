@@ -59,6 +59,17 @@ cargo clippy --target wasm32-unknown-unknown
 | `Escape` / `P` | Pause |
 | `Enter` | Start / restart |
 
+## Power-Ups
+
+| Icon Color | Power-Up | Effect | Duration |
+|-----------|----------|--------|----------|
+| Orange | Triple Shot | Fires 3 bullets in a spread | 12s |
+| Red | Explosive Shot | Bullets explode on impact | 15s |
+| Yellow | Rapid Fire | 3× fire rate, more bullets | 12s |
+| Blue | Laser Beam | Continuous beam | 10s |
+| Green | Piercing Shot | Bullets pass through enemies | 12s |
+| Cyan | Shield | Absorbs one hit (stacks to 3) | 30s |
+
 ## Project Structure
 
 ```
@@ -72,3 +83,10 @@ src/
 ├── utils/              # Vec2, Rect (AABB), Timer
 └── weapons/            # Weapon types (stub, Phase 4+)
 ```
+
+## Development Docs
+
+- [`doc/defender_spec.md`](doc/defender_spec.md) — Full game design specification
+- [`doc/principles_and_lessons.md`](doc/principles_and_lessons.md) — Rust/WASM best practices
+- [`tasks/`](tasks/) — Task breakdown and status per phase
+
