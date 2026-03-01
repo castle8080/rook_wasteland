@@ -6,7 +6,7 @@ mod systems;
 mod utils;
 
 use game::{Game, CANVAS_H, CANVAS_W};
-use graphics::StarField;
+use graphics::{background_image_for_wave, BackgroundTier, StarField};
 use renderer::Renderer;
 use systems::InputState;
 
@@ -14,7 +14,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
-use web_sys::{window, CanvasRenderingContext2d, HtmlCanvasElement, KeyboardEvent};
+use web_sys::{window, CanvasRenderingContext2d, HtmlCanvasElement, HtmlImageElement, KeyboardEvent};
 
 // Use a thread-local to hold shared game state accessible from JS callbacks.
 thread_local! {
@@ -23,6 +23,8 @@ thread_local! {
     static RENDERER: RefCell<Option<Renderer>> = const { RefCell::new(None) };
     static STARFIELD: RefCell<Option<StarField>> = const { RefCell::new(None) };
     static LAST_TIME: RefCell<f64> = const { RefCell::new(0.0) };
+    /// Wave number for which the current background image is loaded (0 = none loaded yet).
+    static BG_WAVE: RefCell<u32> = const { RefCell::new(0) };
 }
 
 #[wasm_bindgen(start)]
@@ -99,6 +101,35 @@ fn setup_input_listeners(window: &web_sys::Window) {
 
 type RafClosure = Rc<RefCell<Option<Closure<dyn FnMut(f64)>>>>;
 
+/// Update the `#space-bg` img src when the wave changes, cycling through NASA/ESA images.
+fn maybe_update_background(wave: u32) {
+    let needs_update = BG_WAVE.with(|bw| {
+        let current = *bw.borrow();
+        if current != wave {
+            *bw.borrow_mut() = wave;
+            true
+        } else {
+            false
+        }
+    });
+    if !needs_update {
+        return;
+    }
+    let filename = background_image_for_wave(wave);
+    let src = format!("/backgrounds/{filename}");
+    if let Some(win) = window() {
+        if let Some(doc) = win.document() {
+            if let Some(el) = doc.get_element_by_id("space-bg") {
+                if let Ok(img) = el.dyn_into::<HtmlImageElement>() {
+                    img.set_src(&src);
+                }
+            }
+        }
+    }
+}
+
+
+
 fn start_game_loop() {
     let f: RafClosure = Rc::new(RefCell::new(None));
     let g = f.clone();
@@ -121,15 +152,15 @@ fn start_game_loop() {
             });
         });
 
-        // Update and render starfield (background layer)
+        // Update and render starfield (background layer); update NASA image on wave change
         GAME.with(|game| {
             STARFIELD.with(|sf| {
                 if let (Some(ref g), Some(ref mut s)) = (&*game.borrow(), &mut *sf.borrow_mut()) {
-                    use graphics::BackgroundTier;
                     let tier = BackgroundTier::for_wave(g.wave);
                     if s.tier != tier {
                         s.set_tier(tier);
                     }
+                    maybe_update_background(g.wave);
                     s.update(dt);
                     s.render();
                 }

@@ -1,0 +1,11 @@
+[package]
+name = "rw_bg_processor"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "process_backgrounds"
+path = "src/main.rs"
+
+[dependencies]
+image = { version = "0.25", features = ["jpeg", "png", "webp"] }

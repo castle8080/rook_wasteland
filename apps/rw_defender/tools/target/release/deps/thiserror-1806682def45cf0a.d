@@ -1,0 +1,14 @@
+/home/bryanc/repos/rook_wasteland/apps/rw_defender/tools/target/release/deps/thiserror-1806682def45cf0a.d: /home/bryanc/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/lib.rs /home/bryanc/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/aserror.rs /home/bryanc/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/display.rs /home/bryanc/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/var.rs /home/bryanc/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/private.rs /home/bryanc/repos/rook_wasteland/apps/rw_defender/tools/target/release/build/thiserror-05ef7091ef77a085/out/private.rs
+
+/home/bryanc/repos/rook_wasteland/apps/rw_defender/tools/target/release/deps/libthiserror-1806682def45cf0a.rlib: /home/bryanc/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/lib.rs /home/bryanc/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/aserror.rs /home/bryanc/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/display.rs /home/bryanc/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/var.rs /home/bryanc/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/private.rs /home/bryanc/repos/rook_wasteland/apps/rw_defender/tools/target/release/build/thiserror-05ef7091ef77a085/out/private.rs
+
+/home/bryanc/repos/rook_wasteland/apps/rw_defender/tools/target/release/deps/libthiserror-1806682def45cf0a.rmeta: /home/bryanc/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/lib.rs /home/bryanc/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/aserror.rs /home/bryanc/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/display.rs /home/bryanc/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/var.rs /home/bryanc/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/private.rs /home/bryanc/repos/rook_wasteland/apps/rw_defender/tools/target/release/build/thiserror-05ef7091ef77a085/out/private.rs
+
+/home/bryanc/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/lib.rs:
+/home/bryanc/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/aserror.rs:
+/home/bryanc/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/display.rs:
+/home/bryanc/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/var.rs:
+/home/bryanc/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/private.rs:
+/home/bryanc/repos/rook_wasteland/apps/rw_defender/tools/target/release/build/thiserror-05ef7091ef77a085/out/private.rs:
+
+# env-dep:OUT_DIR=/home/bryanc/repos/rook_wasteland/apps/rw_defender/tools/target/release/build/thiserror-05ef7091ef77a085/out

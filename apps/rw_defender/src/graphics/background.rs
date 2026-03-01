@@ -32,6 +32,66 @@ pub enum BackgroundTier {
     UltraDeep,
 }
 
+/// Background image filenames served from /backgrounds/ (Trunk copies assets/backgrounds/).
+/// Each tier has a slice of images cycled by wave number within that tier.
+const WARM_IMAGES: &[&str] = &[
+    "esa_orion_nebula_m42.jpg",
+    "esa_mystic_mountain_carina.jpg",
+    "esa_eagle_nebula_m16.jpg",
+    "esa_carina_nebula_hubble.jpg",
+    "esa_helix_nebula.jpg",
+];
+
+const NEBULA_IMAGES: &[&str] = &[
+    "esa_butterfly_nebula.jpg",
+    "esa_crab_nebula.jpg",
+    "esa_ring_nebula_m57.jpg",
+    "08_hubble_ring_nebula_m57.jpg",
+    "02_jwst_southern_ring_nebula.jpg",
+    "03_jwst_hidden_orion.jpg",
+];
+
+const DEEP_IMAGES: &[&str] = &[
+    "esa_sombrero_galaxy.jpg",
+    "esa_andromeda_galaxy_m31.jpg",
+    "esa_whirlpool_galaxy_m51.jpg",
+    "esa_antennae_galaxies.jpg",
+    "esa_ngc1300_barred_spiral.jpg",
+    "05_vlt_ngc1232_spiral_galaxy.jpg",
+];
+
+const ULTRA_DEEP_IMAGES: &[&str] = &[
+    "01_jwst_deep_field_smacs0723.jpg",
+    "04_hubble_cats_eye_nebula.jpg",
+    "esa_ngc3603_stellar_nursery.jpg",
+    "esa_hoags_object_ring_galaxy.jpg",
+    "esa_omega_centauri_cluster.jpg",
+    "18_hubble_omega_nebula_m17.jpg",
+];
+
+/// Returns the URL path for the background image to use for the given wave.
+/// Wave 1 → first Warm image, wave 2 → second Warm image, etc. Cycles within tier.
+pub fn background_image_for_wave(wave: u32) -> &'static str {
+    match BackgroundTier::for_wave(wave) {
+        BackgroundTier::Warm => {
+            let idx = ((wave - 1) as usize) % WARM_IMAGES.len();
+            WARM_IMAGES[idx]
+        }
+        BackgroundTier::Nebula => {
+            let idx = ((wave - 6) as usize) % NEBULA_IMAGES.len();
+            NEBULA_IMAGES[idx]
+        }
+        BackgroundTier::Deep => {
+            let idx = ((wave - 11) as usize) % DEEP_IMAGES.len();
+            DEEP_IMAGES[idx]
+        }
+        BackgroundTier::UltraDeep => {
+            let idx = ((wave.saturating_sub(16)) as usize) % ULTRA_DEEP_IMAGES.len();
+            ULTRA_DEEP_IMAGES[idx]
+        }
+    }
+}
+
 impl BackgroundTier {
     pub fn for_wave(wave: u32) -> Self {
         match wave {
