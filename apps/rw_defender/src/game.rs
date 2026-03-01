@@ -33,6 +33,45 @@ const ENEMY_BULLET_SPEED: f64 = 200.0;
 const ENEMY_FIRE_INTERVAL: f64 = 0.5; // check every 500ms
 const WAVE_TRANSITION_DURATION: f64 = 2.0;
 
+const BOSS_AMPLITUDE: f64 = 100.0;
+const BOSS_FREQ: f64 = 0.5; // Hz — matches spec
+const BOSS_Y: f64 = 50.0; // fixed y in top third
+const BOSS_FIRE_INTERVAL: f64 = 1.5;
+const BOSS_BULLET_SPEED: f64 = 250.0;
+
+const DIVER_SPEED: f64 = 80.0;
+const DIVER_TRIGGER_RANGE: f64 = 80.0; // ±80px horizontal
+const DIVER_RETURN_TIME: f64 = 2.0;
+const DIVER_DIVE_COOLDOWN: f64 = 3.0;
+
+const HIGH_SCORE_KEY: &str = "rw_defender_high_score";
+
+// ── localStorage helpers ─────────────────────────────────────────────────────
+
+fn load_high_score() -> u32 {
+    let Ok(Some(storage)) = web_sys::window()
+        .and_then(|w| w.local_storage().ok().flatten())
+        .map(|s| Ok::<_, ()>(Some(s)))
+        .unwrap_or(Ok(None))
+    else {
+        return 0;
+    };
+    storage
+        .get_item(HIGH_SCORE_KEY)
+        .ok()
+        .flatten()
+        .and_then(|v| v.parse::<u32>().ok())
+        .unwrap_or(0)
+}
+
+fn save_high_score(score: u32) {
+    if let Some(storage) = web_sys::window()
+        .and_then(|w| w.local_storage().ok().flatten())
+    {
+        let _ = storage.set_item(HIGH_SCORE_KEY, &score.to_string());
+    }
+}
+
 // ── Game states ──────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, PartialEq)]
@@ -160,7 +199,7 @@ impl Game {
             player: Player::new(),
             entities: Vec::with_capacity(200),
             wave: 0,
-            high_score: 0,
+            high_score: load_high_score(),
             atlas: SpriteAtlas::new(),
             enemy_fire_timer: 0.0,
             formation_dir: 1.0,
@@ -238,13 +277,17 @@ impl Game {
         self.spawn_queue.clear();
         self.enemies_killed_this_wave = 0;
 
-        let count = self.wave_enemy_count();
-        self.wave_enemy_count = count;
-
-        // Build spawn queue based on wave composition
-        for i in 0..count {
-            let etype = self.enemy_type_for_wave(i);
-            self.spawn_queue.push(etype);
+        if self.wave.is_multiple_of(5) {
+            // Boss wave: single boss enemy
+            self.spawn_queue.push(EntityType::Boss);
+            self.wave_enemy_count = 1;
+        } else {
+            let count = self.wave_enemy_count();
+            self.wave_enemy_count = count;
+            for i in 0..count {
+                let etype = self.enemy_type_for_wave(i);
+                self.spawn_queue.push(etype);
+            }
         }
         self.spawn_timer = 0.0;
         self.formation_shift_timer = 0.0;
@@ -420,17 +463,25 @@ impl Game {
     }
 
     fn spawn_enemy(&mut self, etype: EntityType, idx: usize) {
-        let col = (idx % FORMATION_COLS as usize) as f64;
-        let row = (idx / FORMATION_COLS as usize) as f64;
-        let x = 40.0 + col * FORMATION_SPACING_X;
-        let y = FORMATION_START_Y + row * FORMATION_SPACING_Y;
-
-        let (hp, hitbox) = match &etype {
-            EntityType::EnemyGrunt | EntityType::EnemyWeaver | EntityType::EnemyDiver => {
-                (ENEMY_GRUNT_HP, Rect::new(1.0, 1.0, 12.0, 10.0))
+        let (x, y, hp, hitbox) = match &etype {
+            EntityType::Boss => {
+                let boss_hp = 75 + (self.wave / 5) as i32 * 15;
+                (CANVAS_W / 2.0 - 24.0, BOSS_Y, boss_hp, Rect::new(2.0, 2.0, 44.0, 28.0))
             }
-            EntityType::Boss => (75 + (self.wave / 5) as i32 * 15, Rect::new(2.0, 2.0, 44.0, 28.0)),
-            _ => (1, Rect::new(0.0, 0.0, 14.0, 12.0)),
+            EntityType::EnemyGrunt | EntityType::EnemyWeaver | EntityType::EnemyDiver => {
+                let col = (idx % FORMATION_COLS as usize) as f64;
+                let row = (idx / FORMATION_COLS as usize) as f64;
+                let x = 40.0 + col * FORMATION_SPACING_X;
+                let y = FORMATION_START_Y + row * FORMATION_SPACING_Y;
+                (x, y, ENEMY_GRUNT_HP, Rect::new(1.0, 1.0, 12.0, 10.0))
+            }
+            _ => {
+                let col = (idx % FORMATION_COLS as usize) as f64;
+                let row = (idx / FORMATION_COLS as usize) as f64;
+                let x = 40.0 + col * FORMATION_SPACING_X;
+                let y = FORMATION_START_Y + row * FORMATION_SPACING_Y;
+                (x, y, 1, Rect::new(0.0, 0.0, 14.0, 12.0))
+            }
         };
 
         let mut e = Entity::new(etype, Vec2::new(x, y), hitbox, hp);
@@ -443,13 +494,13 @@ impl Game {
         let speed = GRUNT_SPEED * self.speed_multiplier();
         let descend = speed * dt;
 
-        // Formation lateral shift
+        // Formation lateral shift (non-boss enemies only)
         self.formation_shift_timer += dt;
         let shift_x = self.formation_dir * 30.0 * dt;
 
-        // Check if any enemy would hit the edge
+        // Check if any non-boss enemy would hit the edge
         let any_at_edge = self.entities.iter()
-            .filter(|e| e.active && is_enemy(&e.entity_type))
+            .filter(|e| e.active && is_regular_enemy(&e.entity_type))
             .any(|e| {
                 let nx = e.position.x + shift_x;
                 !(32.0..=(CANVAS_W - 50.0)).contains(&nx)
@@ -467,20 +518,102 @@ impl Game {
         }
 
         let player_x = self.player.entity.position.x + 8.0;
+        let player_y = self.player.entity.position.y;
         let wave = self.wave;
         let proj_speed = ENEMY_BULLET_SPEED * (1.0_f64 + wave as f64 * 0.03).min(1.5);
 
-        // Collect fire positions before mutating entities
-        // We need a deterministic pseudo-random roll since we can't hold &mut self.rng
-        // and &mut entity simultaneously. Use entity phase as entropy.
-        let mut fire_positions: Vec<(f64, f64, bool)> = Vec::new();
+        // Collect fire positions before mutating entities.
+        // Tuple: (x, y, aimed, is_boss_spread)
+        let mut fire_positions: Vec<(f64, f64, bool, bool)> = Vec::new();
 
         for e in self.entities.iter_mut() {
             if !e.active || !is_enemy(&e.entity_type) {
                 continue;
             }
 
-            // Descend
+            // ── Boss movement ─────────────────────────────────────────────
+            if matches!(e.entity_type, EntityType::Boss) {
+                e.phase += dt;
+                // Sine-wave lateral movement across top third
+                let center_x = CANVAS_W / 2.0 - 24.0;
+                e.position.x = center_x + BOSS_AMPLITUDE * (e.phase * BOSS_FREQ * std::f64::consts::TAU).sin();
+                e.position.y = BOSS_Y; // fixed height
+
+                // Boss fire: spread shot every BOSS_FIRE_INTERVAL
+                e.fire_cooldown -= dt;
+                if e.fire_cooldown <= 0.0 {
+                    fire_positions.push((e.position.x + 24.0, e.position.y + 32.0, false, true));
+                    e.fire_cooldown = BOSS_FIRE_INTERVAL;
+                }
+                continue;
+            }
+
+            // ── Diver dive behavior ───────────────────────────────────────
+            if matches!(e.entity_type, EntityType::EnemyDiver) {
+                e.phase += dt;
+
+                if e.dive_timer > 0.0 {
+                    // Actively diving: straight down at DIVER_SPEED
+                    e.dive_timer -= dt;
+                    e.position.y += DIVER_SPEED * dt;
+
+                    if e.dive_timer <= 0.0 || e.position.y > CANVAS_H - 32.0 {
+                        // End dive — mark inactive if off screen, else return to formation
+                        if e.position.y > CANVAS_H - 32.0 {
+                            e.active = false; // missed dive, went off screen
+                        } else {
+                            e.dive_timer = 0.0;
+                            e.lifetime = DIVER_DIVE_COOLDOWN; // cooldown stored in lifetime
+                        }
+                    }
+                    continue;
+                }
+
+                // Normal diver movement (same as grunt while waiting to dive)
+                e.position.y += descend;
+                e.position.x += shift_x;
+
+                // Wave oscillation (wave 4+)
+                if wave >= 4 {
+                    let osc = (e.phase * std::f64::consts::PI / 1.5).sin();
+                    e.position.x += osc * 60.0 * dt * 0.333;
+                }
+                e.position.x = e.position.x.clamp(0.0, CANVAS_W - 20.0);
+
+                // Tick dive cooldown (stored in lifetime)
+                if e.lifetime > 0.0 {
+                    e.lifetime -= dt;
+                }
+
+                // Trigger dive if player within horizontal range and cooldown expired
+                if e.lifetime <= 0.0 && (e.position.x - player_x).abs() < DIVER_TRIGGER_RANGE {
+                    let pseudo_roll = (e.phase * 73.131).fract().abs();
+                    if pseudo_roll < 0.30 {
+                        e.dive_timer = DIVER_RETURN_TIME;
+                        e.lifetime = 0.0;
+                    }
+                }
+
+                // Normal fire (wave 3+)
+                if wave >= 3 {
+                    e.fire_cooldown -= dt;
+                    if should_fire && e.fire_cooldown <= 0.0 {
+                        let fire_chance = 0.05 + wave as f64 * 0.005;
+                        let pseudo_roll = (e.phase * 137.508).fract().abs();
+                        if pseudo_roll < fire_chance {
+                            fire_positions.push((e.position.x + 5.0, e.position.y + 12.0, false, false));
+                            e.fire_cooldown = 2.0 / (1.0 + wave as f64 * 0.1);
+                        }
+                    }
+                }
+
+                if e.position.y > CANVAS_H - 32.0 {
+                    self.state = GameState::GameOver { timer: 3.0 };
+                }
+                continue;
+            }
+
+            // ── Normal enemy (Grunt / Weaver) ─────────────────────────────
             e.position.y += descend;
             e.position.x += shift_x;
             e.phase += dt;
@@ -509,7 +642,7 @@ impl Game {
                     let pseudo_roll = (e.phase * 137.508).fract().abs();
                     if pseudo_roll < fire_chance {
                         let aimed = (e.phase * 31.0).fract() < 0.3; // ~30% aimed
-                        fire_positions.push((e.position.x + 5.0, e.position.y + 12.0, aimed));
+                        fire_positions.push((e.position.x + 5.0, e.position.y + 12.0, aimed, false));
                         e.fire_cooldown = 2.0 / (1.0 + wave as f64 * 0.1);
                     }
                 }
@@ -528,25 +661,43 @@ impl Game {
             .count();
         let max_enemy_bullets = (10 + wave as usize).min(30);
 
-        for (bx, by, aimed) in fire_positions {
+        for (bx, by, aimed, is_boss) in fire_positions {
             if existing >= max_enemy_bullets { break; }
-            let vel = if aimed {
-                let dx = player_x - bx;
-                let dy = PLAYER_START_Y - by;
-                let len = (dx * dx + dy * dy).sqrt().max(1.0);
-                Vec2::new(dx / len * proj_speed, dy / len * proj_speed)
+
+            if is_boss {
+                // 3-shot spread: straight, ±20°
+                for angle_deg in [-20.0_f64, 0.0, 20.0] {
+                    let angle = angle_deg.to_radians();
+                    let vel = Vec2::new(angle.sin() * BOSS_BULLET_SPEED, angle.cos() * BOSS_BULLET_SPEED);
+                    let mut bullet = Entity::new(
+                        EntityType::EnemyBullet,
+                        Vec2::new(bx, by),
+                        Rect::new(0.5, 0.5, 5.0, 5.0),
+                        1,
+                    );
+                    bullet.velocity = vel;
+                    bullet.lifetime = 3.0;
+                    self.entities.push(bullet);
+                }
             } else {
-                Vec2::new(0.0, proj_speed)
-            };
-            let mut bullet = Entity::new(
-                EntityType::EnemyBullet,
-                Vec2::new(bx, by),
-                Rect::new(0.5, 0.5, 3.0, 3.0),
-                1,
-            );
-            bullet.velocity = vel;
-            bullet.lifetime = 3.0;
-            self.entities.push(bullet);
+                let vel = if aimed {
+                    let dx = player_x - bx;
+                    let dy = player_y - by;
+                    let len = (dx * dx + dy * dy).sqrt().max(1.0);
+                    Vec2::new(dx / len * proj_speed, dy / len * proj_speed)
+                } else {
+                    Vec2::new(0.0, proj_speed)
+                };
+                let mut bullet = Entity::new(
+                    EntityType::EnemyBullet,
+                    Vec2::new(bx, by),
+                    Rect::new(0.5, 0.5, 3.0, 3.0),
+                    1,
+                );
+                bullet.velocity = vel;
+                bullet.lifetime = 3.0;
+                self.entities.push(bullet);
+            }
         }
     }
 
@@ -631,7 +782,7 @@ impl Game {
                         if bhb.intersects(&target.world_hitbox()) {
                             to_kill.push(i); // bullet
                             to_kill.push(j); // enemy
-                            score_gain += enemy_score_value(&target.entity_type);
+                            score_gain += enemy_score_value(&target.entity_type, self.wave);
                             spawn_explosions.push(target.position);
                             // Chance to spawn powerup
                             spawn_powerups.push(target.position);
@@ -702,6 +853,7 @@ impl Game {
         self.player.score += score_gain;
         if self.player.score > self.high_score {
             self.high_score = self.player.score;
+            save_high_score(self.high_score);
         }
 
         // Apply collected power-up
@@ -956,12 +1108,20 @@ pub fn is_enemy(etype: &EntityType) -> bool {
     )
 }
 
-fn enemy_score_value(etype: &EntityType) -> u32 {
+/// Returns true for regular (non-boss) enemies — used for formation logic.
+fn is_regular_enemy(etype: &EntityType) -> bool {
+    matches!(
+        etype,
+        EntityType::EnemyGrunt | EntityType::EnemyWeaver | EntityType::EnemyDiver
+    )
+}
+
+fn enemy_score_value(etype: &EntityType, wave: u32) -> u32 {
     match etype {
         EntityType::EnemyGrunt => 10,
         EntityType::EnemyWeaver => 20,
         EntityType::EnemyDiver => 30,
-        EntityType::Boss => 500,
+        EntityType::Boss => 100 + wave * 20,
         _ => 0,
     }
 }

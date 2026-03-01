@@ -6,6 +6,7 @@ mod systems;
 mod utils;
 
 use game::{Game, CANVAS_H, CANVAS_W};
+use graphics::StarField;
 use renderer::Renderer;
 use systems::InputState;
 
@@ -20,6 +21,7 @@ thread_local! {
     static GAME: RefCell<Option<Game>> = const { RefCell::new(None) };
     static INPUT: RefCell<InputState> = RefCell::new(InputState::new());
     static RENDERER: RefCell<Option<Renderer>> = const { RefCell::new(None) };
+    static STARFIELD: RefCell<Option<StarField>> = const { RefCell::new(None) };
     static LAST_TIME: RefCell<f64> = const { RefCell::new(0.0) };
 }
 
@@ -46,8 +48,18 @@ pub fn main() {
 
     let renderer = Renderer::new(ctx, CANVAS_W, CANVAS_H);
 
+    // Get background canvas for the starfield
+    let bg_canvas = document
+        .get_element_by_id("background-canvas")
+        .expect("no #background-canvas element")
+        .dyn_into::<HtmlCanvasElement>()
+        .expect("#background-canvas is not a canvas");
+
+    let starfield = StarField::new(&bg_canvas);
+
     GAME.with(|g| *g.borrow_mut() = Some(Game::new()));
     RENDERER.with(|r| *r.borrow_mut() = Some(renderer));
+    STARFIELD.with(|s| *s.borrow_mut() = Some(starfield));
 
     // Set up keyboard event listeners
     setup_input_listeners(&window);
@@ -109,7 +121,22 @@ fn start_game_loop() {
             });
         });
 
-        // Render
+        // Update and render starfield (background layer)
+        GAME.with(|game| {
+            STARFIELD.with(|sf| {
+                if let (Some(ref g), Some(ref mut s)) = (&*game.borrow(), &mut *sf.borrow_mut()) {
+                    use graphics::BackgroundTier;
+                    let tier = BackgroundTier::for_wave(g.wave);
+                    if s.tier != tier {
+                        s.set_tier(tier);
+                    }
+                    s.update(dt);
+                    s.render();
+                }
+            });
+        });
+
+        // Render game
         GAME.with(|game| {
             RENDERER.with(|renderer| {
                 if let (Some(ref g), Some(ref r)) = (&*game.borrow(), &*renderer.borrow()) {

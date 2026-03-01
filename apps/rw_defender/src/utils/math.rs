@@ -133,6 +133,13 @@ impl Timer {
     }
 }
 
+/// Simple LCG pseudo-random number generator returning a float in [0.0, 1.0).
+/// Used where we need deterministic randomness without borrowing `self.rng`.
+pub fn lcg_rand(seed: &mut u64) -> f64 {
+    *seed = seed.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1_442_695_040_888_963_407);
+    (*seed >> 33) as f64 / (u32::MAX as f64)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
