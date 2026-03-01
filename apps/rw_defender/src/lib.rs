@@ -23,8 +23,8 @@ thread_local! {
     static RENDERER: RefCell<Option<Renderer>> = const { RefCell::new(None) };
     static STARFIELD: RefCell<Option<StarField>> = const { RefCell::new(None) };
     static LAST_TIME: RefCell<f64> = const { RefCell::new(0.0) };
-    /// Wave number for which the current background image is loaded (0 = none loaded yet).
-    static BG_WAVE: RefCell<u32> = const { RefCell::new(0) };
+    /// Wave number for which the current background image is loaded (MAX = not yet set).
+    static BG_WAVE: RefCell<u32> = const { RefCell::new(u32::MAX) };
 }
 
 #[wasm_bindgen(start)]
