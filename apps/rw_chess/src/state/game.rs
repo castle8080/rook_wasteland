@@ -191,7 +191,7 @@ impl GameState {
         let next_color = color.opposite();
 
         // Determine new phase
-        let new_phase = if self.halfmove_clock.get() >= 100 {
+        let new_phase = if self.halfmove_clock.get_untracked() >= 100 {
             GamePhase::DrawFiftyMove
         } else if is_checkmate(&new_board, next_color, new_ep, new_castling) {
             GamePhase::Checkmate
