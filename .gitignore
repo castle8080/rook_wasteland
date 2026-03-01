@@ -1,0 +1,23 @@
+# Directories
+var/
+tmp/
+
+# Vim
+*.swp
+*.swo
+*~
+.netrwhist
+
+# Emacs
+\#*\#
+.\#*
+*.elc
+
+# VSCode
+.vscode/
+
+# JetBrains IDEs
+.idea/
+
+# macOS
+.DS_Store
