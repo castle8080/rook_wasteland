@@ -22,13 +22,17 @@
   width: 16px;
 }
 
+.board-column {
+  display: flex;
+  flex-direction: column;
+}
+
 .file-labels {
   display: flex;
   justify-content: space-around;
   padding-top: 4px;
   font-size: 0.75rem;
   color: #9a9ab0;
-  padding-left: 16px;
 }
 
 /* ─── Chess Board ─────────────────────────────────────────── */

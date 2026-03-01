@@ -46,42 +46,44 @@ pub fn BoardView() -> impl IntoView {
                 <div class="rank-labels">
                     {move || {
                         let (_, _, rank_labels, _) = squares();
-                        // rank-labels is flex column-reverse, so order as-is
                         rank_labels.into_iter().map(|l| view! { <span>{l}</span> }).collect_view()
                     }}
                 </div>
 
-                <div class="board">
-                    {move || {
-                        let flip = flipped();
-                        let mut all_squares = Vec::with_capacity(64);
-                        let mut ranks: Vec<u8> = (0..8).collect();
-                        ranks.reverse(); // render rank 7 (8th rank) first for top row
-                        if flip { ranks.reverse(); } // flip for black player
+                // Board column: board + file labels sit in the same column,
+                // so file-labels always matches the board width exactly.
+                <div class="board-column">
+                    <div class="board">
+                        {move || {
+                            let flip = flipped();
+                            let mut all_squares = Vec::with_capacity(64);
+                            let mut ranks: Vec<u8> = (0..8).collect();
+                            ranks.reverse();
+                            if flip { ranks.reverse(); }
 
-                        let files: Vec<u8> = if flip {
-                            (0..8u8).rev().collect()
-                        } else {
-                            (0..8u8).collect()
-                        };
+                            let files: Vec<u8> = if flip {
+                                (0..8u8).rev().collect()
+                            } else {
+                                (0..8u8).collect()
+                            };
 
-                        for rank in ranks {
-                            for &file in &files {
-                                let pos = Pos::new(file, rank);
-                                all_squares.push(view! { <SquareView pos=pos flipped=flip /> });
+                            for rank in ranks {
+                                for &file in &files {
+                                    let pos = Pos::new(file, rank);
+                                    all_squares.push(view! { <SquareView pos=pos flipped=flip /> });
+                                }
                             }
-                        }
-                        all_squares
-                    }}
-                </div>
-            </div>
+                            all_squares
+                        }}
+                    </div>
 
-            // File labels below
-            <div class="file-labels">
-                {move || {
-                    let (_, _, _, file_labels) = squares();
-                    file_labels.into_iter().map(|l| view! { <span>{l}</span> }).collect_view()
-                }}
+                    <div class="file-labels">
+                        {move || {
+                            let (_, _, _, file_labels) = squares();
+                            file_labels.into_iter().map(|l| view! { <span>{l}</span> }).collect_view()
+                        }}
+                    </div>
+                </div>
             </div>
         </div>
     }
