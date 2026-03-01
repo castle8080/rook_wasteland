@@ -1,0 +1,184 @@
+/* ─── Board Container ─────────────────────────────────────── */
+.board-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  user-select: none;
+}
+
+.board-with-coords {
+  display: flex;
+  align-items: stretch;
+}
+
+.rank-labels {
+  display: flex;
+  flex-direction: column-reverse;
+  justify-content: space-around;
+  padding-right: 6px;
+  font-size: 0.75rem;
+  color: #9a9ab0;
+  width: 16px;
+}
+
+.file-labels {
+  display: flex;
+  justify-content: space-around;
+  padding-top: 4px;
+  font-size: 0.75rem;
+  color: #9a9ab0;
+  padding-left: 16px;
+}
+
+/* ─── Chess Board ─────────────────────────────────────────── */
+.board {
+  display: grid;
+  grid-template-columns: repeat(8, 64px);
+  grid-template-rows: repeat(8, 64px);
+  border: 3px solid #2c2c2c;
+  border-radius: 3px;
+  box-shadow:
+    0 0 0 1px #555,
+    0 8px 32px rgba(0,0,0,0.6);
+}
+
+/* ─── Square ──────────────────────────────────────────────── */
+.square {
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  cursor: pointer;
+  transition: filter 0.1s;
+}
+
+.square.light { background: #f0d9b5; }
+.square.dark  { background: #b58863; }
+
+.square:hover { filter: brightness(1.12); }
+
+/* ─── Highlights ──────────────────────────────────────────── */
+.square.selected {
+  background: #7fc97f !important;
+}
+
+.square.last-move-from,
+.square.last-move-to {
+  background-color: #f6f669 !important;
+  mix-blend-mode: normal;
+}
+
+.square.light.last-move-from,
+.square.light.last-move-to { background: #cdd26a !important; }
+.square.dark.last-move-from,
+.square.dark.last-move-to  { background: #aaa23a !important; }
+
+.square.engine-highlight {
+  box-shadow: inset 0 0 0 4px rgba(60, 130, 255, 0.9);
+  animation: engine-glow 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes engine-glow {
+  from { box-shadow: inset 0 0 0 3px rgba(60,130,255,0.7); }
+  to   { box-shadow: inset 0 0 0 5px rgba(60,130,255,1.0), 0 0 12px rgba(60,130,255,0.5); }
+}
+
+.square.in-check {
+  background: #e84040 !important;
+  animation: check-flash 0.5s ease-in-out;
+}
+
+@keyframes check-flash {
+  0%   { background: #ff6060 !important; }
+  100% { background: #e84040 !important; }
+}
+
+/* ─── Valid Move Indicator ────────────────────────────────── */
+.valid-move-dot {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.22);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.square.valid-capture .valid-move-dot {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+  background: transparent;
+  border: 6px solid rgba(0, 0, 0, 0.22);
+  box-sizing: border-box;
+}
+
+/* ─── Piece ───────────────────────────────────────────────── */
+.piece {
+  font-size: 46px;
+  line-height: 1;
+  z-index: 1;
+  pointer-events: none;
+  transition: transform 0.12s ease;
+  filter: drop-shadow(1px 2px 2px rgba(0,0,0,0.4));
+}
+
+.piece.white {
+  color: #fff;
+  -webkit-text-stroke: 1.5px #333;
+  text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+}
+
+.piece.black {
+  color: #1a1a1a;
+  -webkit-text-stroke: 1px #000;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+}
+
+.square:hover .piece { transform: scale(1.05); }
+
+/* ─── Piece Move Animation ────────────────────────────────── */
+.piece.just-moved {
+  animation: piece-land 0.2s ease-out;
+}
+
+@keyframes piece-land {
+  0%   { transform: scale(1.2); }
+  100% { transform: scale(1.0); }
+}
+
+/* ─── Promotion Dialog ────────────────────────────────────── */
+.promotion-dialog {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.promotion-choices {
+  background: #f0d9b5;
+  border: 3px solid #333;
+  border-radius: 8px;
+  display: flex;
+  gap: 0;
+  overflow: hidden;
+}
+
+.promotion-choice {
+  width: 72px;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 52px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.promotion-choice:hover { background: #ccc; }
