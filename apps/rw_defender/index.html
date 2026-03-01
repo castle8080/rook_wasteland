@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RW Defender - Arcade Shooter</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+        #game-container {
+            position: relative;
+            width: 640px;
+            height: 480px;
+        }
+        #background-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+            filter: blur(10px) brightness(0.5) saturate(0.35) contrast(0.8);
+            opacity: 0.7;
+        }
+        #game-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 2;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            image-rendering: -moz-crisp-edges;
+            border: 1px solid #222;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="background-canvas" width="640" height="480"></canvas>
+        <canvas id="game-canvas" width="640" height="480"></canvas>
+    </div>
+    <link data-trunk rel="rust" data-wasm-opt="z" />
+</body>
+</html>
