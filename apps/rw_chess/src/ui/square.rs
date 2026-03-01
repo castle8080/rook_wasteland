@@ -10,6 +10,7 @@ pub fn SquareView(
     pos: Pos,
     #[prop(into)] flipped: bool,
 ) -> impl IntoView {
+    let _ = flipped; // board-flip not yet implemented; prop reserved for future use
     let game = expect_context::<GameState>();
 
     let is_light = (pos.file + pos.rank) % 2 == 1;
@@ -33,16 +34,15 @@ pub fn SquareView(
             if m.from == pos { cls.push_str(" last-move-from"); }
             else if m.to == pos { cls.push_str(" last-move-to"); }
         }
-        if let Some(m) = engine_hl {
-            if m.from == pos || m.to == pos {
+        if let Some(m) = engine_hl
+            && (m.from == pos || m.to == pos) {
                 cls.push_str(" engine-highlight");
             }
-        }
-        if matches!(phase, crate::state::piece::GamePhase::Check) {
-            if let Some(king_pos) = board.find_king(active) {
-                if king_pos == pos { cls.push_str(" in-check"); }
+        if matches!(phase, crate::state::piece::GamePhase::Check)
+            && let Some(king_pos) = board.find_king(active)
+            && king_pos == pos {
+                cls.push_str(" in-check");
             }
-        }
         cls
     };
 
@@ -77,11 +77,10 @@ fn handle_click(game: &GameState, pos: Pos) {
         return;
     }
     let selected = game.selected_square.get();
-    if selected.is_some() {
-        if game.try_move_to(pos) {
+    if selected.is_some()
+        && game.try_move_to(pos) {
             return;
         }
-    }
     game.select_square(pos);
 }
 

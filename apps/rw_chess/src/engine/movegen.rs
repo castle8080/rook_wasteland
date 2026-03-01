@@ -129,11 +129,10 @@ fn pawn_moves(
         if Pos::in_bounds(nf, nr) {
             let to = Pos::new(nf as u8, nr as u8);
             // Normal capture
-            if let Some(target) = board.get(to) {
-                if target.color != piece.color {
+            if let Some(target) = board.get(to)
+                && target.color != piece.color {
                     push_pawn_moves(from, to, to.rank == promo_rank, moves);
                 }
-            }
             // En passant
             if Some(to) == en_passant {
                 moves.push(Move::en_passant(from, to));

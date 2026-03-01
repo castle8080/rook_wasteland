@@ -102,8 +102,8 @@ impl GameState {
         let ep = self.en_passant.get();
         let castling = self.castling.get();
 
-        if let Some(piece) = board.get(pos) {
-            if piece.color == color {
+        if let Some(piece) = board.get(pos)
+            && piece.color == color {
                 let moves = legal_moves(&board, color, ep, castling)
                     .into_iter()
                     .filter(|m| m.from == pos)
@@ -112,7 +112,6 @@ impl GameState {
                 self.valid_moves_for_selected.set(moves);
                 return true;
             }
-        }
         // Clicking empty or enemy square deselects
         self.selected_square.set(None);
         self.valid_moves_for_selected.set(Vec::new());
@@ -126,7 +125,7 @@ impl GameState {
 
         // Find the move — prefer promotion to queen by default
         let mv = valid.iter().find(|m| {
-            m.to == to && m.promotion.map_or(true, |p| {
+            m.to == to && m.promotion.is_none_or(|p| {
                 p == crate::state::piece::Promotion::Queen
             })
         }).copied();
@@ -212,7 +211,7 @@ impl GameState {
     pub fn is_last_move_square(&self, pos: Pos) -> bool {
         self.last_move
             .get()
-            .map_or(false, |m| m.from == pos || m.to == pos)
+            .is_some_and(|m| m.from == pos || m.to == pos)
     }
 
     /// Is the given square a valid move destination for the selected piece?

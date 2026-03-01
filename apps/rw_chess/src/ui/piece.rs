@@ -32,7 +32,6 @@ pub fn PromotionDialog(
         <div class="promotion-dialog">
             <div class="promotion-choices">
                 {choices.into_iter().map(|(promo, piece)| {
-                    let on_choose = on_choose.clone();
                     view! {
                         <div
                             class="promotion-choice"

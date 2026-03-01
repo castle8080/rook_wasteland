@@ -51,11 +51,10 @@ impl Board {
     /// Find position of king for the given color.
     pub fn find_king(&self, color: Color) -> Option<Pos> {
         self.squares.iter().enumerate().find_map(|(i, sq)| {
-            if let Some(p) = sq {
-                if p.kind == PieceKind::King && p.color == color {
+            if let Some(p) = sq
+                && p.kind == PieceKind::King && p.color == color {
                     return Some(Pos::from_index(i));
                 }
-            }
             None
         })
     }

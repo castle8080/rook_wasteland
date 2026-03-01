@@ -120,7 +120,7 @@ pub fn App() -> impl IntoView {
 
             <Show
                 when=move || !in_setup.get()
-                fallback=move || view! { <SetupScreen on_start=on_start.clone() /> }
+                fallback=move || view! { <SetupScreen on_start=on_start /> }
             >
                 <div class="game-layout">
                     <div style="display:flex; flex-direction:column; gap:1rem;">
@@ -129,10 +129,10 @@ pub fn App() -> impl IntoView {
                     </div>
                     <div style="display:flex; flex-direction:column; gap:1rem;">
                         <InfoPanel />
-                        <Controls on_new_game=on_new_game.clone() />
+                        <Controls on_new_game=on_new_game />
                     </div>
                 </div>
-                <GameOverOverlay on_rematch=on_rematch.clone() on_new_game=on_new_game.clone() />
+                <GameOverOverlay on_rematch=on_rematch on_new_game=on_new_game />
             </Show>
         </div>
     }
@@ -203,11 +203,10 @@ pub fn trigger_engine_move(game: GameState) {
                 Some(CommentaryEvent::EngineMoveGeneral)
             };
 
-            if let Some(event) = commentary_event {
-                if let Some(line) = get_commentary(persona.id, event) {
+            if let Some(event) = commentary_event
+                && let Some(line) = get_commentary(persona.id, event) {
                     game.set_commentary(line);
                 }
-            }
 
             // Set engine highlight and clear after 1.5s
             game.engine_highlight.set(Some(mv));
