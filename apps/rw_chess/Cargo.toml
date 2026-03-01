@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 console_error_panic_hook = "0.1.7"
 gloo-timers = { version = "0.3.0", features = ["futures"] }
+js-sys = "0.3.91"
 leptos = { version = "0.8.17", features = ["csr"] }
 leptos_meta = "0.8.6"
 leptos_router = "0.8.12"

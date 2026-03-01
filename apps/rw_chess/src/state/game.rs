@@ -1,6 +1,7 @@
 use leptos::prelude::*;
 
 use crate::{
+    engine::persona::Persona,
     rules::validation::{
         apply_move_to_board, is_checkmate, is_in_check, is_stalemate, legal_moves,
         update_castling_rights, CastlingRights,
@@ -37,12 +38,19 @@ pub struct GameState {
     pub player_name: RwSignal<String>,
     pub difficulty: RwSignal<Difficulty>,
     pub halfmove_clock: RwSignal<u32>,
-    pub captured_white: RwSignal<Vec<Piece>>, // pieces white has captured
-    pub captured_black: RwSignal<Vec<Piece>>, // pieces black has captured
+    pub captured_white: RwSignal<Vec<Piece>>,
+    pub captured_black: RwSignal<Vec<Piece>>,
+    /// Latest commentary line from the engine persona.
+    pub commentary: RwSignal<Option<String>>,
+    /// Incremented each time commentary changes; drives animation re-trigger in the UI.
+    pub commentary_gen: RwSignal<u32>,
+    /// The engine persona for the current game (set on game start).
+    pub persona: RwSignal<Persona>,
 }
 
 impl GameState {
     pub fn new() -> Self {
+        use crate::engine::persona::{persona_for_difficulty};
         Self {
             board: RwSignal::new(Board::starting_position()),
             active_color: RwSignal::new(Color::White),
@@ -60,10 +68,14 @@ impl GameState {
             halfmove_clock: RwSignal::new(0),
             captured_white: RwSignal::new(Vec::new()),
             captured_black: RwSignal::new(Vec::new()),
+            commentary: RwSignal::new(None),
+            commentary_gen: RwSignal::new(0),
+            persona: RwSignal::new(persona_for_difficulty(Difficulty::Medium)),
         }
     }
 
     pub fn reset(&self) {
+        use crate::engine::persona::persona_for_difficulty;
         self.board.set(Board::starting_position());
         self.active_color.set(Color::White);
         self.phase.set(GamePhase::Playing);
@@ -77,6 +89,10 @@ impl GameState {
         self.halfmove_clock.set(0);
         self.captured_white.set(Vec::new());
         self.captured_black.set(Vec::new());
+        self.commentary.set(None);
+        self.commentary_gen.set(0);
+        // Re-initialize persona from current difficulty
+        self.persona.set(persona_for_difficulty(self.difficulty.get_untracked()));
     }
 
     /// Try to select a square. Returns true if a piece was selected.
@@ -126,10 +142,17 @@ impl GameState {
     pub fn apply_move(&self, mv: Move) {
         let board = self.board.get();
         let color = self.active_color.get();
-        let ep = self.en_passant.get();
         let castling = self.castling.get();
 
-        let captured = board.get(mv.to);
+        let captured = board.get(mv.to).or_else(|| {
+            // En passant: captured pawn is on the mover's rank, target file
+            if mv.is_en_passant {
+                let cap_pos = crate::state::piece::Pos::new(mv.to.file, mv.from.rank);
+                board.get(cap_pos)
+            } else {
+                None
+            }
+        });
         let piece = board.get(mv.from).expect("apply_move: no piece at from");
 
         let (new_board, new_ep) = apply_move_to_board(&board, &mv);
@@ -206,6 +229,17 @@ impl GameState {
             self.phase.get(),
             GamePhase::Checkmate | GamePhase::Stalemate | GamePhase::DrawFiftyMove
         )
+    }
+
+    /// Set commentary and bump the generation counter (drives animation re-trigger in UI).
+    pub fn set_commentary(&self, line: String) {
+        self.commentary.set(Some(line));
+        self.commentary_gen.update(|g| *g = g.wrapping_add(1));
+    }
+
+    /// Clear commentary (hides the bubble).
+    pub fn clear_commentary(&self) {
+        self.commentary.set(None);
     }
 }
 

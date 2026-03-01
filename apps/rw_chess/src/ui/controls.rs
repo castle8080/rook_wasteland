@@ -1,5 +1,5 @@
 use leptos::prelude::*;
-use crate::state::{game::GameState, piece::Difficulty};
+use crate::state::{game::GameState};
 
 /// Thin controls bar below the board.
 #[component]
@@ -7,7 +7,7 @@ pub fn Controls(on_new_game: Callback<()>) -> impl IntoView {
     let game = expect_context::<GameState>();
 
     let difficulty_label = move || game.difficulty.get().label();
-    let is_thinking = move || game.engine_highlight.get().is_none()
+    let _is_thinking = move || game.engine_highlight.get().is_none()
         && !game.active_color.get_untracked().eq(&game.player_color.get_untracked());
 
     view! {

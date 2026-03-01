@@ -1,5 +1,6 @@
 pub mod app;
 pub mod board;
+pub mod commentary_box;
 pub mod controls;
 pub mod game_over;
 pub mod info_panel;

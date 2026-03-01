@@ -6,8 +6,6 @@ use crate::{
 /// Side panel: turn indicator, captured pieces, move history.
 #[component]
 pub fn InfoPanel() -> impl IntoView {
-    let game = expect_context::<GameState>();
-
     view! {
         <div class="info-panel">
             <TurnSection />

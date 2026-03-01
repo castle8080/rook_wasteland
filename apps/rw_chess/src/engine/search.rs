@@ -1,9 +1,6 @@
 use crate::{
-    engine::{
-        eval::evaluate,
-        movegen::pseudo_legal_moves,
-    },
-    rules::validation::{apply_move_to_board, is_in_check, legal_moves, CastlingRights},
+    engine::eval::evaluate,
+    rules::validation::{apply_move_to_board, legal_moves, CastlingRights},
     state::{
         board::Board,
         piece::{Color, Move, PieceKind},

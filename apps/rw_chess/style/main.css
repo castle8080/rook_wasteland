@@ -288,3 +288,84 @@ html, body {
   flex-direction: column;
   gap: 0.5rem;
 }
+
+/* ─── Commentary Speech Bubble ─────────────────────────────── */
+.commentary-bubble {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--accent2);
+  border-radius: var(--radius);
+  padding: 0.9rem 1rem;
+  max-width: 480px;
+  width: 100%;
+  animation: bubble-in 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+}
+
+@keyframes bubble-in {
+  0%   { opacity: 0; transform: translateY(6px) scale(0.97); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.commentary-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  padding-bottom: 0.4rem;
+}
+
+.commentary-avatar {
+  font-size: 1.6rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.commentary-identity {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.commentary-name {
+  font-size: 0.85rem;
+  color: var(--accent);
+  letter-spacing: 0.03em;
+}
+
+.commentary-title {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.commentary-text {
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+/* Speech bubble upward-pointing triangle above the bubble */
+.commentary-tail {
+  position: absolute;
+  top: -8px;
+  left: 1.8rem;
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-bottom: 8px solid var(--accent2);
+}
+
+.commentary-tail::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: -7px;
+  width: 0;
+  height: 0;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-bottom: 7px solid var(--surface);
+}
