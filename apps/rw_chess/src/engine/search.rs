@@ -11,18 +11,18 @@ const INF: i32 = 1_000_000;
 
 /// Hard cap on nodes searched per call. When hit, iterative deepening returns
 /// the best result from the last *fully completed* depth instead of freezing.
-/// ~300k nodes ≈ <500ms in browser WASM for most positions.
-const NODE_LIMIT: u32 = 300_000;
+/// ~75k nodes ≈ <100ms in browser WASM with the enriched eval.
+const NODE_LIMIT: u32 = 75_000;
 
 /// Beam width: max moves considered at each interior node.
-/// Cuts effective branching factor from ~35 → 12. Captures and checks are
+/// Cuts effective branching factor from ~35 → 8. Captures and checks are
 /// always ordered first by MVV-LVA, so the pruned tail is mostly quiet moves
 /// that wouldn't change the result.
-const BEAM_WIDTH: usize = 12;
+const BEAM_WIDTH: usize = 8;
 
 /// Max additional plies of capture-only search appended after the main horizon.
 /// Prevents horizon blunders (e.g. stopping mid-exchange).
-const QUIESCENCE_DEPTH: u32 = 4;
+const QUIESCENCE_DEPTH: u32 = 2;
 
 /// Per-search mutable state threaded through alpha-beta and quiescence.
 struct SearchCtx<'a> {
@@ -247,7 +247,7 @@ mod tests {
     fn node_limit_still_returns_a_move() {
         // Even in a complex starting position, best_move must always return Some.
         let b = Board::starting_position();
-        let mv = best_move(&b, Color::White, 6, None, CastlingRights::all());
+        let mv = best_move(&b, Color::White, 4, None, CastlingRights::all());
         assert!(mv.is_some(), "Must return a move even at max depth");
     }
 

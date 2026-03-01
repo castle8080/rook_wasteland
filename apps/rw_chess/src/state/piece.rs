@@ -235,8 +235,8 @@ impl Difficulty {
     pub fn search_depth(self) -> u32 {
         match self {
             Difficulty::Easy => 2,
-            Difficulty::Medium => 4,
-            Difficulty::Hard => 6,
+            Difficulty::Medium => 3,
+            Difficulty::Hard => 4,
         }
     }
 
