@@ -1,12 +1,13 @@
 use js_sys::Uint8Array;
 use leptos::prelude::*;
 use leptos::task::spawn_local;
-use leptos_router::hooks::use_params_map;
 use wasm_bindgen::JsCast;
 use web_sys::{Blob, BlobPropertyBag, Url};
 
 use crate::poem_repository::{fetch_index, fetch_poem};
 use crate::recording_store::{RecordingMetadata, get_audio_blob, get_recording};
+use crate::routing::route_to_hash;
+use crate::routing::Route;
 use crate::ui::audio_player::AudioPlayer;
 
 // ---------------------------------------------------------------------------
@@ -72,21 +73,15 @@ fn format_date(iso: &str) -> String {
 
 /// Recording detail view at /readings/:recording_id.
 #[component]
-pub fn RecordingDetailView() -> impl IntoView {
-    let params = use_params_map();
-    let recording_id = move || {
-        params
-            .read()
-            .get("recording_id")
-            .unwrap_or_default()
-            .to_string()
-    };
-
+pub fn RecordingDetailView(
+    /// The recording ID to display, passed directly from the route signal.
+    recording_id: String,
+) -> impl IntoView {
     type DetailResult = Result<(RecordingMetadata, Option<String>, String), String>;
 
     // Fetch metadata + poem content in one resource
     let detail_resource: LocalResource<DetailResult> = LocalResource::new(move || {
-        let rid = recording_id();
+        let rid = recording_id.clone();
         async move {
             let metadata = get_recording(&rid).await.map_err(|e| e.to_string())?;
 
@@ -118,18 +113,19 @@ pub fn RecordingDetailView() -> impl IntoView {
                 Some(Err(e)) => view! {
                     <div class="state-message">
                         <p>{e.to_string()}</p>
-                        <a href="/readings">"← All readings"</a>
+                        <a href="#/readings">"← All readings"</a>
                     </div>
                 }.into_any(),
 
                 Some(Ok((metadata, poem_content, audio_url))) => {
                     let poem_id_for_link = metadata.poem_id.clone();
                     let m_dl = metadata.clone();
+                    let hint_secs = metadata.duration_ms.map(|ms| ms as f64 / 1000.0);
 
                     view! {
                         <nav class="recording-detail__nav" aria-label="Recording navigation">
-                            <a href="/readings">"← All readings"</a>
-                            <a href=format!("/?poem_id={}", poem_id_for_link)>
+                            <a href="#/readings">"← All readings"</a>
+                            <a href=route_to_hash(&Route::Reader { poem_id: Some(poem_id_for_link) })>
                                 "Read this poem →"
                             </a>
                         </nav>
@@ -150,7 +146,7 @@ pub fn RecordingDetailView() -> impl IntoView {
                         </article>
 
                         <section class="recording-detail__player">
-                            <AudioPlayer src=audio_url />
+                            <AudioPlayer src=audio_url duration_hint_secs=hint_secs />
                         </section>
 
                         <section class="recording-detail__meta">

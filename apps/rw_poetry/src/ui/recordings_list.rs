@@ -188,7 +188,7 @@ pub fn RecordingsListView() -> impl IntoView {
                                             <div class="recordings-list__meta">
                                                 <a
                                                     class="recordings-list__title"
-                                                    href=format!("/readings/{}", rid_link)
+                                                    href=format!("#/readings/{}", rid_link)
                                                 >
                                                     {m.poem_title.clone()}
                                                 </a>

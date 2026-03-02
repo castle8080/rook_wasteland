@@ -1,6 +1,5 @@
 use gloo_storage::{LocalStorage, Storage};
 use leptos::prelude::*;
-use leptos_router::components::A;
 
 const THEME_KEY: &str = "theme";
 
@@ -32,9 +31,9 @@ pub fn TopBar() -> impl IntoView {
 
     view! {
         <header class="top-bar">
-            <A href="/" attr:class="top-bar__title">"RW Poetry"</A>
+            <a href="#/" class="top-bar__title">"RW Poetry"</a>
             <nav class="top-bar__nav">
-                <A href="/readings" attr:class="top-bar__link">"Recordings"</A>
+                <a href="#/readings" class="top-bar__link">"Recordings"</a>
                 <button
                     class="btn btn-icon top-bar__theme-toggle"
                     aria-label=move || if is_dark.get() { "Switch to light mode" } else { "Switch to dark mode" }

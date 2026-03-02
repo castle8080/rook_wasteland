@@ -4,6 +4,7 @@ mod app;
 mod audio_capture;
 mod poem_repository;
 mod recording_store;
+mod routing;
 mod ui;
 
 fn main() {

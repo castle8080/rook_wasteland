@@ -37,6 +37,7 @@ The app runs fully in the browser on the user’s machine (WASM frontend), with 
 - **Runtime target**: WebAssembly (WASM)
 - **Storage**: Browser local persistent storage (IndexedDB preferred for blob audio)
 - **Audio capture/playback**: Browser media APIs (via Rust/WASM bindings)
+- **Routing**: Hand-rolled hash routing (see section 4.3)
 
 ---
 
@@ -63,8 +64,9 @@ The following crates are recommended for this project. Versions noted as of spec
 ```toml
 leptos = { version = "0.8", features = ["csr"] }
 leptos_meta = { version = "0.8" }
-leptos_router = { version = "0.8" }
 ```
+
+> **Note:** `leptos_router` is intentionally **not used**. See section 4.3.
 
 ### HTTP / Network
 
@@ -161,9 +163,43 @@ Use `LocalStorage` from `gloo-storage` for simple string/JSON settings. Do **not
 
 ---
 
+## 4.3) Routing Strategy
 
+This app uses **hand-rolled hash routing** instead of `leptos_router`. This was a deliberate decision driven by the deployment constraint.
 
-### 5.1 Random Poem Reading
+### Deployment Constraint
+
+The app targets minimal static hosting — cheap shared servers, simple Python/Node dev servers, local file serving — where there is no ability to configure server-side URL rewriting or catch-all fallback rules. `leptos_router` uses the History API (path-based URLs such as `/readings`), which requires the server to return `index.html` for every path. This is not available on a plain static server.
+
+### Why Not `leptos_router` with HashRouter?
+
+`leptos_router` 0.8.x does not provide a `HashRouter` component. Only path-based routing via `BrowserUrl` (History API) is supported in the current release.
+
+### Chosen Approach: Hand-Rolled Hash Routing
+
+All routes are expressed as URL fragments (e.g. `#/readings`, `#/readings/:id`). The fragment is never sent to the server — the browser handles it entirely — so any static file server works with zero configuration.
+
+**Implementation lives in `src/routing.rs`:**
+
+- `Route` enum: `Reader { poem_id: Option<String> }`, `RecordingsList`, `RecordingDetail(String)`
+- `parse_hash(hash: &str) -> Route` — parses `window.location.hash` into a `Route`
+- `route_to_hash(route: &Route) -> String` — serialises a `Route` back to a `#/...` hash string
+
+**`App` component wires the runtime:**
+
+1. On load: read `window.location.hash`, construct initial `Route` signal
+2. `hashchange` event listener: re-parses the hash and updates the route signal
+3. Top-level `match route.get()` renders the correct view component
+4. The `Route` signal is provided as context so any component can navigate
+
+**Navigation in components:**
+
+- Simple links use plain `<a href="#/readings">` — the browser updates the hash naturally, the `hashchange` listener fires, and the route signal updates
+- The `poem_id` for "Read this poem" links is embedded in the hash query string: `#/?poem_id={id}`
+
+**Browser back/forward** works because each hash change is a real browser history entry.
+
+---
 - As a user, I can request a random poem and immediately read it.
 - As a user, I can see title, author, and date (if present), plus full poem text.
 
@@ -665,7 +701,10 @@ Effect::new(move |_| {
 3. `recording_store`
    - Persist metadata + blobs (IndexedDB)
    - Query list/detail
-4. `ui`
+4. `routing`
+   - `Route` enum and hash parsing/serialisation
+   - No framework dependency — pure logic, fully unit-tested
+5. `ui`
    - Leptos components for reader/list/detail
    - State and event handling
 

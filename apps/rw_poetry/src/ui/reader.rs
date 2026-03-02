@@ -1,14 +1,15 @@
 use leptos::prelude::*;
-use leptos_router::hooks::use_query_map;
 
 use crate::poem_repository::{PoemDetail, fetch_index, fetch_poem, pick_random};
 use crate::ui::recording_controls::RecordingControls;
 
 /// Full poem reader view: loads and displays a random poem.
-/// Supports `?poem_id=<id>` query param to load a specific poem (e.g., from recording detail).
+/// `poem_id` may be set when navigating here from a recording detail view.
 #[component]
-pub fn ReaderView() -> impl IntoView {
-    let query = use_query_map();
+pub fn ReaderView(
+    /// Optional poem ID to load on arrival (e.g. from recording detail "Read this poem" link).
+    poem_id: Option<String>,
+) -> impl IntoView {
     // Incrementing this signal re-triggers the resource (New Poem / Try again).
     let refresh = RwSignal::new(0u32);
     // Track the current poem id to exclude it from the next random pick.
@@ -18,12 +19,7 @@ pub fn ReaderView() -> impl IntoView {
 
     // Two-step fetch: load index then pick and fetch a random poem.
     let poem_resource: LocalResource<Result<PoemDetail, String>> = LocalResource::new(move || {
-        let requested_id = query.read().get("poem_id").map(|s| s.to_string());
-        // IMPORTANT: use get_untracked here. Using .get() would register current_poem_id
-        // as a reactive dependency of this resource. Because we also *write* to it inside
-        // the async block (after a successful fetch), that would cause the resource to
-        // re-trigger immediately after every successful load — an infinite poem-cycling loop.
-        // We only want re-runs driven by `refresh` (New Poem / Try again) and query changes.
+        let requested_id = poem_id.clone();
         let exclude = current_poem_id.get_untracked();
         let _refresh = refresh.get(); // tracked — triggers re-run on New Poem
         async move {

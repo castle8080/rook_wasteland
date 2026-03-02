@@ -10,7 +10,12 @@ use web_sys::Url;
 // ---------------------------------------------------------------------------
 
 /// Format seconds as `M:SS` (no hour formatting needed for poems).
+/// Returns `"0:00"` for non-finite values (NaN, Infinity) which the browser
+/// may briefly report via `HTMLMediaElement.duration` before metadata loads.
 pub fn format_duration(secs: f64) -> String {
+    if !secs.is_finite() || secs < 0.0 {
+        return "0:00".to_string();
+    }
     let total = secs as u64;
     let m = total / 60;
     let s = total % 60;
@@ -35,6 +40,21 @@ mod tests {
     fn format_over_one_hour() {
         assert_eq!(format_duration(3661.0), "61:01");
     }
+
+    #[test]
+    fn format_infinity_returns_zero() {
+        assert_eq!(format_duration(f64::INFINITY), "0:00");
+    }
+
+    #[test]
+    fn format_nan_returns_zero() {
+        assert_eq!(format_duration(f64::NAN), "0:00");
+    }
+
+    #[test]
+    fn format_negative_returns_zero() {
+        assert_eq!(format_duration(-1.0), "0:00");
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -42,17 +62,31 @@ mod tests {
 // ---------------------------------------------------------------------------
 
 /// Custom audio player backed by a hidden `<audio>` element.
+///
 /// `src` must be an object URL or asset URL pointing to the audio data.
+///
+/// `duration_hint_secs` — optional clock-measured duration from recording metadata.
+/// Browser-recorded WebM/Opus files (from MediaRecorder) always report
+/// `duration = Infinity`. Passing the hint allows the player to display the
+/// correct seek range immediately, before the seek-trick refinement completes.
 #[component]
 pub fn AudioPlayer(
     /// Object URL or audio asset URL
     src: String,
+    /// Optional duration hint from recording metadata (seconds).
+    #[prop(default = None)]
+    duration_hint_secs: Option<f64>,
 ) -> impl IntoView {
     let audio_ref: NodeRef<html::Audio> = NodeRef::new();
     let playing = RwSignal::new(false);
     let current_time = RwSignal::new(0.0f64);
     let duration = RwSignal::new(0.0f64);
     let loaded = RwSignal::new(false);
+
+    // Flag: true while the seek-to-end trick is in progress.
+    // Shared (via Copy) between the onloadedmetadata and ontimeupdate handlers.
+    // get_untracked/set only — never used as a reactive dependency.
+    let fixing_duration = RwSignal::new(false);
 
     // Revoke object URL when component unmounts
     {
@@ -63,45 +97,94 @@ pub fn AudioPlayer(
     }
 
     // Wire DOM events via Effect once the <audio> node is mounted.
-    // IMPORTANT: use get_untracked — we do not want this Effect to re-run if
-    // audio_ref ever changes. The handlers are attached via .forget() (no removal),
-    // so a re-run would accumulate duplicate handlers. get_untracked means the
-    // Effect fires exactly once on mount and is never re-triggered.
+    // get_untracked throughout: we do not want this Effect to re-run.
+    // Handlers are attached via .forget() (no removal), so a re-run would
+    // accumulate duplicate handlers.
     Effect::new(move |_| {
-        if let Some(audio) = audio_ref.get_untracked() {
-            let audio_el: &web_sys::HtmlAudioElement = audio.as_ref();
+        let Some(audio) = audio_ref.get_untracked() else { return; };
+        let audio_el: &web_sys::HtmlAudioElement = audio.as_ref();
 
-            let ct_signal = current_time;
-            let ct_handler = wasm_bindgen::closure::Closure::<dyn FnMut()>::new(move || {
-                if let Some(a) = audio_ref.get() {
-                    ct_signal.set(a.current_time());
+        // --- ontimeupdate ---
+        // Dual role, selected by the fixing_duration flag:
+        //
+        // (A) Seek-trick mode (fixing_duration = true):
+        //     The browser has just seeked toward 1e9 s and fired timeupdate,
+        //     meaning it has moved to its best approximation of that position
+        //     (i.e., near EOF). currentTime ≈ real duration. Record it, clear
+        //     the flag, and reset the playhead to 0.
+        //
+        // (B) Normal mode: update the current position signal.
+        let ct_handler = wasm_bindgen::closure::Closure::<dyn FnMut()>::new(move || {
+            let Some(a) = audio_ref.get_untracked() else { return; };
+            if fixing_duration.get_untracked() {
+                let ct = a.current_time();
+                if ct <= 0.0 {
+                    return; // seek not complete yet; wait for next timeupdate
                 }
-            });
-            audio_el.set_ontimeupdate(Some(ct_handler.as_ref().unchecked_ref()));
-            ct_handler.forget();
+                // Use audio.duration() if it has been resolved, otherwise fall
+                // back to currentTime (which is near EOF = ≈ real duration).
+                let dur = if a.duration().is_finite() && a.duration() > 0.0 {
+                    a.duration()
+                } else {
+                    ct
+                };
+                fixing_duration.set(false);
+                duration.set(dur);
+                loaded.set(true);
+                a.set_current_time(0.0);
+            } else {
+                // get_untracked: DOM event handler, not a reactive context.
+                current_time.set(a.current_time());
+            }
+        });
+        audio_el.set_ontimeupdate(Some(ct_handler.as_ref().unchecked_ref()));
+        ct_handler.forget();
 
-            let dur_signal = duration;
-            let loaded_signal = loaded;
-            let dur_handler = wasm_bindgen::closure::Closure::<dyn FnMut()>::new(move || {
-                if let Some(a) = audio_ref.get() {
-                    dur_signal.set(a.duration());
-                    loaded_signal.set(true);
+        // --- onloadedmetadata ---
+        // For regular audio: duration is finite and correct immediately.
+        // For WebM from MediaRecorder: duration = Infinity.
+        //   - If a hint was passed, apply it right away so the UI is usable.
+        //   - Start the seek-to-end trick to refine to the precise value.
+        //     The result is picked up by ontimeupdate above.
+        let lm_handler = wasm_bindgen::closure::Closure::<dyn FnMut()>::new(move || {
+            let Some(a) = audio_ref.get_untracked() else { return; };
+            let d = a.duration();
+            if d.is_finite() && d > 0.0 {
+                duration.set(d);
+                loaded.set(true);
+            } else {
+                // WebM Infinity duration: use hint for immediate display.
+                if let Some(hint) = duration_hint_secs {
+                    duration.set(hint);
+                    loaded.set(true);
                 }
-            });
-            audio_el.set_onloadedmetadata(Some(dur_handler.as_ref().unchecked_ref()));
-            dur_handler.forget();
+                // Seek to near EOF so ontimeupdate can extract the real duration.
+                fixing_duration.set(true);
+                a.set_current_time(1e9);
+            }
+        });
+        audio_el.set_onloadedmetadata(Some(lm_handler.as_ref().unchecked_ref()));
+        lm_handler.forget();
 
-            let play_signal = playing;
-            let ended_handler = wasm_bindgen::closure::Closure::<dyn FnMut()>::new(move || {
-                play_signal.set(false);
-            });
-            audio_el.set_onended(Some(ended_handler.as_ref().unchecked_ref()));
-            ended_handler.forget();
+        // --- onended ---
+        let ended_handler = wasm_bindgen::closure::Closure::<dyn FnMut()>::new(move || {
+            playing.set(false);
+        });
+        audio_el.set_onended(Some(ended_handler.as_ref().unchecked_ref()));
+        ended_handler.forget();
+
+        // Belt-and-suspenders: read duration eagerly in case loadedmetadata
+        // already fired before this Effect ran (blob URL in memory).
+        let eager = audio_el.duration();
+        if eager.is_finite() && eager > 0.0 {
+            duration.set(eager);
+            loaded.set(true);
         }
     });
 
     let on_play_pause = move |_| {
-        if let Some(audio) = audio_ref.get() {
+        // get_untracked: on:click handlers are DOM event callbacks, not reactive contexts.
+        if let Some(audio) = audio_ref.get_untracked() {
             let audio_el: web_sys::HtmlMediaElement = (*audio).clone();
             if playing.get_untracked() {
                 audio_el.pause().ok();
@@ -116,7 +199,8 @@ pub fn AudioPlayer(
     };
 
     let on_seek = move |ev: web_sys::Event| {
-        if let Some(audio) = audio_ref.get() {
+        // get_untracked: on:input handlers are DOM event callbacks, not reactive contexts.
+        if let Some(audio) = audio_ref.get_untracked() {
             let input: web_sys::HtmlInputElement = ev.target().unwrap().unchecked_into();
             let val: f64 = input.value().parse().unwrap_or(0.0);
             audio.set_current_time(val);
@@ -149,7 +233,7 @@ pub fn AudioPlayer(
                 min="0"
                 step="0.1"
                 max=move || duration.get().to_string()
-                value=move || current_time.get().to_string()
+                prop:value=move || current_time.get().to_string()
                 aria-label="seek"
                 on:input=on_seek
             />

@@ -7,7 +7,6 @@ edition = "2024"
 # Framework
 leptos = { version = "0.8", features = ["csr"] }
 leptos_meta = { version = "0.8" }
-leptos_router = { version = "0.8" }
 
 # HTTP / Network
 gloo-net = { version = "0.6", features = ["http"] }

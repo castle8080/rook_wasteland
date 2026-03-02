@@ -12,14 +12,14 @@
 - Use **Trunk** for CSR builds: `cargo install trunk`
 - Ensure WASM target: `rustup target add wasm32-unknown-unknown`
 - Add leptos with `csr` feature: `cargo add leptos --features=csr`
-- Use `leptos_meta` for `<head>` management, `leptos_router` for client-side routing
+- Use `leptos_meta` for `<head>` management
+- Routing is handled by a hand-rolled hash router (see section 8); `leptos_router` is **not** used
 
 ### Cargo.toml Feature Flags
 ```toml
 [dependencies]
 leptos = { version = "0.8", features = ["csr"] }
 leptos_meta = { version = "0.8" }
-leptos_router = { version = "0.8" }
 ```
 
 **Important:** Only ONE of `csr`, `hydrate`, or `ssr` should be active per build target.
@@ -151,6 +151,44 @@ save.dispatch("hello".to_string());
 - Standard signals require `T: Send + Sync`
 - Browser-only `!Send` types (from `web-sys`) need local alternatives:
   - `signal_local()`, `RwSignal::new_local()`, `LocalResource`, `Action::new_local()`
+
+### ⚠️ Code Review Rule: `.get()` vs `.get_untracked()`
+
+Both calls return the same value. The difference is whether the current reactive owner is registered as a subscriber — which only makes sense inside a reactive tracking context.
+
+**Use `.get()` only inside reactive contexts:**
+- `move ||` closures in `view!`
+- `Effect::new(move |_| ...)`
+- `Memo::new(move |_| ...)`
+- `Resource::new` / `LocalResource::new` source closures
+
+**Use `.get_untracked()` everywhere else:**
+- `on:click=move |_| ...` and all `on:*` event handlers
+- `wasm_bindgen::Closure::new(move || ...)`
+- `spawn_local(async move { ... })`
+- `on_cleanup(move || ...)`
+- Any plain `FnMut` callback called by the browser runtime
+
+```rust
+// ✅ Correct — inside an Effect reactive context
+Effect::new(move |_| {
+    let el = audio_ref.get();  // subscribes; re-runs when audio_ref changes
+});
+
+// ✅ Correct — inside a DOM event handler (no reactive owner present)
+on:click=move |_| {
+    if let Some(el) = audio_ref.get_untracked() { el.play().unwrap(); }
+}
+
+// ❌ Wrong — .get() in a DOM event handler: Leptos warns, subscription is silently dropped
+on:click=move |_| {
+    if let Some(el) = audio_ref.get() { el.play().unwrap(); }
+}
+```
+
+Mixing these up will not crash the app, but Leptos will emit a runtime warning and the subscription intent is meaningless. In a feedback-loop scenario (resource reads *and* writes the same signal), using `.get()` instead of `.get_untracked()` will cause an infinite re-trigger loop (see `bugs/bug_01_pouring_through_poems.md`).
+
+> **Rule:** Before writing `.get()`, ask: *do I want this closure to re-run every time this signal changes?* If yes — `.get()`. If no — `.get_untracked()`.
 
 ---
 
@@ -319,19 +357,67 @@ spawn_local(async move {
 
 ---
 
-## 8. Routing (leptos_router)
+## 8. Routing (Hand-Rolled Hash Router)
+
+### Why hash routing?
+
+This app is deployed as a static bundle (HTML + WASM + CSS) to a plain file server with no server-side configuration. History API routing (e.g. `/readings/abc`) requires the server to respond to every path with `index.html` — a rewrite rule in nginx, Apache, or similar. Without that, a direct visit to `/readings/abc` returns a 404.
+
+Hash-based URLs (`#/readings/abc`) never reach the server. The browser strips the fragment before making the HTTP request, so every page load hits `/index.html` regardless of what follows the `#`. This gives bookmarkable, linkable, back/forward-navigable URLs with zero server configuration.
+
+`leptos_router` 0.8 only supports History API routing and does not provide a hash router. Rather than take a dependency for partial functionality, routing is implemented in `src/routing.rs` — roughly 60 lines covering all routes, parsing, and serialisation, with full unit test coverage.
+
+### How it works
+1. A `Route` enum represents every top-level view.
+2. On startup, `window.location.hash` is parsed into the initial `Route`.
+3. A `hashchange` listener (registered once in `App`, forgotten for the page lifetime) updates an `RwSignal<Route>` on every navigation.
+4. `App` dispatches on `route.get()` to render the correct view component.
+5. Navigation is plain `<a href="#/path">` — the browser sets the hash and fires `hashchange` natively.
 
 ```rust
-use leptos_router::{components::*, path};
+// src/routing.rs
+pub enum Route {
+    Reader { poem_id: Option<String> },
+    RecordingsList,
+    RecordingDetail { recording_id: String },
+    NotFound,
+}
+
+pub fn parse_hash(hash: &str) -> Route { ... }
+pub fn route_to_hash(route: &Route) -> String { ... }
+```
+
+```rust
+// src/app.rs — root component
+let route = RwSignal::new(parse_hash(&window().location().hash().unwrap_or_default()));
+provide_context(route);
+
+// hashchange listener
+let closure = Closure::<dyn FnMut(_)>::new(move |_: web_sys::Event| {
+    let hash = window().location().hash().unwrap_or_default();
+    route.set(parse_hash(&hash));
+});
+window().add_event_listener_with_callback("hashchange", closure.as_ref().unchecked_ref()).unwrap();
+closure.forget();
 
 view! {
-    <Router>
-        <Routes fallback=|| view! { <p>"Not Found"</p> }>
-            <Route path=path!("/") view=Home />
-            <Route path=path!("/game") view=GameView />
-        </Routes>
-    </Router>
+    {move || match route.get() {
+        Route::Reader { poem_id } => view! { <ReaderView poem_id=poem_id /> }.into_any(),
+        Route::RecordingsList    => view! { <RecordingsListView /> }.into_any(),
+        Route::RecordingDetail { recording_id } => view! { <RecordingDetailView recording_id=recording_id /> }.into_any(),
+        Route::NotFound          => view! { <p>"Not found"</p> }.into_any(),
+    }}
 }
+```
+
+### Navigation in components
+```rust
+// Static link
+<a href="#/">"Home"</a>
+<a href="#/readings">"Recordings"</a>
+
+// Dynamic link (use route_to_hash)
+<a href={route_to_hash(&Route::RecordingDetail { recording_id: id.clone() })}>{title}</a>
 ```
 
 ---
