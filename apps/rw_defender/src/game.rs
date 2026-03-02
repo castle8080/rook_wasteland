@@ -21,15 +21,15 @@ const INVULN_DURATION: f64 = 2.5;
 const INVULN_FLASH_HZ: f64 = 8.0;
 
 const ENEMY_GRUNT_HP: i32 = 15;
-const GRUNT_SPEED: f64 = 40.0;
-const FORMATION_COLS: u32 = 8;
+const GRUNT_SPEED: f64 = 30.0;        // px/s descent (was 40)
+const FORMATION_COLS: u32 = 7;        // columns per row (was 8)
 #[allow(dead_code)]
 const FORMATION_ROWS: u32 = 3;
-const FORMATION_SPACING_X: f64 = 60.0;
-const FORMATION_SPACING_Y: f64 = 40.0;
+const FORMATION_SPACING_X: f64 = 62.0;
+const FORMATION_SPACING_Y: f64 = 50.0; // row gap (was 40) for taller 32px-visual sprites
 const FORMATION_START_Y: f64 = 30.0;
 
-const ENEMY_BULLET_SPEED: f64 = 200.0;
+const ENEMY_BULLET_SPEED: f64 = 160.0; // px/s (was 200)
 const ENEMY_FIRE_INTERVAL: f64 = 0.5; // check every 500ms
 const WAVE_TRANSITION_DURATION: f64 = 2.0;
 
@@ -305,7 +305,8 @@ impl Game {
     }
 
     fn wave_enemy_count(&self) -> u32 {
-        (12 + (self.wave as f64 * 1.2) as u32).min(50)
+        // Wave 1 → 6 enemies, grows ~1.5 per wave, capped at 49
+        (5 + (self.wave as f64 * 1.5) as u32).min(49)
     }
 
     fn enemy_type_for_wave(&mut self, _index: u32) -> EntityType {
@@ -483,7 +484,8 @@ impl Game {
                 let row = (idx / FORMATION_COLS as usize) as f64;
                 let x = 40.0 + col * FORMATION_SPACING_X;
                 let y = FORMATION_START_Y + row * FORMATION_SPACING_Y;
-                (x, y, ENEMY_GRUNT_HP, Rect::new(1.0, 1.0, 12.0, 10.0))
+                // Hitbox for 20×16 sprite rendered at scale=2 (40×32 visual)
+                (x, y, ENEMY_GRUNT_HP, Rect::new(4.0, 2.0, 32.0, 26.0))
             }
             _ => {
                 let col = (idx % FORMATION_COLS as usize) as f64;
@@ -506,7 +508,7 @@ impl Game {
 
         // Formation lateral shift (non-boss enemies only)
         self.formation_shift_timer += dt;
-        let shift_x = self.formation_dir * 30.0 * dt;
+        let shift_x = self.formation_dir * 20.0 * dt;
 
         // Check if any non-boss enemy would hit the edge
         let any_at_edge = self.entities.iter()
@@ -518,7 +520,7 @@ impl Game {
         if any_at_edge {
             self.formation_dir *= -1.0;
         }
-        let shift_x = self.formation_dir * 30.0 * dt; // recalc after possible flip
+        let shift_x = self.formation_dir * 20.0 * dt; // recalc after possible flip
 
         // Enemy fire check
         self.enemy_fire_timer += dt;
@@ -647,12 +649,16 @@ impl Game {
             if wave >= 3 {
                 e.fire_cooldown -= dt;
                 if should_fire && e.fire_cooldown <= 0.0 {
-                    let fire_chance = 0.05 + wave as f64 * 0.005;
+                    // Fire chance scales from 3% at wave 3 up to ~7% at wave 10
+                    let fire_chance = 0.03 + wave as f64 * 0.004;
                     // Pseudo-random roll using entity phase as entropy (avoids borrow conflict with self.rng)
                     let pseudo_roll = (e.phase * 137.508).fract().abs();
                     if pseudo_roll < fire_chance {
-                        let aimed = (e.phase * 31.0).fract() < 0.3; // ~30% aimed
-                        fire_positions.push((e.position.x + 5.0, e.position.y + 12.0, aimed, false));
+                        // Aimed shots scale from 15% on wave 3 up to 50% at high waves
+                        let aimed_threshold = (0.15 + (wave.saturating_sub(3)) as f64 * 0.025).min(0.5);
+                        let aimed = (e.phase * 31.0).fract() < aimed_threshold;
+                        // Fire from centre-bottom of 40×32 visual sprite
+                        fire_positions.push((e.position.x + 20.0, e.position.y + 30.0, aimed, false));
                         e.fire_cooldown = 2.0 / (1.0 + wave as f64 * 0.1);
                     }
                 }

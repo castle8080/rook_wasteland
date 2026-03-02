@@ -7,16 +7,24 @@ pub struct Sprite {
     pub pixels: Vec<u32>,
     pub width: u32,
     pub height: u32,
+    /// Pixel scale: each sprite pixel renders as `scale×scale` canvas pixels.
+    pub scale: u32,
 }
 
 impl Sprite {
     pub fn new(pixels: Vec<u32>, width: u32, height: u32) -> Self {
-        Sprite { pixels, width, height }
+        Sprite { pixels, width, height, scale: 1 }
     }
 
-    /// Draws the sprite with batching of same-colored pixels per row.
+    pub fn with_scale(mut self, scale: u32) -> Self {
+        self.scale = scale;
+        self
+    }
+
+    /// Draws the sprite. Each sprite pixel renders as `scale×scale` canvas pixels.
     /// Transparent pixels (alpha < 10) are skipped.
     pub fn draw(&self, ctx: &CanvasRenderingContext2d, x: f64, y: f64) {
+        let s = self.scale as f64;
         let mut last_color: u32 = 0;
         let mut has_color = false;
 
@@ -33,7 +41,7 @@ impl Sprite {
                     last_color = pixel;
                     has_color = true;
                 }
-                ctx.fill_rect(x + px as f64, y + py as f64, 1.0, 1.0);
+                ctx.fill_rect(x + px as f64 * s, y + py as f64 * s, s, s);
             }
         }
     }
@@ -166,75 +174,89 @@ impl SpriteGenerator {
     // ── Enemies ──────────────────────────────────────────────────────────────
 
     pub fn enemy_grunt() -> Sprite {
-        // 14x12 basic grunt
+        // 20x16 basic grunt — renders at 2× scale = 40×32 visual pixels
         #[rustfmt::skip]
-        let pattern: [u8; 168] = [
-            0,0,1,1,1,1,1,1,1,1,1,1,0,0,
-            0,1,1,2,2,2,2,2,2,2,2,1,1,0,
-            1,1,2,2,3,2,2,2,2,3,2,2,1,1,
-            1,2,2,2,2,2,2,2,2,2,2,2,2,1,
-            1,2,2,2,2,2,4,4,2,2,2,2,2,1,
-            1,2,2,2,2,4,4,4,4,2,2,2,2,1,
-            1,2,2,4,4,4,4,4,4,4,4,2,2,1,
-            1,2,4,4,1,4,4,4,4,1,4,4,2,1,
-            1,1,4,4,1,4,4,4,4,1,4,4,1,1,
-            0,1,1,4,4,4,1,1,4,4,4,1,1,0,
-            0,0,1,1,4,1,1,1,1,4,1,1,0,0,
-            0,0,0,1,1,1,0,0,1,1,1,0,0,0,
+        let pattern: [u8; 320] = [
+            0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,
+            0,0,1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1,0,0,
+            0,1,2,2,2,3,2,2,2,2,2,2,2,2,3,2,2,2,1,0,
+            1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1,
+            1,2,2,2,2,2,4,4,2,2,2,2,4,4,2,2,2,2,2,1,
+            1,2,2,2,4,4,4,4,4,4,4,4,4,4,4,4,2,2,2,1,
+            1,2,2,4,4,2,2,4,4,4,4,4,4,2,2,4,4,2,2,1,
+            1,2,4,4,1,2,4,4,4,4,4,4,4,4,2,1,4,4,2,1,
+            1,1,4,4,1,2,4,4,4,4,4,4,4,4,2,1,4,4,1,1,
+            0,1,1,4,4,4,4,1,1,4,4,1,1,4,4,4,4,1,1,0,
+            0,0,1,1,4,4,1,1,0,1,1,0,1,1,4,4,1,1,0,0,
+            0,0,0,1,1,1,1,0,0,0,0,0,0,1,1,1,1,0,0,0,
+            0,0,0,0,1,1,0,0,0,0,0,0,0,0,1,1,0,0,0,0,
+            0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+            0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+            0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
         ];
         let palette = [
             RetroColors::TRANSPARENT,
-            0xFF00CC00u32, // green outline
-            0xFF009900u32, // dark green body
-            RetroColors::RED, // red eyes
-            RetroColors::BRIGHT_GREEN, // bright legs
+            0xFF00CC00u32,       // green outline
+            0xFF009900u32,       // dark green body
+            RetroColors::RED,    // red eyes
+            RetroColors::BRIGHT_GREEN, // bright tentacles
         ];
-        Sprite::new(pattern.iter().map(|&i| palette[i as usize]).collect(), 14, 12)
+        Sprite::new(pattern.iter().map(|&i| palette[i as usize]).collect(), 20, 16)
+            .with_scale(2)
     }
 
     pub fn enemy_weaver() -> Sprite {
-        // 14x12 zigzag weaver - purple/pink coloring
+        // 20x16 zigzag weaver — bat/manta-ray style, purple/magenta, 2× scale = 40×32 visual
         #[rustfmt::skip]
-        let pattern: [u8; 168] = [
-            0,0,1,1,0,0,0,0,0,0,1,1,0,0,
-            0,1,1,1,1,2,2,2,2,1,1,1,1,0,
-            1,1,2,2,2,2,3,3,2,2,2,2,1,1,
-            1,2,2,3,2,2,2,2,2,2,3,2,2,1,
-            1,2,2,2,2,2,2,2,2,2,2,2,2,1,
-            0,1,2,2,2,4,4,4,4,2,2,2,1,0,
-            0,0,1,2,4,4,2,2,4,4,2,1,0,0,
-            0,1,2,2,4,2,2,2,2,4,2,2,1,0,
-            1,1,2,2,1,2,2,2,2,1,2,2,1,1,
-            1,2,2,1,1,2,2,2,2,1,1,2,2,1,
-            0,1,1,0,0,1,1,1,1,0,0,1,1,0,
-            0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        let pattern: [u8; 320] = [
+            1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,
+            1,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,2,1,
+            0,1,2,1,0,0,0,1,2,2,2,2,1,0,0,0,1,2,1,0,
+            0,1,2,2,1,1,2,2,3,2,2,3,2,2,1,1,2,2,1,0,
+            0,0,1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1,0,0,
+            0,0,1,2,2,2,4,4,4,4,4,4,4,4,2,2,2,1,0,0,
+            0,0,0,1,2,4,4,2,2,4,4,2,2,4,4,2,1,0,0,0,
+            0,0,1,2,2,4,2,2,4,4,4,4,2,2,4,2,2,1,0,0,
+            0,1,2,2,1,4,2,2,4,4,4,4,2,2,4,1,2,2,1,0,
+            1,2,2,1,1,4,4,4,4,4,4,4,4,4,4,1,1,2,2,1,
+            1,2,2,1,0,1,4,4,4,2,2,4,4,4,1,0,1,2,2,1,
+            0,1,1,0,0,0,1,1,4,4,4,4,1,1,0,0,0,1,1,0,
+            0,0,0,0,0,0,0,1,1,4,4,1,1,0,0,0,0,0,0,0,
+            0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,
+            0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+            0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
         ];
         let palette = [
             RetroColors::TRANSPARENT,
-            0xFFCC00CCu32, // magenta outline
-            0xFF880088u32, // dark magenta body
+            0xFFCC00CCu32,       // magenta outline
+            0xFF880088u32,       // dark magenta body
             RetroColors::YELLOW, // yellow eyes
-            RetroColors::MAGENTA, // bright wings
+            RetroColors::MAGENTA, // bright wing detail
         ];
-        Sprite::new(pattern.iter().map(|&i| palette[i as usize]).collect(), 14, 12)
+        Sprite::new(pattern.iter().map(|&i| palette[i as usize]).collect(), 20, 16)
+            .with_scale(2)
     }
 
     pub fn enemy_diver() -> Sprite {
-        // 14x12 kamikaze diver - red/orange
+        // 20x16 kamikaze diver — dart/fighter shape, red/orange, 2× scale = 40×32 visual
         #[rustfmt::skip]
-        let pattern: [u8; 168] = [
-            0,0,0,0,0,0,1,1,0,0,0,0,0,0,
-            0,0,0,0,0,1,2,2,1,0,0,0,0,0,
-            0,0,0,0,1,2,2,2,2,1,0,0,0,0,
-            0,0,1,1,2,2,3,3,2,2,1,1,0,0,
-            0,1,1,2,2,2,2,2,2,2,2,1,1,0,
-            1,1,2,2,2,2,4,4,2,2,2,2,1,1,
-            1,2,2,2,4,4,4,4,4,4,2,2,2,1,
-            1,2,4,4,4,2,4,4,2,4,4,4,2,1,
-            1,1,4,4,2,2,4,4,2,2,4,4,1,1,
-            0,1,1,4,2,2,2,2,2,2,4,1,1,0,
-            0,0,1,1,2,2,2,2,2,2,1,1,0,0,
-            0,0,0,1,1,1,1,1,1,1,1,0,0,0,
+        let pattern: [u8; 320] = [
+            0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,
+            0,0,0,0,0,0,0,1,2,2,2,2,1,0,0,0,0,0,0,0,
+            0,0,0,0,0,0,1,2,3,2,2,3,2,2,1,0,0,0,0,0,
+            0,0,0,0,0,1,2,2,2,2,2,2,2,2,1,0,0,0,0,0,
+            0,0,0,0,1,2,2,2,2,2,2,2,2,2,2,1,0,0,0,0,
+            0,0,0,1,2,2,2,2,4,4,4,4,2,2,2,2,1,0,0,0,
+            0,0,1,2,2,2,4,4,4,4,4,4,4,4,2,2,2,1,0,0,
+            0,1,2,2,4,4,4,2,4,4,4,4,2,4,4,4,2,2,1,0,
+            1,2,2,4,4,2,2,2,4,4,4,4,2,2,2,4,4,2,2,1,
+            1,2,4,4,2,2,2,2,4,4,4,4,2,2,2,2,4,4,2,1,
+            1,1,4,4,2,2,2,2,4,4,4,4,2,2,2,2,4,4,1,1,
+            0,1,1,4,4,2,2,4,4,4,4,4,4,2,2,4,4,1,1,0,
+            0,0,1,1,4,4,4,4,2,2,2,2,4,4,4,4,1,1,0,0,
+            0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,
+            0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+            0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
         ];
         let palette = [
             RetroColors::TRANSPARENT,
@@ -243,7 +265,8 @@ impl SpriteGenerator {
             RetroColors::YELLOW,
             RetroColors::ORANGE,
         ];
-        Sprite::new(pattern.iter().map(|&i| palette[i as usize]).collect(), 14, 12)
+        Sprite::new(pattern.iter().map(|&i| palette[i as usize]).collect(), 20, 16)
+            .with_scale(2)
     }
 
     pub fn enemy_boss() -> Sprite {
