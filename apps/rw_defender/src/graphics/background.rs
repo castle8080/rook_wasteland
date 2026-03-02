@@ -34,35 +34,29 @@ pub enum BackgroundTier {
     UltraDeep,
 }
 
-/// Background image filenames served from /backgrounds/ (Trunk copies assets/backgrounds/).
-/// Each tier has a slice of images cycled by wave number within that tier.
-const WARM_IMAGES: &[&str] = &[
+/// Flat list of all background images for random selection.
+pub const ALL_BACKGROUNDS: &[&str] = &[
+    // Warm nebulae
     "esa_orion_nebula_m42.jpg",
     "esa_mystic_mountain_carina.jpg",
     "esa_eagle_nebula_m16.jpg",
     "esa_carina_nebula_hubble.jpg",
     "esa_helix_nebula.jpg",
-];
-
-const NEBULA_IMAGES: &[&str] = &[
+    // Colorful nebulae
     "esa_butterfly_nebula.jpg",
     "esa_crab_nebula.jpg",
     "esa_ring_nebula_m57.jpg",
     "08_hubble_ring_nebula_m57.jpg",
     "02_jwst_southern_ring_nebula.jpg",
     "03_jwst_hidden_orion.jpg",
-];
-
-const DEEP_IMAGES: &[&str] = &[
+    // Galaxies
     "esa_sombrero_galaxy.jpg",
     "esa_andromeda_galaxy_m31.jpg",
     "esa_whirlpool_galaxy_m51.jpg",
     "esa_antennae_galaxies.jpg",
     "esa_ngc1300_barred_spiral.jpg",
     "05_vlt_ngc1232_spiral_galaxy.jpg",
-];
-
-const ULTRA_DEEP_IMAGES: &[&str] = &[
+    // Ultra deep
     "01_jwst_deep_field_smacs0723.jpg",
     "04_hubble_cats_eye_nebula.jpg",
     "esa_ngc3603_stellar_nursery.jpg",
@@ -71,28 +65,11 @@ const ULTRA_DEEP_IMAGES: &[&str] = &[
     "18_hubble_omega_nebula_m17.jpg",
 ];
 
-/// Returns the URL path for the background image to use for the given wave.
-/// Wave 1 → first Warm image, wave 2 → second Warm image, etc. Cycles within tier.
-pub fn background_image_for_wave(wave: u32) -> &'static str {
-    match BackgroundTier::for_wave(wave) {
-        BackgroundTier::Warm => {
-            let idx = ((wave - 1) as usize) % WARM_IMAGES.len();
-            WARM_IMAGES[idx]
-        }
-        BackgroundTier::Nebula => {
-            let idx = ((wave - 6) as usize) % NEBULA_IMAGES.len();
-            NEBULA_IMAGES[idx]
-        }
-        BackgroundTier::Deep => {
-            let idx = ((wave - 11) as usize) % DEEP_IMAGES.len();
-            DEEP_IMAGES[idx]
-        }
-        BackgroundTier::UltraDeep => {
-            let idx = ((wave.saturating_sub(16)) as usize) % ULTRA_DEEP_IMAGES.len();
-            ULTRA_DEEP_IMAGES[idx]
-        }
-    }
+/// Returns the filename for the background at the given index.
+pub fn background_by_index(idx: usize) -> &'static str {
+    ALL_BACKGROUNDS[idx % ALL_BACKGROUNDS.len()]
 }
+
 
 impl BackgroundTier {
     pub fn for_wave(wave: u32) -> Self {
@@ -310,45 +287,28 @@ mod tests {
     }
 
     #[test]
-    fn test_background_image_for_wave_returns_jpg() {
-        // Every wave 0–30 must return a .jpg filename
-        for wave in 0u32..=30 {
-            let f = background_image_for_wave(wave);
-            assert!(f.ends_with(".jpg"), "wave {wave}: expected .jpg, got {f}");
+    fn test_all_backgrounds_are_jpg() {
+        for (i, f) in ALL_BACKGROUNDS.iter().enumerate() {
+            assert!(f.ends_with(".jpg"), "index {i}: expected .jpg, got {f}");
         }
     }
 
     #[test]
-    fn test_background_image_for_wave_known_values() {
-        // Wave 0 → UltraDeep (default branch), first image
-        assert_eq!(background_image_for_wave(0), "01_jwst_deep_field_smacs0723.jpg");
-        // Wave 1 → first Warm image
-        assert_eq!(background_image_for_wave(1), "esa_orion_nebula_m42.jpg");
-        // Wave 5 → last Warm image (5-1=4 mod 5 = 4)
-        assert_eq!(background_image_for_wave(5), "esa_helix_nebula.jpg");
-        // Wave 6 → first Nebula image
-        assert_eq!(background_image_for_wave(6), "esa_butterfly_nebula.jpg");
-        // Wave 11 → first Deep image
-        assert_eq!(background_image_for_wave(11), "esa_sombrero_galaxy.jpg");
-        // Wave 16 → first UltraDeep image
-        assert_eq!(background_image_for_wave(16), "01_jwst_deep_field_smacs0723.jpg");
+    fn test_all_backgrounds_count() {
+        assert_eq!(ALL_BACKGROUNDS.len(), 23, "expected 23 background images");
     }
 
     #[test]
-    fn test_background_image_cycles_within_tier() {
-        // Warm: waves 1-5 each return different images, wave 6 goes to Nebula
-        let warm_images: Vec<_> = (1u32..=5).map(background_image_for_wave).collect();
-        // All 5 warm images should be distinct
-        let unique: std::collections::HashSet<_> = warm_images.iter().collect();
-        assert_eq!(unique.len(), 5, "expected 5 distinct warm images");
-        // Wave 6 must NOT be same as warm images
-        assert!(!warm_images.contains(&background_image_for_wave(6)));
+    fn test_background_by_index_wraps() {
+        // Index beyond the end should wrap, not panic
+        let n = ALL_BACKGROUNDS.len();
+        assert_eq!(background_by_index(0), background_by_index(n));
+        assert_eq!(background_by_index(1), background_by_index(n + 1));
     }
 
     #[test]
-    fn test_ultra_deep_large_wave() {
-        // Very large wave numbers should not panic (cycle wraps)
-        let f = background_image_for_wave(u32::MAX);
-        assert!(f.ends_with(".jpg"));
+    fn test_all_backgrounds_unique() {
+        let unique: std::collections::HashSet<_> = ALL_BACKGROUNDS.iter().collect();
+        assert_eq!(unique.len(), ALL_BACKGROUNDS.len(), "duplicate filenames in ALL_BACKGROUNDS");
     }
 }

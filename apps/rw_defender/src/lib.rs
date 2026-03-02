@@ -6,7 +6,7 @@ mod systems;
 mod utils;
 
 use game::{Game, CANVAS_H, CANVAS_W};
-use graphics::{background_image_for_wave, BackgroundTier, StarField};
+use graphics::{background_by_index, BackgroundTier, StarField};
 use renderer::Renderer;
 use systems::InputState;
 
@@ -56,8 +56,8 @@ pub fn main() {
         .expect("#background-canvas is not a canvas");
 
     let mut starfield = StarField::new(&bg_canvas);
-    // Pre-load the wave-0 background image immediately so it's ready when the game starts.
-    starfield.set_background_image(background_image_for_wave(0));
+    // Pre-load image 0 as default; first real random pick happens when the game starts.
+    starfield.set_background_image(background_by_index(0));
 
     GAME.with(|g| *g.borrow_mut() = Some(Game::new()));
     RENDERER.with(|r| *r.borrow_mut() = Some(renderer));
@@ -132,7 +132,7 @@ fn start_game_loop() {
                         s.set_tier(tier);
                     }
                     // Update background image whenever the wave changes.
-                    s.set_background_image(background_image_for_wave(g.wave));
+                    s.set_background_image(g.current_background());
                     s.update(dt);
                     s.render();
                 }

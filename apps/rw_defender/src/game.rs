@@ -1,5 +1,5 @@
 use crate::entities::{ActivePowerUp, Entity, EntityType, PowerUpType};
-use crate::graphics::{RetroColors, Sprite, SpriteGenerator};
+use crate::graphics::{background_by_index, RetroColors, Sprite, SpriteGenerator, ALL_BACKGROUNDS};
 use crate::renderer::Renderer;
 use crate::systems::InputState;
 use crate::utils::{Rect, Vec2};
@@ -180,6 +180,8 @@ pub struct Game {
     pub entities: Vec<Entity>,
     pub wave: u32,
     pub high_score: u32,
+    /// Index into ALL_BACKGROUNDS for the current wave's background image.
+    pub bg_index: usize,
     pub atlas: SpriteAtlas,
     pub enemy_fire_timer: f64,
     pub formation_dir: f64,
@@ -200,6 +202,7 @@ impl Game {
             entities: Vec::with_capacity(200),
             wave: 0,
             high_score: load_high_score(),
+            bg_index: 0,
             atlas: SpriteAtlas::new(),
             enemy_fire_timer: 0.0,
             formation_dir: 1.0,
@@ -213,6 +216,11 @@ impl Game {
     }
 
     // ── Public update entry ───────────────────────────────────────────────
+
+    /// Filename of the current wave's background image (randomly chosen per wave).
+    pub fn current_background(&self) -> &'static str {
+        background_by_index(self.bg_index)
+    }
 
     pub fn update(&mut self, input: &mut InputState, dt: f64) {
         let dt = dt.min(0.1); // cap delta time (prevent spiral of death)
@@ -268,11 +276,13 @@ impl Game {
         self.formation_dir = 1.0;
         self.formation_shift_timer = 0.0;
         self.enemies_killed_this_wave = 0;
+        self.bg_index = self.rng.gen_range(0..ALL_BACKGROUNDS.len());
         self.state = GameState::WaveTransition { timer: WAVE_TRANSITION_DURATION };
     }
 
     fn begin_wave(&mut self) {
         self.wave += 1;
+        self.bg_index = self.rng.gen_range(0..ALL_BACKGROUNDS.len());
         self.entities.retain(|e| matches!(e.entity_type, EntityType::Player));
         self.spawn_queue.clear();
         self.enemies_killed_this_wave = 0;
