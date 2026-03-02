@@ -1,6 +1,7 @@
 # Directories
 var/
 tmp/
+dist/
 
 # Vim
 *.swp
