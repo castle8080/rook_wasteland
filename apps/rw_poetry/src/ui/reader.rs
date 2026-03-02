@@ -1,11 +1,14 @@
 use leptos::prelude::*;
+use leptos_router::hooks::use_query_map;
 
 use crate::poem_repository::{fetch_index, fetch_poem, pick_random, PoemDetail};
 use crate::ui::recording_controls::RecordingControls;
 
 /// Full poem reader view: loads and displays a random poem.
+/// Supports `?poem_id=<id>` query param to load a specific poem (e.g., from recording detail).
 #[component]
 pub fn ReaderView() -> impl IntoView {
+    let query = use_query_map();
     // Incrementing this signal re-triggers the resource (New Poem / Try again).
     let refresh = RwSignal::new(0u32);
     // Track the current poem id to exclude it from the next random pick.
@@ -14,10 +17,22 @@ pub fn ReaderView() -> impl IntoView {
     // Two-step fetch: load index then pick and fetch a random poem.
     let poem_resource: LocalResource<Result<PoemDetail, String>> =
         LocalResource::new(move || {
+            let requested_id = query.read().get("poem_id").map(|s| s.to_string());
             let exclude = current_poem_id.get();
             let _refresh = refresh.get(); // tracked — triggers re-run on New Poem
             async move {
                 let index = fetch_index().await?;
+
+                // If a specific poem_id was requested via query param, load it.
+                if let Some((path, entry_id)) = requested_id.and_then(|id| {
+                    index.poems.iter().find(|e| e.id == id)
+                        .map(|e| (e.path.clone(), e.id.clone()))
+                }) {
+                    let poem = fetch_poem(&path).await?;
+                    current_poem_id.set(Some(entry_id));
+                    return Ok(poem);
+                }
+
                 let entry = pick_random(&index, exclude.as_deref())
                     .ok_or_else(|| "Poem index is empty.".to_string())?;
                 let path = entry.path.clone();

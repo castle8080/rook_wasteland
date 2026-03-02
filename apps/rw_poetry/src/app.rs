@@ -7,6 +7,7 @@ use leptos_router::{
 use crate::ui::{
     components::TopBar,
     reader::ReaderView,
+    recording_detail::RecordingDetailView,
     recordings_list::RecordingsListView,
 };
 
@@ -19,6 +20,7 @@ pub fn App() -> impl IntoView {
             <Routes fallback=|| view! { <p class="text-secondary">"Page not found."</p> }>
                 <Route path=path!("/") view=ReaderView />
                 <Route path=path!("/readings") view=RecordingsListView />
+                <Route path=path!("/readings/:recording_id") view=RecordingDetailView />
             </Routes>
         </Router>
     }
