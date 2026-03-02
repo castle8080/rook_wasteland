@@ -4,8 +4,8 @@ use leptos::prelude::*;
 use leptos::task::spawn_local;
 use uuid::Uuid;
 
-use crate::audio_capture::{pick_mime_type, request_mic, AudioRecorder};
-use crate::recording_store::{save_recording, RecordingMetadata};
+use crate::audio_capture::{AudioRecorder, pick_mime_type, request_mic};
+use crate::recording_store::{RecordingMetadata, save_recording};
 
 // ---------------------------------------------------------------------------
 // Thread-local recorder handle (WASM is single-threaded)

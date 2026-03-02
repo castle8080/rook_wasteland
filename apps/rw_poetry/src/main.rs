@@ -1,8 +1,8 @@
 use leptos::mount::mount_to_body;
 
 mod app;
-mod poem_repository;
 mod audio_capture;
+mod poem_repository;
 mod recording_store;
 mod ui;
 

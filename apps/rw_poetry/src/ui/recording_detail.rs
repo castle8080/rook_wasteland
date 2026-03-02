@@ -6,7 +6,7 @@ use wasm_bindgen::JsCast;
 use web_sys::{Blob, BlobPropertyBag, Url};
 
 use crate::poem_repository::{fetch_index, fetch_poem};
-use crate::recording_store::{get_audio_blob, get_recording, RecordingMetadata};
+use crate::recording_store::{RecordingMetadata, get_audio_blob, get_recording};
 use crate::ui::audio_player::AudioPlayer;
 
 // ---------------------------------------------------------------------------
@@ -74,8 +74,13 @@ fn format_date(iso: &str) -> String {
 #[component]
 pub fn RecordingDetailView() -> impl IntoView {
     let params = use_params_map();
-    let recording_id =
-        move || params.read().get("recording_id").unwrap_or_default().to_string();
+    let recording_id = move || {
+        params
+            .read()
+            .get("recording_id")
+            .unwrap_or_default()
+            .to_string()
+    };
 
     type DetailResult = Result<(RecordingMetadata, Option<String>, String), String>;
 
@@ -83,9 +88,7 @@ pub fn RecordingDetailView() -> impl IntoView {
     let detail_resource: LocalResource<DetailResult> = LocalResource::new(move || {
         let rid = recording_id();
         async move {
-            let metadata = get_recording(&rid)
-                .await
-                .map_err(|e| e.to_string())?;
+            let metadata = get_recording(&rid).await.map_err(|e| e.to_string())?;
 
             // Try fetching poem content via index lookup
             let poem_content = 'poem: {

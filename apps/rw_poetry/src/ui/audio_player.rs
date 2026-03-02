@@ -73,8 +73,7 @@ pub fn AudioPlayer(
                     ct_signal.set(a.current_time());
                 }
             });
-            audio_el
-                .set_ontimeupdate(Some(ct_handler.as_ref().unchecked_ref()));
+            audio_el.set_ontimeupdate(Some(ct_handler.as_ref().unchecked_ref()));
             ct_handler.forget();
 
             let dur_signal = duration;
@@ -85,16 +84,14 @@ pub fn AudioPlayer(
                     loaded_signal.set(true);
                 }
             });
-            audio_el
-                .set_onloadedmetadata(Some(dur_handler.as_ref().unchecked_ref()));
+            audio_el.set_onloadedmetadata(Some(dur_handler.as_ref().unchecked_ref()));
             dur_handler.forget();
 
             let play_signal = playing;
             let ended_handler = wasm_bindgen::closure::Closure::<dyn FnMut()>::new(move || {
                 play_signal.set(false);
             });
-            audio_el
-                .set_onended(Some(ended_handler.as_ref().unchecked_ref()));
+            audio_el.set_onended(Some(ended_handler.as_ref().unchecked_ref()));
             ended_handler.forget();
         }
     });

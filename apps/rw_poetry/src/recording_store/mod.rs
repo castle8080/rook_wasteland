@@ -1,7 +1,9 @@
 // Remaining store functions (list, get, delete) will be consumed in T09–T11.
 #![allow(dead_code)]
 
-use idb::{Database, DatabaseEvent, Factory, IndexParams, KeyPath, ObjectStoreParams, TransactionMode};
+use idb::{
+    Database, DatabaseEvent, Factory, IndexParams, KeyPath, ObjectStoreParams, TransactionMode,
+};
 use js_sys::Uint8Array;
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -143,8 +145,12 @@ pub async fn save_recording(
 
     let uint8 = Uint8Array::from(audio_data.as_slice());
     let blob_obj = js_sys::Object::new();
-    js_sys::Reflect::set(&blob_obj, &JsValue::from_str("blob_key"), &JsValue::from_str(&metadata.audio_blob_key))
-        .map_err(|e| StoreError::Unexpected(format!("set blob_key: {e:?}")))?;
+    js_sys::Reflect::set(
+        &blob_obj,
+        &JsValue::from_str("blob_key"),
+        &JsValue::from_str(&metadata.audio_blob_key),
+    )
+    .map_err(|e| StoreError::Unexpected(format!("set blob_key: {e:?}")))?;
     js_sys::Reflect::set(&blob_obj, &JsValue::from_str("data"), &uint8)
         .map_err(|e| StoreError::Unexpected(format!("set data: {e:?}")))?;
 
@@ -164,7 +170,11 @@ pub async fn save_recording(
         .map_err(StoreError::from)?;
 
     let meta_val = metadata_to_jsvalue(&metadata)?;
-    if let Err(e) = meta_store.add(&meta_val, None).map_err(StoreError::from)?.await {
+    if let Err(e) = meta_store
+        .add(&meta_val, None)
+        .map_err(StoreError::from)?
+        .await
+    {
         // Metadata write failed — clean up orphaned blob
         let _ = delete_blob(&db, &metadata.audio_blob_key).await;
         return Err(StoreError::from(e));
@@ -180,7 +190,9 @@ pub async fn list_recordings() -> Result<Vec<RecordingMetadata>, StoreError> {
     let tx = db
         .transaction(&[STORE_RECORDINGS], TransactionMode::ReadOnly)
         .map_err(StoreError::from)?;
-    let store = tx.object_store(STORE_RECORDINGS).map_err(StoreError::from)?;
+    let store = tx
+        .object_store(STORE_RECORDINGS)
+        .map_err(StoreError::from)?;
 
     let all: Vec<JsValue> = store
         .get_all(None, None)
@@ -204,7 +216,9 @@ pub async fn get_recording(recording_id: &str) -> Result<RecordingMetadata, Stor
     let tx = db
         .transaction(&[STORE_RECORDINGS], TransactionMode::ReadOnly)
         .map_err(StoreError::from)?;
-    let store = tx.object_store(STORE_RECORDINGS).map_err(StoreError::from)?;
+    let store = tx
+        .object_store(STORE_RECORDINGS)
+        .map_err(StoreError::from)?;
 
     let val = store
         .get(JsValue::from_str(recording_id))
@@ -251,7 +265,9 @@ pub async fn delete_recording(recording_id: &str, blob_key: &str) -> Result<(), 
     let tx = db
         .transaction(&[STORE_RECORDINGS], TransactionMode::ReadWrite)
         .map_err(StoreError::from)?;
-    let store = tx.object_store(STORE_RECORDINGS).map_err(StoreError::from)?;
+    let store = tx
+        .object_store(STORE_RECORDINGS)
+        .map_err(StoreError::from)?;
     store
         .delete(JsValue::from_str(recording_id))
         .map_err(StoreError::from)?
@@ -320,9 +336,7 @@ mod tests {
 
     #[test]
     fn store_error_display_storage_full() {
-        assert!(StoreError::StorageFull
-            .to_string()
-            .contains("Storage full"));
+        assert!(StoreError::StorageFull.to_string().contains("Storage full"));
     }
 
     #[test]

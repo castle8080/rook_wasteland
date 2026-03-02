@@ -1,4 +1,3 @@
-
 use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
@@ -152,9 +151,7 @@ impl AudioRecorder {
         self.recorder
             .set_onstop(Some(on_stop.as_ref().unchecked_ref()));
 
-        self.recorder
-            .stop()
-            .map_err(|e| MicError::from_js(&e))?;
+        self.recorder.stop().map_err(|e| MicError::from_js(&e))?;
 
         rx.await;
 
@@ -177,9 +174,8 @@ impl AudioRecorder {
         let props = BlobPropertyBag::new();
         props.set_type(&mime_type);
 
-        let combined_blob =
-            Blob::new_with_blob_sequence_and_options(&parts_array, &props)
-                .map_err(|e| MicError::Unexpected(format!("{e:?}")))?;
+        let combined_blob = Blob::new_with_blob_sequence_and_options(&parts_array, &props)
+            .map_err(|e| MicError::Unexpected(format!("{e:?}")))?;
 
         // Read combined blob as ArrayBuffer → Vec<u8>
         let ab = JsFuture::from(combined_blob.array_buffer())
@@ -239,8 +235,7 @@ pub async fn request_mic() -> Result<MediaStream, MicError> {
         .await
         .map_err(|e| MicError::from_js(&e))?;
 
-    result.dyn_into::<MediaStream>().map_err(|_| {
-        MicError::Unexpected("getUserMedia did not return a MediaStream".to_string())
-    })
+    result
+        .dyn_into::<MediaStream>()
+        .map_err(|_| MicError::Unexpected("getUserMedia did not return a MediaStream".to_string()))
 }
-

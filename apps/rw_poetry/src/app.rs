@@ -5,9 +5,7 @@ use leptos_router::{
 };
 
 use crate::ui::{
-    components::TopBar,
-    reader::ReaderView,
-    recording_detail::RecordingDetailView,
+    components::TopBar, reader::ReaderView, recording_detail::RecordingDetailView,
     recordings_list::RecordingsListView,
 };
 
