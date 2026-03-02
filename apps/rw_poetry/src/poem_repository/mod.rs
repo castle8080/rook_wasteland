@@ -1,6 +1,3 @@
-// Items in this module are consumed starting in T04.
-#![allow(dead_code)]
-
 use gloo_net::http::Request;
 use serde::Deserialize;
 
@@ -9,6 +6,7 @@ use serde::Deserialize;
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Deserialize)]
+#[allow(dead_code)]
 pub struct PoemIndexEntry {
     pub id: String,
     pub path: String,
@@ -17,12 +15,14 @@ pub struct PoemIndexEntry {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[allow(dead_code)]
 pub struct PoemIndex {
     pub version: u32,
     pub poems: Vec<PoemIndexEntry>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[allow(dead_code)]
 pub struct PoemDetail {
     pub id: String,
     pub title: String,
