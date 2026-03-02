@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>♜ Rook Wasteland</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #1a1714;
+      --surface:   #252018;
+      --border:    #3d3628;
+      --text:      #e8e0d0;
+      --muted:     #8a8070;
+      --accent:    #c9a84c;
+      --danger:    #b04040;
+      --radius:    6px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Georgia', serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.25rem 2rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .site-title {
+      font-size: 1.4rem;
+      letter-spacing: 0.03em;
+      color: var(--accent);
+      user-select: none;
+    }
+
+    .site-title span { color: var(--text); }
+
+    #btn-random {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-family: inherit;
+      font-size: 0.85rem;
+      padding: 0.4rem 0.9rem;
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+    }
+
+    #btn-random:hover, #btn-random:focus-visible {
+      color: var(--accent);
+      border-color: var(--accent);
+      outline: none;
+    }
+
+    /* ── Main ── */
+    main {
+      flex: 1;
+      padding: 2.5rem 2rem;
+      max-width: 1100px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    #grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 1.25rem;
+    }
+
+    /* ── Cards ── */
+    .card {
+      display: block;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem 1.25rem 1.25rem;
+      text-decoration: none;
+      color: var(--text);
+      position: relative;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+      transition: transform 0.15s, box-shadow 0.15s;
+      cursor: pointer;
+    }
+
+    .card:hover, .card:focus-visible {
+      transform: translateY(-4px);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.55);
+      outline: none;
+    }
+
+    .card:active {
+      transform: translateY(-1px) scale(0.98);
+    }
+
+    .card.coming-soon {
+      opacity: 0.5;
+      border-style: dashed;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    .card-icon {
+      font-size: 2.4rem;
+      line-height: 1;
+      display: block;
+      margin-bottom: 0.75rem;
+    }
+
+    .card-name {
+      font-size: 1.15rem;
+      font-weight: bold;
+      color: var(--accent);
+      margin-bottom: 0.35rem;
+    }
+
+    .card-tagline {
+      font-size: 0.85rem;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .card-description {
+      font-size: 0.82rem;
+      color: var(--text);
+      line-height: 1.5;
+      margin-top: 0.75rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--border);
+      opacity: 0;
+      max-height: 0;
+      overflow: hidden;
+      transition: opacity 0.2s, max-height 0.25s;
+    }
+
+    .card:hover .card-description,
+    .card:focus-visible .card-description {
+      opacity: 1;
+      max-height: 10rem;
+    }
+
+    .coming-soon-badge {
+      position: absolute;
+      top: 0.6rem;
+      right: 0.6rem;
+      font-size: 0.65rem;
+      font-family: monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      border: 1px dashed var(--border);
+      border-radius: 3px;
+      padding: 0.15rem 0.4rem;
+    }
+
+    /* ── Error state ── */
+    #error {
+      color: var(--danger);
+      font-size: 0.9rem;
+      padding: 1rem 0;
+    }
+
+    /* ── Footer ── */
+    footer {
+      padding: 1.25rem 2rem;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      font-size: 0.78rem;
+      color: var(--muted);
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="site-title">♜ <span>Rook Wasteland</span></div>
+    <button id="btn-random">? Random</button>
+  </header>
+
+  <main>
+    <div id="grid"></div>
+  </main>
+
+  <footer>
+    <span id="quip"></span>
+  </footer>
+
+  <script>
+    const QUIPS = [
+      "You're here. There's nowhere left to go.",
+      "This is fine.",
+      "Abandon productivity, all ye who enter.",
+      "No loitering. (But also, loiter as long as you want.)",
+      "Not responsible for lost time.",
+      "Apps may contain traces of whimsy.",
+      "Something to do while pretending to do something else.",
+      "The wasteland provides.",
+    ];
+
+    document.getElementById('quip').textContent =
+      QUIPS[Math.floor(Math.random() * QUIPS.length)];
+
+    let liveApps = [];
+
+    function buildCard(app) {
+      const isLive = app.status === 'live';
+      const el = document.createElement(isLive ? 'a' : 'div');
+
+      if (isLive) {
+        el.href = app.path;
+      } else {
+        el.setAttribute('role', 'img');
+        el.setAttribute('aria-label', app.name + ' (coming soon)');
+      }
+
+      el.className = 'card' + (isLive ? '' : ' coming-soon');
+
+      el.innerHTML = `
+        <span class="card-icon" aria-hidden="true">${app.icon}</span>
+        <div class="card-name">${app.name}</div>
+        <div class="card-tagline">${app.tagline}</div>
+        <div class="card-description">${app.description}</div>
+        ${isLive ? '' : '<span class="coming-soon-badge">coming soon</span>'}
+      `;
+
+      return el;
+    }
+
+    async function init() {
+      const grid = document.getElementById('grid');
+      try {
+        const res = await fetch('apps.json');
+        if (!res.ok) throw new Error(res.statusText);
+        const apps = await res.json();
+
+        liveApps = apps.filter(a => a.status === 'live');
+        apps.forEach(app => grid.appendChild(buildCard(app)));
+      } catch (e) {
+        grid.innerHTML = '<p id="error">Couldn\'t load the app list — try refreshing.</p>';
+      }
+    }
+
+    document.getElementById('btn-random').addEventListener('click', () => {
+      if (!liveApps.length) return;
+      const pick = liveApps[Math.floor(Math.random() * liveApps.length)];
+      window.location.href = pick.path;
+    });
+
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+
+</body>
+</html>
