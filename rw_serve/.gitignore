@@ -1,0 +1,8 @@
+# Rust / Cargo
+target/
+
+# Default apps directory
+dist/
+
+# Auto-generated self-signed certs
+certs/
