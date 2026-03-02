@@ -50,13 +50,25 @@ This document outlines the design and implementation plan for a classic arcade-s
 - Laser Beam: Continuous fire, 100ms overheat after 3 seconds
 
 #### 2.1.3 Player Lives & Health
-- **Starting Lives**: 3 lives
-- **Death Condition**: Contact with alien or alien projectile
+- **Starting Lives**: 5 lives
+- **Death Condition**: Contact with alien, alien projectile, or ground explosion blast radius
 - **Death Animation Duration**: 500ms explosion effect
 - **Respawn Delay**: 1 second after death animation
 - **Invulnerability Duration**: 2.5 seconds after respawn
 - **Visual Feedback**: Sprite flashes at 8 Hz (125ms on/off cycle) during invulnerability
 - **Respawn Position**: Center bottom of screen (320px on 640px width canvas)
+- **Game Over Condition**: Losing all 5 lives; aliens reaching the ground does NOT immediately end the game
+
+#### 2.1.3a Ground Explosion (Alien Reaches Bottom)
+When an enemy descends to the bottom of the screen instead of triggering game over it detonates in a ground explosion:
+- **Trigger**: Any enemy (Grunt, Weaver, Diver) reaches Y ≥ CANVAS_H − 32
+- **Blast Radius**: 30% of canvas width = 192 pixels
+- **Center**: Horizontally centered on the alien's position, anchored to the screen bottom
+- **Duration**: 0.8 seconds (visual + damage window)
+- **Player Damage**: If player center is within blast radius, player takes fatal damage (loses a life); standard invulnerability applies
+- **Friendly Fire on Enemies**: Any other enemy within blast radius is destroyed (no score awarded for collateral kills)
+- **Visual**: Large orange/yellow flash expanding from bottom edge, fades out over duration using alpha
+- **Entity Type**: `GroundExplosion` — a distinct entity with its own rendering pass
 
 #### 2.1.4 Weapon Power-Ups
 Power-ups drop randomly from destroyed enemies and float down the screen. Players collect them by contact.
@@ -119,6 +131,13 @@ Power-ups drop randomly from destroyed enemies and float down the screen. Player
 - **Stacking**: Can stack up to 3 shields
 - **Bubble Pulse**: Pulsates at 2 Hz (500ms cycle)
 - **Warning Blink**: When 5 seconds remain, blinks at 4 Hz
+
+**7. Extra Life**
+- **Effect**: Instantly awards +1 life (up to a maximum of 9)
+- **Duration**: Instant (no timer)
+- **Drop Rate**: 2% from any enemy, 5% from bosses
+- **Visual**: Bright white/magenta star icon
+- **Stacking**: Each collected adds one life; no weapon slot consumed
 
 **Power-Up Mechanics:**
 - Power-ups spawn at enemy death location
@@ -314,7 +333,7 @@ drop_rate = base_drop_rate * min(1.5, 1.0 + wave_number * 0.02)
 - **Combo System**: Multiple kills within 2 seconds: 1.5x multiplier
 - **Explosive Multi-Kill**: +50 points per additional enemy in explosion
 - **Power-Up Collection**: 25 points
-- **Extra Life**: Awarded every 10,000 points
+- **Extra Life**: Awarded every 10,000 points; also available as a power-up drop
 
 ### 2.5 Visual & Audio Design
 
@@ -323,6 +342,7 @@ drop_rate = base_drop_rate * min(1.5, 1.0 + wave_number * 0.02)
 - **Pixel Style**: Chunky 8-bit sprites (16x16 to 32x32 pixels)
 - **Color Palette**: Limited to 16-32 colors, inspired by NES/Commodore 64
 - **Animation**: Simple 2-3 frame sprite animations
+- **Player Ship Size**: 16×16 sprite rendered at 2× scale = **32×32 visual pixels**; enemies are also 2× so the player ship is visually comparable in size to regular enemies
 - **Animation Timing**:
   - Player Ship: 2 frames alternating every 150ms (idle pulse)
   - Enemy Ships: 2-3 frames at 200ms per frame
@@ -1445,7 +1465,9 @@ impl Rectangle {
 - Player vs Power-Ups (collection)
 - Player Bullets vs Enemies
 - Explosive Bullets vs Enemies (radius check)
-- Enemies vs Screen Bottom (game over condition)
+- Enemies vs Screen Bottom (ground explosion — NOT game over)
+- Ground Explosion vs Player (radius check)
+- Ground Explosion vs Enemies (radius check — friendly fire)
 
 #### 3.5.3 Explosion Radius Detection
 ```rust

@@ -11,8 +11,8 @@ pub const CANVAS_W: f64 = 640.0;
 pub const CANVAS_H: f64 = 480.0;
 
 const PLAYER_SPEED: f64 = 250.0;
-const PLAYER_START_X: f64 = CANVAS_W / 2.0 - 8.0;
-const PLAYER_START_Y: f64 = CANVAS_H - 40.0;
+const PLAYER_START_X: f64 = CANVAS_W / 2.0 - 16.0; // center of 32px-wide (2× scale) ship
+const PLAYER_START_Y: f64 = CANVAS_H - 48.0;        // 16px gap from bottom for 32px-tall ship
 const PLAYER_FIRE_COOLDOWN: f64 = 0.25; // 250ms
 const PLAYER_MAX_BULLETS: usize = 3;
 const BULLET_SPEED: f64 = 450.0;
@@ -43,6 +43,11 @@ const DIVER_SPEED: f64 = 80.0;
 const DIVER_TRIGGER_RANGE: f64 = 80.0; // ±80px horizontal
 const DIVER_RETURN_TIME: f64 = 2.0;
 const DIVER_DIVE_COOLDOWN: f64 = 3.0;
+
+/// Radius of the ground explosion when an enemy reaches the bottom (30% of canvas width).
+const GROUND_EXPLOSION_RADIUS: f64 = 192.0;
+/// How long the ground explosion blast window + visual lasts.
+const GROUND_EXPLOSION_DURATION: f64 = 0.8;
 
 const HIGH_SCORE_KEY: &str = "rw_defender_high_score";
 
@@ -95,14 +100,15 @@ pub struct SpriteAtlas {
     pub player_bullet: Sprite,
     pub enemy_bullet: Sprite,
     pub explosion_frames: Vec<Sprite>,
-    pub powerup_colors: [u32; 6],
+    pub powerup_colors: [u32; 7],
 }
 
 impl SpriteAtlas {
     pub fn new() -> Self {
         SpriteAtlas {
-            player: SpriteGenerator::player_ship(),
-            player_thrust: SpriteGenerator::player_ship_thrust(),
+            // Ship sprite is 16×16 px; scale=2 makes it 32×32 visual — comparable to enemies.
+            player: SpriteGenerator::player_ship().with_scale(2),
+            player_thrust: SpriteGenerator::player_ship_thrust().with_scale(2),
             grunt: SpriteGenerator::enemy_grunt(),
             weaver: SpriteGenerator::enemy_weaver(),
             diver: SpriteGenerator::enemy_diver(),
@@ -117,6 +123,7 @@ impl SpriteAtlas {
                 RetroColors::BLUE,     // LaserBeam
                 RetroColors::GREEN,    // PiercingShot
                 RetroColors::CYAN,     // Shield
+                RetroColors::MAGENTA,  // ExtraLife
             ],
         }
     }
@@ -141,12 +148,13 @@ impl Player {
         let entity = Entity::new(
             EntityType::Player,
             Vec2::new(PLAYER_START_X, PLAYER_START_Y),
-            Rect::new(0.0, 0.0, 16.0, 16.0),
+            // Hitbox inset slightly from the 32×32 visual (2× scale of 16×16 sprite)
+            Rect::new(2.0, 2.0, 28.0, 28.0),
             30,
         );
         Player {
             entity,
-            lives: 3,
+            lives: 5,
             score: 0,
             fire_cooldown: 0.0,
             active_powerup: None,
@@ -340,6 +348,7 @@ impl Game {
         self.update_enemies(dt);
         self.update_bullets(dt);
         self.update_explosions(dt);
+        self.update_ground_explosions(dt);
         self.update_powerups(dt);
         self.check_collisions();
         self.check_wave_complete();
@@ -376,7 +385,7 @@ impl Game {
         if input.right_pressed { vel_x += PLAYER_SPEED; }
 
         p.entity.position.x += vel_x * dt;
-        p.entity.position.x = p.entity.position.x.clamp(0.0, CANVAS_W - 16.0);
+        p.entity.position.x = p.entity.position.x.clamp(0.0, CANVAS_W - 32.0);
 
         // Invulnerability countdown
         if p.entity.invuln_time > 0.0 {
@@ -413,7 +422,7 @@ impl Game {
             && p.fire_cooldown <= 0.0
             && player_bullet_count < max_bullets
         {
-            let px = p.entity.position.x + 6.0;
+            let px = p.entity.position.x + 14.0; // center of 32px-wide (2× scale) sprite
             let py = p.entity.position.y;
 
             let is_triple = p.active_powerup.as_ref()
@@ -537,6 +546,8 @@ impl Game {
         // Collect fire positions before mutating entities.
         // Tuple: (x, y, aimed, is_boss_spread)
         let mut fire_positions: Vec<(f64, f64, bool, bool)> = Vec::new();
+        // Ground explosions triggered this frame (enemy reached bottom).
+        let mut ground_explosion_positions: Vec<Vec2> = Vec::new();
 
         for e in self.entities.iter_mut() {
             if !e.active || !is_enemy(&e.entity_type) {
@@ -620,7 +631,9 @@ impl Game {
                 }
 
                 if e.position.y > CANVAS_H - 32.0 {
-                    self.state = GameState::GameOver { timer: 3.0 };
+                    // Boss reached bottom — trigger blast and deactivate (no game over)
+                    ground_explosion_positions.push(e.position);
+                    e.active = false;
                 }
                 continue;
             }
@@ -664,10 +677,10 @@ impl Game {
                 }
             }
 
-            // Check if reached bottom
+            // Check if reached bottom — trigger ground explosion instead of game over
             if e.position.y > CANVAS_H - 32.0 {
-                // Enemy reached bottom - game over
-                self.state = GameState::GameOver { timer: 3.0 };
+                ground_explosion_positions.push(e.position);
+                e.active = false;
             }
         }
 
@@ -715,6 +728,11 @@ impl Game {
                 self.entities.push(bullet);
             }
         }
+
+        // Spawn ground explosions for enemies that reached the bottom this frame.
+        for pos in ground_explosion_positions {
+            self.spawn_ground_explosion_at(pos);
+        }
     }
 
     fn update_bullets(&mut self, dt: f64) {
@@ -755,6 +773,37 @@ impl Game {
         }
     }
 
+    fn update_ground_explosions(&mut self, dt: f64) {
+        for e in self.entities.iter_mut() {
+            if !e.active || !matches!(e.entity_type, EntityType::GroundExplosion) {
+                continue;
+            }
+            e.lifetime -= dt;
+            if e.lifetime <= 0.0 {
+                e.active = false;
+            }
+        }
+    }
+
+    fn spawn_ground_explosion_at(&mut self, pos: Vec2) {
+        // Center horizontally on the enemy, pin vertically to the screen bottom.
+        let center_x = pos.x + 20.0; // approximate enemy center (sprite is 40px wide at 2×)
+        // Position the bounding-box top-left so that entity.center() lands at
+        // (center_x, CANVAS_H): center.x = pos.x + radius, center.y = pos.y + radius.
+        let blast_pos = Vec2::new(
+            center_x - GROUND_EXPLOSION_RADIUS,
+            CANVAS_H - GROUND_EXPLOSION_RADIUS, // → center.y == CANVAS_H (screen bottom)
+        );
+        let mut e = Entity::new(
+            EntityType::GroundExplosion,
+            blast_pos,
+            Rect::new(0.0, 0.0, GROUND_EXPLOSION_RADIUS * 2.0, GROUND_EXPLOSION_RADIUS * 2.0),
+            1,
+        );
+        e.lifetime = GROUND_EXPLOSION_DURATION;
+        self.entities.push(e);
+    }
+
     fn update_powerups(&mut self, dt: f64) {
         for e in self.entities.iter_mut() {
             if !e.active || !matches!(e.entity_type, EntityType::PowerUp(_)) {
@@ -777,6 +826,7 @@ impl Game {
 
         let player_hb = self.player.entity.world_hitbox();
         let player_invuln = self.player.entity.is_invulnerable();
+        let player_center = self.player.entity.center();
 
         let mut to_kill: Vec<usize> = Vec::new();
         let mut score_gain: u32 = 0;
@@ -784,6 +834,8 @@ impl Game {
         let mut spawn_powerups: Vec<Vec2> = Vec::new();
         let mut player_hit = false;
         let mut collected_powerup: Option<(PowerUpType, f64)> = None;
+        // Centers of active ground explosions — collected first, applied after the main loop.
+        let mut ground_explosion_centers: Vec<Vec2> = Vec::new();
 
         for (i, e) in self.entities.iter().enumerate() {
             if !e.active { continue; }
@@ -820,7 +872,7 @@ impl Game {
                 }
                 EntityType::PowerUp(ptype) => {
                     let collect_radius = 16.0;
-                    let dist = e.center().distance_to(self.player.entity.center());
+                    let dist = e.center().distance_to(player_center);
                     if dist <= collect_radius {
                         to_kill.push(i);
                         score_gain += 25;
@@ -828,7 +880,27 @@ impl Game {
                         collected_powerup = Some((ptype.clone(), duration));
                     }
                 }
+                EntityType::GroundExplosion => {
+                    ground_explosion_centers.push(e.center());
+                }
                 _ => {}
+            }
+        }
+
+        // Ground explosion — check player and enemies in radius.
+        // No score awarded for collateral enemy kills (the explosion is a penalty, not a reward).
+        for center in &ground_explosion_centers {
+            if !player_invuln
+                && player_center.distance_to(*center) <= GROUND_EXPLOSION_RADIUS
+            {
+                player_hit = true;
+            }
+            for (j, target) in self.entities.iter().enumerate() {
+                if !target.active { continue; }
+                if !is_enemy(&target.entity_type) { continue; }
+                if target.center().distance_to(*center) <= GROUND_EXPLOSION_RADIUS {
+                    to_kill.push(j);
+                }
             }
         }
 
@@ -874,10 +946,16 @@ impl Game {
 
         // Apply collected power-up
         if let Some((ptype, duration)) = collected_powerup {
-            if matches!(ptype, PowerUpType::Shield) {
-                self.player.shields = (self.player.shields + 1).min(3);
-            } else {
-                self.player.active_powerup = Some(ActivePowerUp::new(ptype, duration));
+            match ptype {
+                PowerUpType::Shield => {
+                    self.player.shields = (self.player.shields + 1).min(3);
+                }
+                PowerUpType::ExtraLife => {
+                    self.player.lives = (self.player.lives + 1).min(9);
+                }
+                _ => {
+                    self.player.active_powerup = Some(ActivePowerUp::new(ptype, duration));
+                }
             }
         }
 
@@ -899,13 +977,19 @@ impl Game {
 
     fn spawn_powerup_at(&mut self, pos: Vec2) {
         let roll: f64 = self.rng.gen();
-        let ptype = match (roll * 6.0) as u32 {
-            0 => PowerUpType::TripleShot,
-            1 => PowerUpType::ExplosiveShot,
-            2 => PowerUpType::RapidFire,
-            3 => PowerUpType::LaserBeam,
-            4 => PowerUpType::PiercingShot,
-            _ => PowerUpType::Shield,
+        // Weights: weapons/shield 6 slots at ~13.7% each, ExtraLife at ~4% (narrower top band)
+        // Use a 100-point scale: 0-96 → weapon/shield (7 even slices), last slice = ExtraLife
+        let ptype = if roll < 0.04 {
+            PowerUpType::ExtraLife
+        } else {
+            match ((roll - 0.04) / 0.96 * 6.0) as u32 {
+                0 => PowerUpType::TripleShot,
+                1 => PowerUpType::ExplosiveShot,
+                2 => PowerUpType::RapidFire,
+                3 => PowerUpType::LaserBeam,
+                4 => PowerUpType::PiercingShot,
+                _ => PowerUpType::Shield,
+            }
         };
         let mut e = Entity::new(
             EntityType::PowerUp(ptype),
@@ -990,6 +1074,21 @@ impl Game {
                         pu_sprite.draw(&renderer.ctx, e.position.x, e.position.y);
                     }
                 }
+                EntityType::GroundExplosion => {
+                    // Fade out as lifetime decreases. lifetime goes from GROUND_EXPLOSION_DURATION → 0.
+                    let alpha = (e.lifetime / GROUND_EXPLOSION_DURATION).clamp(0.0, 1.0);
+                    // center.y == CANVAS_H (screen bottom); center.x == horizontal blast center.
+                    let cx = e.center().x;
+                    let r = GROUND_EXPLOSION_RADIUS;
+                    renderer.set_alpha(alpha * 0.85);
+                    // Outer arc rising from the ground — orange
+                    renderer.fill_rect(cx - r, CANVAS_H - r * 0.5, r * 2.0, r * 0.5, RetroColors::ORANGE);
+                    // Inner core — bright yellow
+                    renderer.fill_rect(cx - r * 0.6, CANVAS_H - r * 0.35, r * 1.2, r * 0.35, RetroColors::YELLOW);
+                    // Hot white core
+                    renderer.fill_rect(cx - r * 0.25, CANVAS_H - r * 0.2, r * 0.5, r * 0.2, RetroColors::WHITE);
+                    renderer.reset_alpha();
+                }
                 _ => {}
             }
         }
@@ -1030,8 +1129,8 @@ impl Game {
             &format!("WAVE {}", self.wave),
             16.0, RetroColors::CYAN, 12,
         );
-        // Lives (draw small ship icons)
-        for i in 0..self.player.lives {
+        // Lives (draw small ship icons; cap at 9 so they fit the HUD)
+        for i in 0..self.player.lives.min(9) {
             let x = CANVAS_W - 20.0 - i as f64 * 18.0;
             renderer.fill_rect(x + 3.0, 4.0, 6.0, 8.0, RetroColors::BLUE);
             renderer.fill_rect(x + 5.0, 2.0, 2.0, 3.0, RetroColors::CYAN);
@@ -1148,6 +1247,7 @@ fn powerup_duration(ptype: &PowerUpType) -> f64 {
         PowerUpType::ExplosiveShot => 15.0,
         PowerUpType::LaserBeam => 10.0,
         PowerUpType::Shield => 30.0,
+        PowerUpType::ExtraLife => 0.0, // instant — no timer
     }
 }
 
@@ -1159,5 +1259,6 @@ fn powerup_index(ptype: &PowerUpType) -> usize {
         PowerUpType::LaserBeam => 3,
         PowerUpType::PiercingShot => 4,
         PowerUpType::Shield => 5,
+        PowerUpType::ExtraLife => 6,
     }
 }

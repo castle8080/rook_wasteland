@@ -12,6 +12,9 @@ pub enum EntityType {
     PlayerBullet,
     EnemyBullet,
     Explosion,
+    /// Large blast triggered when an enemy reaches the screen bottom.
+    /// Damages the player and nearby enemies within GROUND_EXPLOSION_RADIUS.
+    GroundExplosion,
     PowerUp(PowerUpType),
 }
 
@@ -24,6 +27,8 @@ pub enum PowerUpType {
     LaserBeam,
     PiercingShot,
     Shield,
+    /// Instantly grants +1 life (up to 9).
+    ExtraLife,
 }
 
 /// A currently active player power-up with remaining duration.
@@ -169,5 +174,25 @@ mod tests {
         assert!(!pu.is_expired());
         pu.tick(0.6);
         assert!(pu.is_expired());
+    }
+
+    #[test]
+    fn test_ground_explosion_entity_type_distinct() {
+        let e = Entity::new(
+            EntityType::GroundExplosion,
+            Vec2::new(200.0, 448.0),
+            Rect::new(0.0, 0.0, 10.0, 10.0),
+            1,
+        );
+        assert!(matches!(e.entity_type, EntityType::GroundExplosion));
+        assert!(e.active);
+    }
+
+    #[test]
+    fn test_extra_life_powerup_type_distinct() {
+        let pu = PowerUpType::ExtraLife;
+        assert_eq!(pu, PowerUpType::ExtraLife);
+        // Ensure it does not match other types
+        assert_ne!(pu, PowerUpType::Shield);
     }
 }
