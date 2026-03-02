@@ -13,6 +13,8 @@ pub fn ReaderView() -> impl IntoView {
     let refresh = RwSignal::new(0u32);
     // Track the current poem id to exclude it from the next random pick.
     let current_poem_id: RwSignal<Option<String>> = RwSignal::new(None);
+    // Brief warning shown when a poem fails to load but we recovered with a retry.
+    let skipped_warning: RwSignal<bool> = RwSignal::new(false);
 
     // Two-step fetch: load index then pick and fetch a random poem.
     let poem_resource: LocalResource<Result<PoemDetail, String>> =
@@ -30,17 +32,36 @@ pub fn ReaderView() -> impl IntoView {
                 }) {
                     let poem = fetch_poem(&path).await?;
                     current_poem_id.set(Some(entry_id));
+                    skipped_warning.set(false);
                     return Ok(poem);
                 }
 
-                let entry = pick_random(&index, exclude.as_deref())
-                    .ok_or_else(|| "Poem index is empty.".to_string())?;
-                let path = entry.path.clone();
-                let id = entry.id.clone();
-                let poem = fetch_poem(&path).await?;
-                // Update the current id after a successful fetch.
-                current_poem_id.set(Some(id));
-                Ok(poem)
+                // Try up to 4 picks; if a poem JSON is 404/malformed, skip and warn.
+                let mut last_err = String::new();
+                let mut tried_ids: Vec<String> = exclude.clone().into_iter().collect();
+                for attempt in 0..4usize {
+                    let exclude_ref = if tried_ids.is_empty() { None } else { tried_ids.last().map(String::as_str) };
+                    let entry = match pick_random(&index, exclude_ref) {
+                        None => break,
+                        Some(e) => e,
+                    };
+                    let id = entry.id.clone();
+                    if tried_ids.contains(&id) {
+                        continue;
+                    }
+                    match fetch_poem(&entry.path).await {
+                        Ok(poem) => {
+                            current_poem_id.set(Some(poem.id.clone()));
+                            skipped_warning.set(attempt > 0);
+                            return Ok(poem);
+                        }
+                        Err(e) => {
+                            last_err = e;
+                            tried_ids.push(id);
+                        }
+                    }
+                }
+                Err(format!("Unable to load poems. Check your connection. ({last_err})"))
             }
         });
 
@@ -68,6 +89,11 @@ pub fn ReaderView() -> impl IntoView {
                         let poem_title = poem.title.clone();
                         let poem_author = poem.author.clone();
                         view! {
+                            {move || skipped_warning.get().then(|| view! {
+                                <p class="text-secondary" style="font-size: 0.85rem;">
+                                    "A poem couldn't be loaded; showing a different one."
+                                </p>
+                            })}
                             <article>
                                 <h1 class="poem-title">{poem.title.clone()}</h1>
                                 <p class="poem-meta">

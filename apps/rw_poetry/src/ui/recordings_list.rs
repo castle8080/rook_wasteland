@@ -78,6 +78,8 @@ fn download_filename(metadata: &RecordingMetadata) -> String {
 pub fn RecordingsListView() -> impl IntoView {
     // (recording_id, object_url) of the currently-playing row
     let active_src: RwSignal<Option<(String, String)>> = RwSignal::new(None);
+    // recording_id of any row that failed to load its audio blob
+    let play_error_id: RwSignal<Option<String>> = RwSignal::new(None);
 
     let recordings_resource: LocalResource<Result<Vec<RecordingMetadata>, String>> =
         LocalResource::new(move || async move {
@@ -96,13 +98,14 @@ pub fn RecordingsListView() -> impl IntoView {
                     return;
                 }
             }
+            play_error_id.set(None);
 
             match get_audio_blob(&blob_key).await {
-                Err(e) => leptos::logging::warn!("Failed to load audio blob: {e}"),
+                Err(_) => play_error_id.set(Some(recording_id)),
                 Ok(data) => {
                     let blob = bytes_to_blob(data, &mime_type);
                     match Url::create_object_url_with_blob(&blob) {
-                        Err(_) => leptos::logging::warn!("Failed to create object URL"),
+                        Err(_) => play_error_id.set(Some(recording_id)),
                         Ok(url) => active_src.set(Some((recording_id, url))),
                     }
                 }
@@ -161,8 +164,10 @@ pub fn RecordingsListView() -> impl IntoView {
                                     let mime = m.mime_type.clone();
                                     let rid2 = rid.clone();
                                     let rid2b = rid.clone();
+                                    let rid_err = rid.clone();
                                     let is_active = move || active_id() == Some(rid2.clone());
                                     let is_active2 = move || active_id() == Some(rid2b.clone());
+                                    let has_play_error = move || play_error_id.get() == Some(rid_err.clone());
                                     let active_url = {
                                         let rid3 = rid.clone();
                                         move || active_src.get()
@@ -220,6 +225,11 @@ pub fn RecordingsListView() -> impl IntoView {
                                                 <div class="recordings-list__player">
                                                     <AudioPlayer src=url />
                                                 </div>
+                                            })}
+                                            {move || has_play_error().then(|| view! {
+                                                <p class="text-secondary" style="font-size:0.85rem;">
+                                                    "Recording data unavailable."
+                                                </p>
                                             })}
                                         </li>
                                     }
