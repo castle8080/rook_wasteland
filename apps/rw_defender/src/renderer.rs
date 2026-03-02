@@ -17,8 +17,8 @@ impl Renderer {
     }
 
     pub fn clear(&self) {
-        self.ctx.set_fill_style_str("rgb(0,0,8)");
-        self.ctx.fill_rect(0.0, 0.0, self.width, self.height);
+        // Use clearRect (transparent) so the background canvas shows through.
+        self.ctx.clear_rect(0.0, 0.0, self.width, self.height);
     }
 
     pub fn fill_rect(&self, x: f64, y: f64, w: f64, h: f64, color: u32) {
