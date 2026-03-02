@@ -1,6 +1,10 @@
 use gloo_net::http::Request;
 use serde::Deserialize;
 
+/// Base URL prefix for all static asset fetches. Set to the subpath under
+/// which the app is served so that JSON requests resolve correctly.
+pub const BASE_URL: &str = "/rw_poetry";
+
 // ---------------------------------------------------------------------------
 // Data types
 // ---------------------------------------------------------------------------
@@ -37,9 +41,10 @@ pub struct PoemDetail {
 // Fetch functions
 // ---------------------------------------------------------------------------
 
-/// Fetch and parse the poem index from `/poems/poems_index.json`.
+/// Fetch and parse the poem index from `{BASE_URL}/poems/poems_index.json`.
 pub async fn fetch_index() -> Result<PoemIndex, String> {
-    let response = Request::get("/poems/poems_index.json")
+    let url = format!("{BASE_URL}/poems/poems_index.json");
+    let response = Request::get(&url)
         .send()
         .await
         .map_err(|e| format!("Network error fetching index: {e}"))?;
@@ -58,8 +63,14 @@ pub async fn fetch_index() -> Result<PoemIndex, String> {
 }
 
 /// Fetch and parse a single poem JSON file by its path from the index.
+/// `path` is root-relative (e.g. `/poems/authors/...`); BASE_URL is prepended.
 pub async fn fetch_poem(path: &str) -> Result<PoemDetail, String> {
-    let response = Request::get(path)
+    let url = if path.starts_with('/') {
+        format!("{BASE_URL}{path}")
+    } else {
+        path.to_string()
+    };
+    let response = Request::get(&url)
         .send()
         .await
         .map_err(|e| format!("Network error fetching poem: {e}"))?;

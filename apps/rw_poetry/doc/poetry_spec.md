@@ -38,6 +38,7 @@ The app runs fully in the browser on the user’s machine (WASM frontend), with 
 - **Storage**: Browser local persistent storage (IndexedDB preferred for blob audio)
 - **Audio capture/playback**: Browser media APIs (via Rust/WASM bindings)
 - **Routing**: Hand-rolled hash routing (see section 4.3)
+- **Deployment subpath**: The app is served under `/rw_poetry/` by a higher-level server (see section 4.4)
 
 ---
 
@@ -200,6 +201,38 @@ All routes are expressed as URL fragments (e.g. `#/readings`, `#/readings/:id`).
 **Browser back/forward** works because each hash change is a real browser history entry.
 
 ---
+
+## 4.4) Subpath Deployment
+
+The app is served under `/rw_poetry/` by a higher-level server rather than at the site root. This affects two things:
+
+### Build-time: Trunk `public_url`
+
+`Trunk.toml` must set:
+```toml
+[build]
+public_url = "/rw_poetry/"
+```
+This tells Trunk to prefix all generated asset references (CSS, WASM, JS) in the output `index.html` with `/rw_poetry/`. Without it, the browser requests assets from `/` and gets 404s.
+
+### Runtime: JSON fetch paths
+
+The WASM code fetches poem data over HTTP. All fetch URLs must be prefixed with `/rw_poetry/`. This is centralised in `src/poem_repository/mod.rs`:
+
+```rust
+pub const BASE_URL: &str = "/rw_poetry";
+```
+
+- `fetch_index()` constructs `format!("{BASE_URL}/poems/poems_index.json")`
+- `fetch_poem(path)` prepends `BASE_URL` to root-relative paths from the index (e.g. `/poems/authors/...` → `/rw_poetry/poems/authors/...`)
+
+Paths stored in `poems_index.json` remain root-relative (e.g. `/poems/authors/emily_dickinson/...`); the `BASE_URL` prefix is applied at runtime by `fetch_poem`.
+
+### Routing (unaffected)
+
+Hash routing (`#/...`) is entirely client-side and is unaffected by the subpath. The higher-level server only needs to serve `index.html` when the browser requests `/rw_poetry/`.
+
+---
 - As a user, I can request a random poem and immediately read it.
 - As a user, I can see title, author, and date (if present), plus full poem text.
 
@@ -223,7 +256,7 @@ All routes are expressed as URL fragments (e.g. `#/readings`, `#/readings/:id`).
 
 ### 6.1 Poem Catalog Loading
 1. App loads a **poem index resource** containing available poem IDs and metadata pointers.
-2. Canonical index location for the app: `GET /poems/poems_index.json`.
+2. Canonical index location for the app: `GET /rw_poetry/poems/poems_index.json` (resolved via `BASE_URL` const — see section 4.4).
 3. Index loading must be compatible with standard browser fetch/XHR semantics for static files.
 4. Poem data loading must be local to the app deployment: resources are loaded from the same origin, using local/relative URLs where the app is served.
 5. The app must not require external poem APIs or cross-origin poem fetches for core functionality.
@@ -393,21 +426,20 @@ public/
 ```
 
 **Trunk Integration Note:**
-Trunk does not have a built-in "public" directory. To serve poem files at `/poems/...`, `index.html` must include:
+Trunk does not have a built-in "public" directory. To serve poem files at `/poems/...` (relative to app root), `index.html` must include:
 ```html
 <link data-trunk rel="copy-dir" href="./public/poems"/>
 ```
-This copies `public/poems/` into `dist/poems/`, making files available at `/poems/...`.
-Using `href="./public"` instead would serve files at `/public/poems/...`, which breaks the required URLs.
+This copies `public/poems/` into `dist/poems/`. With `public_url = "/rw_poetry/"` set in `Trunk.toml` (see section 4.4), Trunk serves these files such that the higher-level server exposes them at `/rw_poetry/poems/...`.
 
 Rules:
 1. `poems_index.json` is the single entry point for poem discovery.
-2. Every index entry includes a `path` value pointing to a poem JSON file under `/poems/...`.
+2. Every index entry includes a `path` value pointing to a poem JSON file under `/poems/...` (root-relative, without the `BASE_URL` prefix — `fetch_poem` applies `BASE_URL` at runtime).
 3. The app data flow is two-step:
-    - Step 1: `GET /poems/poems_index.json`
-    - Step 2: `GET <entry.path>` for selected/random poem
+    - Step 1: `GET /rw_poetry/poems/poems_index.json` (via `BASE_URL` const)
+    - Step 2: `GET /rw_poetry<entry.path>` for selected/random poem (BASE_URL prepended in `fetch_poem`)
 4. All poem files must be individually addressable URLs so they can be requested independently.
-5. Paths in index should be local to the app origin (same host as the app), and may be site-root absolute or relative, as long as they resolve from where the app is loaded.
+5. Paths in index should be root-relative (beginning with `/poems/...`); the `BASE_URL` prefix is applied by `fetch_poem` at runtime.
 6. File names should be stable, URL-safe slugs.
 7. This structure must remain compatible with static hosting and local development servers.
 
