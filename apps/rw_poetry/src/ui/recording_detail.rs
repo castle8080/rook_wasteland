@@ -124,7 +124,7 @@ pub fn RecordingDetailView() -> impl IntoView {
                     let m_dl = metadata.clone();
 
                     view! {
-                        <nav class="recording-detail__nav">
+                        <nav class="recording-detail__nav" aria-label="Recording navigation">
                             <a href="/readings">"← All readings"</a>
                             <a href=format!("/?poem_id={}", poem_id_for_link)>
                                 "Read this poem →"

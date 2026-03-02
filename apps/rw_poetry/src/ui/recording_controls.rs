@@ -126,15 +126,15 @@ pub fn RecordingControls(
     };
 
     view! {
-        <div class="recording-controls">
+        <div class="recording-controls" role="region" aria-label="recording controls">
             {move || {
                 match state.get() {
                     RecordingState::Idle => view! {
-                        <button class="btn btn-record" on:click=on_record>"⏺ Record"</button>
+                        <button class="btn btn-record" aria-label="Record reading" on:click=on_record>"⏺ Record"</button>
                     }.into_any(),
 
                     RecordingState::Recording { elapsed_secs } => view! {
-                        <button class="btn btn-stop" on:click=on_stop>"⏹ Stop"</button>
+                        <button class="btn btn-stop" aria-label="Stop recording" on:click=on_stop>"⏹ Stop"</button>
                         <span class="recording-controls__timer" aria-live="polite">
                             {format!("{}:{:02}", elapsed_secs / 60, elapsed_secs % 60)}
                         </span>
