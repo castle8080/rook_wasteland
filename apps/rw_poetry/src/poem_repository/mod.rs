@@ -1,2 +1,178 @@
-// Poem repository module — implemented in T02.
-// Fetches poem index and individual poem JSON files.
+// Items in this module are consumed starting in T04.
+#![allow(dead_code)]
+
+use gloo_net::http::Request;
+use serde::Deserialize;
+
+// ---------------------------------------------------------------------------
+// Data types
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct PoemIndexEntry {
+    pub id: String,
+    pub path: String,
+    pub title: String,
+    pub author: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct PoemIndex {
+    pub version: u32,
+    pub poems: Vec<PoemIndexEntry>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct PoemDetail {
+    pub id: String,
+    pub title: String,
+    pub author: String,
+    pub content: String,
+    pub date: Option<String>,
+    pub source: Option<String>,
+    pub tags: Option<Vec<String>>,
+}
+
+// ---------------------------------------------------------------------------
+// Fetch functions
+// ---------------------------------------------------------------------------
+
+/// Fetch and parse the poem index from `/poems/poems_index.json`.
+pub async fn fetch_index() -> Result<PoemIndex, String> {
+    let response = Request::get("/poems/poems_index.json")
+        .send()
+        .await
+        .map_err(|e| format!("Network error fetching index: {e}"))?;
+
+    if !response.ok() {
+        return Err(format!(
+            "Failed to load poem index (HTTP {})",
+            response.status()
+        ));
+    }
+
+    response
+        .json::<PoemIndex>()
+        .await
+        .map_err(|e| format!("Failed to parse poem index: {e}"))
+}
+
+/// Fetch and parse a single poem JSON file by its path from the index.
+pub async fn fetch_poem(path: &str) -> Result<PoemDetail, String> {
+    let response = Request::get(path)
+        .send()
+        .await
+        .map_err(|e| format!("Network error fetching poem: {e}"))?;
+
+    if !response.ok() {
+        return Err(format!(
+            "Failed to load poem '{}' (HTTP {})",
+            path,
+            response.status()
+        ));
+    }
+
+    response
+        .json::<PoemDetail>()
+        .await
+        .map_err(|e| format!("Failed to parse poem JSON: {e}"))
+}
+
+// ---------------------------------------------------------------------------
+// Random selection
+// ---------------------------------------------------------------------------
+
+/// Pick a random entry from the index, optionally excluding the currently
+/// displayed poem by ID to avoid immediate repeats.
+pub fn pick_random<'a>(
+    index: &'a PoemIndex,
+    exclude_id: Option<&str>,
+) -> Option<&'a PoemIndexEntry> {
+    let candidates: Vec<&PoemIndexEntry> = index
+        .poems
+        .iter()
+        .filter(|p| exclude_id.is_none_or(|id| p.id != id))
+        .collect();
+
+    if candidates.is_empty() {
+        return index.poems.first();
+    }
+
+    // Use browser crypto via js_sys — works in WASM, no rand crate needed.
+    let idx = (js_sys::Math::random() * candidates.len() as f64) as usize;
+    candidates.get(idx.min(candidates.len() - 1)).copied()
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_index(ids: &[&str]) -> PoemIndex {
+        PoemIndex {
+            version: 1,
+            poems: ids
+                .iter()
+                .map(|id| PoemIndexEntry {
+                    id: id.to_string(),
+                    path: format!("/poems/{id}.json"),
+                    title: format!("Title {id}"),
+                    author: "Test Author".to_string(),
+                })
+                .collect(),
+        }
+    }
+
+    #[test]
+    fn pick_random_returns_none_for_empty_index() {
+        let index = make_index(&[]);
+        assert!(pick_random(&index, None).is_none());
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    #[test]
+    fn pick_random_single_entry_no_exclude() {
+        let index = make_index(&["a"]);
+        let picked = pick_random(&index, None);
+        assert_eq!(picked.map(|p| p.id.as_str()), Some("a"));
+    }
+
+    #[test]
+    fn pick_random_fallback_when_only_entry_is_excluded() {
+        // With only one entry and it excluded, should fall back to that entry.
+        let index = make_index(&["a"]);
+        let picked = pick_random(&index, Some("a"));
+        assert_eq!(picked.map(|p| p.id.as_str()), Some("a"));
+    }
+
+    #[test]
+    fn deserialize_poem_index() {
+        let json = r#"{"version":1,"poems":[{"id":"test-id","path":"/poems/test.json","title":"Test","author":"Auth"}]}"#;
+        let index: PoemIndex = serde_json::from_str(json).unwrap();
+        assert_eq!(index.version, 1);
+        assert_eq!(index.poems.len(), 1);
+        assert_eq!(index.poems[0].id, "test-id");
+    }
+
+    #[test]
+    fn deserialize_poem_detail_required_fields() {
+        let json = r#"{"id":"x","title":"X","author":"Y","content":"line one\nline two"}"#;
+        let detail: PoemDetail = serde_json::from_str(json).unwrap();
+        assert_eq!(detail.id, "x");
+        assert_eq!(detail.content, "line one\nline two");
+        assert!(detail.date.is_none());
+        assert!(detail.tags.is_none());
+    }
+
+    #[test]
+    fn deserialize_poem_detail_optional_fields() {
+        let json = r#"{"id":"x","title":"T","author":"A","content":"c","date":"1861","source":"PD","tags":["nature"]}"#;
+        let detail: PoemDetail = serde_json::from_str(json).unwrap();
+        assert_eq!(detail.date.as_deref(), Some("1861"));
+        assert_eq!(detail.source.as_deref(), Some("PD"));
+        assert_eq!(detail.tags.as_deref(), Some(&["nature".to_string()][..]));
+    }
+}
