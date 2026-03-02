@@ -1,348 +1,13 @@
+use super::constants::*;
+use super::constants::save_high_score;
+use super::{is_enemy, powerup_duration, Game, GameState};
 use crate::entities::{ActivePowerUp, Entity, EntityType, PowerUpType};
-use crate::graphics::{background_by_index, RetroColors, Sprite, SpriteGenerator, ALL_BACKGROUNDS};
-use crate::renderer::Renderer;
 use crate::systems::InputState;
 use crate::utils::{Rect, Vec2};
 use rand::Rng;
 
-// ── Constants ────────────────────────────────────────────────────────────────
-
-pub const CANVAS_W: f64 = 640.0;
-pub const CANVAS_H: f64 = 480.0;
-
-const PLAYER_SPEED: f64 = 250.0;
-const PLAYER_START_X: f64 = CANVAS_W / 2.0 - 16.0; // center of 32px-wide (2× scale) ship
-const PLAYER_START_Y: f64 = CANVAS_H - 48.0;        // 16px gap from bottom for 32px-tall ship
-const PLAYER_FIRE_COOLDOWN: f64 = 0.25; // 250ms
-const PLAYER_MAX_BULLETS: usize = 3;
-const BULLET_SPEED: f64 = 450.0;
-const BULLET_LIFETIME: f64 = 1.07; // ~480px at 450px/s
-const INVULN_DURATION: f64 = 2.5;
-const INVULN_FLASH_HZ: f64 = 8.0;
-
-const ENEMY_GRUNT_HP: i32 = 15;
-const GRUNT_SPEED: f64 = 30.0;        // px/s descent (was 40)
-const FORMATION_COLS: u32 = 7;        // columns per row (was 8)
-#[allow(dead_code)]
-const FORMATION_ROWS: u32 = 3;
-const FORMATION_SPACING_X: f64 = 62.0;
-const FORMATION_SPACING_Y: f64 = 50.0; // row gap (was 40) for taller 32px-visual sprites
-const FORMATION_START_Y: f64 = 30.0;
-
-const ENEMY_BULLET_SPEED: f64 = 160.0; // px/s (was 200)
-const ENEMY_FIRE_INTERVAL: f64 = 0.5; // check every 500ms
-const WAVE_TRANSITION_DURATION: f64 = 2.0;
-
-const BOSS_AMPLITUDE: f64 = 100.0;
-const BOSS_FREQ: f64 = 0.5; // Hz — matches spec
-const BOSS_Y: f64 = 50.0; // fixed y in top third
-const BOSS_FIRE_INTERVAL: f64 = 1.5;
-const BOSS_BULLET_SPEED: f64 = 250.0;
-
-const DIVER_SPEED: f64 = 80.0;
-const DIVER_TRIGGER_RANGE: f64 = 80.0; // ±80px horizontal
-const DIVER_RETURN_TIME: f64 = 2.0;
-const DIVER_DIVE_COOLDOWN: f64 = 3.0;
-
-/// Radius of the ground explosion when an enemy reaches the bottom (30% of canvas width).
-const GROUND_EXPLOSION_RADIUS: f64 = 192.0;
-/// How long the ground explosion blast window + visual lasts.
-const GROUND_EXPLOSION_DURATION: f64 = 0.8;
-
-const HIGH_SCORE_KEY: &str = "rw_defender_high_score";
-
-// ── localStorage helpers ─────────────────────────────────────────────────────
-
-fn load_high_score() -> u32 {
-    let Ok(Some(storage)) = web_sys::window()
-        .and_then(|w| w.local_storage().ok().flatten())
-        .map(|s| Ok::<_, ()>(Some(s)))
-        .unwrap_or(Ok(None))
-    else {
-        return 0;
-    };
-    storage
-        .get_item(HIGH_SCORE_KEY)
-        .ok()
-        .flatten()
-        .and_then(|v| v.parse::<u32>().ok())
-        .unwrap_or(0)
-}
-
-fn save_high_score(score: u32) {
-    if let Some(storage) = web_sys::window()
-        .and_then(|w| w.local_storage().ok().flatten())
-    {
-        let _ = storage.set_item(HIGH_SCORE_KEY, &score.to_string());
-    }
-}
-
-// ── Game states ──────────────────────────────────────────────────────────────
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum GameState {
-    MainMenu,
-    Playing,
-    WaveTransition { timer: f64 },
-    Paused,
-    GameOver { timer: f64 },
-}
-
-// ── Sprite atlas ─────────────────────────────────────────────────────────────
-
-pub struct SpriteAtlas {
-    pub player: Sprite,
-    pub player_thrust: Sprite,
-    pub grunt: Sprite,
-    pub weaver: Sprite,
-    pub diver: Sprite,
-    pub boss: Sprite,
-    pub player_bullet: Sprite,
-    pub enemy_bullet: Sprite,
-    pub explosion_frames: Vec<Sprite>,
-    pub powerup_colors: [u32; 7],
-}
-
-impl SpriteAtlas {
-    pub fn new() -> Self {
-        SpriteAtlas {
-            // Ship sprite is 16×16 px; scale=2 makes it 32×32 visual — comparable to enemies.
-            player: SpriteGenerator::player_ship().with_scale(2),
-            player_thrust: SpriteGenerator::player_ship_thrust().with_scale(2),
-            grunt: SpriteGenerator::enemy_grunt(),
-            weaver: SpriteGenerator::enemy_weaver(),
-            diver: SpriteGenerator::enemy_diver(),
-            boss: SpriteGenerator::enemy_boss(),
-            player_bullet: SpriteGenerator::player_bullet(),
-            enemy_bullet: SpriteGenerator::enemy_bullet(),
-            explosion_frames: SpriteGenerator::explosion_frames(),
-            powerup_colors: [
-                RetroColors::ORANGE,   // TripleShot
-                RetroColors::RED,      // ExplosiveShot
-                RetroColors::YELLOW,   // RapidFire
-                RetroColors::BLUE,     // LaserBeam
-                RetroColors::GREEN,    // PiercingShot
-                RetroColors::CYAN,     // Shield
-                RetroColors::MAGENTA,  // ExtraLife
-            ],
-        }
-    }
-}
-
-// ── Player state ─────────────────────────────────────────────────────────────
-
-pub struct Player {
-    pub entity: Entity,
-    pub lives: u32,
-    pub score: u32,
-    pub fire_cooldown: f64,
-    pub active_powerup: Option<ActivePowerUp>,
-    pub shields: u32,
-    pub dead_timer: f64,    // 0 = alive, >0 = dying animation
-    pub respawn_timer: f64, // countdown before respawn after death
-    pub thrust_anim: f64,   // idle pulse timer
-}
-
-impl Player {
-    pub fn new() -> Self {
-        let entity = Entity::new(
-            EntityType::Player,
-            Vec2::new(PLAYER_START_X, PLAYER_START_Y),
-            // Hitbox inset slightly from the 32×32 visual (2× scale of 16×16 sprite)
-            Rect::new(2.0, 2.0, 28.0, 28.0),
-            30,
-        );
-        Player {
-            entity,
-            lives: 5,
-            score: 0,
-            fire_cooldown: 0.0,
-            active_powerup: None,
-            shields: 0,
-            dead_timer: 0.0,
-            respawn_timer: 0.0,
-            thrust_anim: 0.0,
-        }
-    }
-
-    pub fn respawn(&mut self) {
-        self.entity.position = Vec2::new(PLAYER_START_X, PLAYER_START_Y);
-        self.entity.active = true;
-        self.entity.health = 30;
-        self.entity.invuln_time = INVULN_DURATION;
-        self.fire_cooldown = 0.0;
-        self.dead_timer = 0.0;
-        self.respawn_timer = 0.0;
-    }
-
-    pub fn is_alive(&self) -> bool {
-        self.dead_timer <= 0.0 && self.respawn_timer <= 0.0
-    }
-}
-
-// ── Main game struct ─────────────────────────────────────────────────────────
-
-pub struct Game {
-    pub state: GameState,
-    pub player: Player,
-    pub entities: Vec<Entity>,
-    pub wave: u32,
-    pub high_score: u32,
-    /// Index into ALL_BACKGROUNDS for the current wave's background image.
-    pub bg_index: usize,
-    pub atlas: SpriteAtlas,
-    pub enemy_fire_timer: f64,
-    pub formation_dir: f64,
-    pub formation_shift_timer: f64,
-    pub spawn_queue: Vec<EntityType>,
-    pub spawn_timer: f64,
-    pub enemies_killed_this_wave: u32,
-    pub wave_enemy_count: u32,
-    rng: rand::rngs::SmallRng,
-}
-
 impl Game {
-    pub fn new() -> Self {
-        use rand::SeedableRng;
-        Game {
-            state: GameState::MainMenu,
-            player: Player::new(),
-            entities: Vec::with_capacity(200),
-            wave: 0,
-            high_score: load_high_score(),
-            bg_index: 0,
-            atlas: SpriteAtlas::new(),
-            enemy_fire_timer: 0.0,
-            formation_dir: 1.0,
-            formation_shift_timer: 0.0,
-            spawn_queue: Vec::new(),
-            spawn_timer: 0.0,
-            enemies_killed_this_wave: 0,
-            wave_enemy_count: 0,
-            rng: rand::rngs::SmallRng::seed_from_u64(42),
-        }
-    }
-
-    // ── Public update entry ───────────────────────────────────────────────
-
-    /// Filename of the current wave's background image (randomly chosen per wave).
-    pub fn current_background(&self) -> &'static str {
-        background_by_index(self.bg_index)
-    }
-
-    pub fn update(&mut self, input: &mut InputState, dt: f64) {
-        let dt = dt.min(0.1); // cap delta time (prevent spiral of death)
-
-        match self.state.clone() {
-            GameState::MainMenu => {
-                if input.consume_start() || input.fire_pressed {
-                    input.fire_pressed = false;
-                    self.start_game();
-                }
-            }
-            GameState::Playing => {
-                if input.consume_pause() {
-                    self.state = GameState::Paused;
-                    return;
-                }
-                self.update_playing(input, dt);
-            }
-            GameState::Paused => {
-                if input.consume_pause() || input.consume_start() {
-                    self.state = GameState::Playing;
-                }
-            }
-            GameState::WaveTransition { timer } => {
-                let new_timer = timer - dt;
-                if new_timer <= 0.0 {
-                    self.begin_wave();
-                } else {
-                    self.state = GameState::WaveTransition { timer: new_timer };
-                }
-            }
-            GameState::GameOver { timer } => {
-                let new_timer = timer - dt;
-                if new_timer <= 0.0 {
-                    if input.consume_start() || input.fire_pressed {
-                        input.fire_pressed = false;
-                        self.start_game();
-                    } else {
-                        self.state = GameState::GameOver { timer: 0.0 };
-                    }
-                } else {
-                    self.state = GameState::GameOver { timer: new_timer };
-                }
-            }
-        }
-    }
-
-    fn start_game(&mut self) {
-        self.wave = 0;
-        self.player = Player::new();
-        self.entities.clear();
-        self.enemy_fire_timer = 0.0;
-        self.formation_dir = 1.0;
-        self.formation_shift_timer = 0.0;
-        self.enemies_killed_this_wave = 0;
-        self.bg_index = self.rng.gen_range(0..ALL_BACKGROUNDS.len());
-        self.state = GameState::WaveTransition { timer: WAVE_TRANSITION_DURATION };
-    }
-
-    fn begin_wave(&mut self) {
-        self.wave += 1;
-        self.bg_index = self.rng.gen_range(0..ALL_BACKGROUNDS.len());
-        self.entities.retain(|e| matches!(e.entity_type, EntityType::Player));
-        self.spawn_queue.clear();
-        self.enemies_killed_this_wave = 0;
-
-        if self.wave.is_multiple_of(5) {
-            // Boss wave: single boss enemy
-            self.spawn_queue.push(EntityType::Boss);
-            self.wave_enemy_count = 1;
-        } else {
-            let count = self.wave_enemy_count();
-            self.wave_enemy_count = count;
-            for i in 0..count {
-                let etype = self.enemy_type_for_wave(i);
-                self.spawn_queue.push(etype);
-            }
-        }
-        self.spawn_timer = 0.0;
-        self.formation_shift_timer = 0.0;
-        self.state = GameState::Playing;
-    }
-
-    fn wave_enemy_count(&self) -> u32 {
-        // Wave 1 → 6 enemies, grows ~1.5 per wave, capped at 49
-        (5 + (self.wave as f64 * 1.5) as u32).min(49)
-    }
-
-    fn enemy_type_for_wave(&mut self, _index: u32) -> EntityType {
-        let roll: f64 = self.rng.gen();
-        match self.wave {
-            1 | 2 => EntityType::EnemyGrunt,
-            3 | 4 => {
-                if roll < 0.75 { EntityType::EnemyGrunt } else { EntityType::EnemyWeaver }
-            }
-            _ => {
-                if roll < 0.50 {
-                    EntityType::EnemyGrunt
-                } else if roll < 0.85 {
-                    EntityType::EnemyWeaver
-                } else {
-                    EntityType::EnemyDiver
-                }
-            }
-        }
-    }
-
-    fn speed_multiplier(&self) -> f64 {
-        (1.0_f64 + self.wave as f64 * 0.05).min(2.0)
-    }
-
-    // ── Playing update ────────────────────────────────────────────────────
-
-    fn update_playing(&mut self, input: &InputState, dt: f64) {
+    pub(super) fn update_playing(&mut self, input: &InputState, dt: f64) {
         self.update_player(input, dt);
         self.update_spawning(dt);
         self.update_enemies(dt);
@@ -435,7 +100,7 @@ impl Game {
                 .map(|pu| pu.power_up_type == PowerUpType::ExplosiveShot)
                 .unwrap_or(false);
 
-            // We'll tag piercing/explosive in sprite_index for now (hack until weapons module)
+            // Tag piercing/explosive in sprite_index (placeholder until weapons module)
             let tag = if is_piercing { 1 } else if is_explosive { 2 } else { 0 };
 
             self.spawn_player_bullet(px, py, Vec2::new(0.0, -BULLET_SPEED), tag);
@@ -557,12 +222,10 @@ impl Game {
             // ── Boss movement ─────────────────────────────────────────────
             if matches!(e.entity_type, EntityType::Boss) {
                 e.phase += dt;
-                // Sine-wave lateral movement across top third
                 let center_x = CANVAS_W / 2.0 - 24.0;
                 e.position.x = center_x + BOSS_AMPLITUDE * (e.phase * BOSS_FREQ * std::f64::consts::TAU).sin();
-                e.position.y = BOSS_Y; // fixed height
+                e.position.y = BOSS_Y;
 
-                // Boss fire: spread shot every BOSS_FIRE_INTERVAL
                 e.fire_cooldown -= dt;
                 if e.fire_cooldown <= 0.0 {
                     fire_positions.push((e.position.x + 24.0, e.position.y + 32.0, false, true));
@@ -581,7 +244,6 @@ impl Game {
                     e.position.y += DIVER_SPEED * dt;
 
                     if e.dive_timer <= 0.0 || e.position.y > CANVAS_H - 32.0 {
-                        // End dive — mark inactive if off screen, else return to formation
                         if e.position.y > CANVAS_H - 32.0 {
                             e.active = false; // missed dive, went off screen
                         } else {
@@ -596,7 +258,6 @@ impl Game {
                 e.position.y += descend;
                 e.position.x += shift_x;
 
-                // Wave oscillation (wave 4+)
                 if wave >= 4 {
                     let osc = (e.phase * std::f64::consts::PI / 1.5).sin();
                     e.position.x += osc * 60.0 * dt * 0.333;
@@ -631,7 +292,6 @@ impl Game {
                 }
 
                 if e.position.y > CANVAS_H - 32.0 {
-                    // Boss reached bottom — trigger blast and deactivate (no game over)
                     ground_explosion_positions.push(e.position);
                     e.active = false;
                 }
@@ -643,7 +303,6 @@ impl Game {
             e.position.x += shift_x;
             e.phase += dt;
 
-            // Wave oscillation (wave 4+)
             if wave >= 4 {
                 let osc = (e.phase * std::f64::consts::PI / 1.5).sin();
                 e.position.x += osc * 60.0 * dt * 0.333;
@@ -655,29 +314,23 @@ impl Game {
                 e.position.x += zz * 40.0 * dt;
             }
 
-            // Clamp to screen horizontally
             e.position.x = e.position.x.clamp(0.0, CANVAS_W - 20.0);
 
             // Fire cooldown and shooting (wave 3+)
             if wave >= 3 {
                 e.fire_cooldown -= dt;
                 if should_fire && e.fire_cooldown <= 0.0 {
-                    // Fire chance scales from 3% at wave 3 up to ~7% at wave 10
                     let fire_chance = 0.03 + wave as f64 * 0.004;
-                    // Pseudo-random roll using entity phase as entropy (avoids borrow conflict with self.rng)
                     let pseudo_roll = (e.phase * 137.508).fract().abs();
                     if pseudo_roll < fire_chance {
-                        // Aimed shots scale from 15% on wave 3 up to 50% at high waves
                         let aimed_threshold = (0.15 + (wave.saturating_sub(3)) as f64 * 0.025).min(0.5);
                         let aimed = (e.phase * 31.0).fract() < aimed_threshold;
-                        // Fire from centre-bottom of 40×32 visual sprite
                         fire_positions.push((e.position.x + 20.0, e.position.y + 30.0, aimed, false));
                         e.fire_cooldown = 2.0 / (1.0 + wave as f64 * 0.1);
                     }
                 }
             }
 
-            // Check if reached bottom — trigger ground explosion instead of game over
             if e.position.y > CANVAS_H - 32.0 {
                 ground_explosion_positions.push(e.position);
                 e.active = false;
@@ -817,7 +470,7 @@ impl Game {
         }
     }
 
-    // ── Collision detection ───────────────────────────────────────────────
+    // ── Collision detection ───────────────────────────────────────────────────
 
     fn check_collisions(&mut self) {
         if !self.player.is_alive() {
@@ -843,7 +496,6 @@ impl Game {
             match &e.entity_type {
                 EntityType::PlayerBullet => {
                     let bhb = e.world_hitbox();
-                    // Check vs enemies
                     for (j, target) in self.entities.iter().enumerate() {
                         if !target.active || i == j { continue; }
                         if !is_enemy(&target.entity_type) { continue; }
@@ -852,7 +504,6 @@ impl Game {
                             to_kill.push(j); // enemy
                             score_gain += enemy_score_value(&target.entity_type, self.wave);
                             spawn_explosions.push(target.position);
-                            // Chance to spawn powerup
                             spawn_powerups.push(target.position);
                         }
                     }
@@ -977,8 +628,7 @@ impl Game {
 
     fn spawn_powerup_at(&mut self, pos: Vec2) {
         let roll: f64 = self.rng.gen();
-        // Weights: weapons/shield 6 slots at ~13.7% each, ExtraLife at ~4% (narrower top band)
-        // Use a 100-point scale: 0-96 → weapon/shield (7 even slices), last slice = ExtraLife
+        // Weights: 6 weapon/shield slots at ~13.7% each; ExtraLife at ~4% (narrower top band).
         let ptype = if roll < 0.04 {
             PowerUpType::ExtraLife
         } else {
@@ -1016,212 +666,9 @@ impl Game {
             self.state = GameState::WaveTransition { timer: WAVE_TRANSITION_DURATION };
         }
     }
-
-    // ── Rendering ─────────────────────────────────────────────────────────
-
-    pub fn render(&self, renderer: &Renderer) {
-        renderer.clear();
-
-        match &self.state {
-            GameState::MainMenu => self.render_main_menu(renderer),
-            GameState::Playing | GameState::Paused => {
-                self.render_game(renderer);
-                if matches!(self.state, GameState::Paused) {
-                    self.render_pause_overlay(renderer);
-                }
-            }
-            GameState::WaveTransition { timer } => {
-                self.render_game(renderer);
-                self.render_wave_transition(renderer, *timer);
-            }
-            GameState::GameOver { timer } => {
-                self.render_game(renderer);
-                self.render_game_over(renderer, *timer);
-            }
-        }
-    }
-
-    fn render_game(&self, renderer: &Renderer) {
-        // Enemies
-        for e in &self.entities {
-            if !e.active { continue; }
-            match &e.entity_type {
-                EntityType::EnemyGrunt =>
-                    self.atlas.grunt.draw(&renderer.ctx, e.position.x, e.position.y),
-                EntityType::EnemyWeaver =>
-                    self.atlas.weaver.draw(&renderer.ctx, e.position.x, e.position.y),
-                EntityType::EnemyDiver =>
-                    self.atlas.diver.draw(&renderer.ctx, e.position.x, e.position.y),
-                EntityType::Boss =>
-                    self.atlas.boss.draw(&renderer.ctx, e.position.x, e.position.y),
-                EntityType::PlayerBullet =>
-                    self.atlas.player_bullet.draw(&renderer.ctx, e.position.x, e.position.y),
-                EntityType::EnemyBullet =>
-                    self.atlas.enemy_bullet.draw(&renderer.ctx, e.position.x, e.position.y),
-                EntityType::Explosion => {
-                    if let Some(frame) = self.atlas.explosion_frames.get(e.anim_frame) {
-                        let offset = frame.width as f64 / 2.0;
-                        frame.draw(&renderer.ctx, e.position.x - offset, e.position.y - offset);
-                    }
-                }
-                EntityType::PowerUp(ptype) => {
-                    let color = self.atlas.powerup_colors[powerup_index(ptype)];
-                    // Blink in last 2 seconds
-                    let blink = (e.lifetime * 4.0) as u32;
-                    let should_draw = e.lifetime > 2.0 || blink.is_multiple_of(2);
-                    if should_draw {
-                        let pu_sprite = SpriteGenerator::powerup_sprite(color);
-                        pu_sprite.draw(&renderer.ctx, e.position.x, e.position.y);
-                    }
-                }
-                EntityType::GroundExplosion => {
-                    // Fade out as lifetime decreases. lifetime goes from GROUND_EXPLOSION_DURATION → 0.
-                    let alpha = (e.lifetime / GROUND_EXPLOSION_DURATION).clamp(0.0, 1.0);
-                    // center.y == CANVAS_H (screen bottom); center.x == horizontal blast center.
-                    let cx = e.center().x;
-                    let r = GROUND_EXPLOSION_RADIUS;
-                    renderer.set_alpha(alpha * 0.85);
-                    // Outer arc rising from the ground — orange
-                    renderer.fill_rect(cx - r, CANVAS_H - r * 0.5, r * 2.0, r * 0.5, RetroColors::ORANGE);
-                    // Inner core — bright yellow
-                    renderer.fill_rect(cx - r * 0.6, CANVAS_H - r * 0.35, r * 1.2, r * 0.35, RetroColors::YELLOW);
-                    // Hot white core
-                    renderer.fill_rect(cx - r * 0.25, CANVAS_H - r * 0.2, r * 0.5, r * 0.2, RetroColors::WHITE);
-                    renderer.reset_alpha();
-                }
-                _ => {}
-            }
-        }
-
-        // Player
-        if self.player.is_alive() || self.player.respawn_timer > 0.0 {
-            let show = if self.player.entity.is_invulnerable() {
-                let t = (self.player.entity.invuln_time * INVULN_FLASH_HZ) as u32;
-                t.is_multiple_of(2)
-            } else {
-                true
-            };
-            if show && self.player.entity.active {
-                let thrust_t = (self.player.thrust_anim * 6.0) as u32;
-                let use_thrust = thrust_t.is_multiple_of(2);
-                let sprite = if use_thrust { &self.atlas.player_thrust } else { &self.atlas.player };
-                sprite.draw(&renderer.ctx, self.player.entity.position.x, self.player.entity.position.y);
-            }
-        }
-
-        // HUD
-        self.render_hud(renderer);
-    }
-
-    fn render_hud(&self, renderer: &Renderer) {
-        // Score
-        renderer.draw_text(
-            &format!("SCORE {:06}", self.player.score),
-            8.0, 16.0, RetroColors::WHITE, 12,
-        );
-        // High score
-        renderer.draw_text(
-            &format!("HI    {:06}", self.high_score),
-            8.0, 30.0, RetroColors::YELLOW, 10,
-        );
-        // Wave
-        renderer.draw_text_centered(
-            &format!("WAVE {}", self.wave),
-            16.0, RetroColors::CYAN, 12,
-        );
-        // Lives (draw small ship icons; cap at 9 so they fit the HUD)
-        for i in 0..self.player.lives.min(9) {
-            let x = CANVAS_W - 20.0 - i as f64 * 18.0;
-            renderer.fill_rect(x + 3.0, 4.0, 6.0, 8.0, RetroColors::BLUE);
-            renderer.fill_rect(x + 5.0, 2.0, 2.0, 3.0, RetroColors::CYAN);
-        }
-        // Shields
-        for i in 0..self.player.shields {
-            let x = CANVAS_W - 20.0 - i as f64 * 14.0;
-            renderer.draw_text("S", x, 32.0, RetroColors::CYAN, 10);
-        }
-        // Active power-up
-        if let Some(ref pu) = self.player.active_powerup {
-            let color = self.atlas.powerup_colors[powerup_index(&pu.power_up_type)];
-            let bar_color = if pu.fraction() > 0.66 {
-                RetroColors::GREEN
-            } else if pu.fraction() > 0.33 {
-                RetroColors::YELLOW
-            } else {
-                RetroColors::RED
-            };
-            renderer.fill_rect(4.0, CANVAS_H - 24.0, 12.0, 12.0, color);
-            renderer.draw_bar(20.0, CANVAS_H - 20.0, 60.0, 8.0, pu.fraction(), bar_color);
-        }
-    }
-
-    fn render_main_menu(&self, renderer: &Renderer) {
-        renderer.draw_text_centered("RW DEFENDER", 160.0, RetroColors::CYAN, 24);
-        renderer.draw_text_centered("ARCADE SHOOTER", 190.0, RetroColors::YELLOW, 14);
-        renderer.draw_text_centered("PRESS ENTER OR FIRE TO START", 280.0, RetroColors::WHITE, 12);
-        renderer.draw_text_centered("ARROW KEYS / WASD TO MOVE", 310.0, RetroColors::GRAY, 10);
-        renderer.draw_text_centered("SPACE / W TO FIRE", 326.0, RetroColors::GRAY, 10);
-        renderer.draw_text_centered("ESC TO PAUSE", 342.0, RetroColors::GRAY, 10);
-        renderer.draw_text_centered(
-            &format!("HI SCORE {:06}", self.high_score),
-            380.0, RetroColors::YELLOW, 12,
-        );
-    }
-
-    fn render_wave_transition(&self, renderer: &Renderer, timer: f64) {
-        let alpha = ((WAVE_TRANSITION_DURATION - timer) / 0.3).min(1.0);
-        renderer.set_alpha(alpha);
-        renderer.draw_text_centered(
-            &format!("WAVE {}", self.wave + 1),
-            CANVAS_H / 2.0 - 16.0, RetroColors::CYAN, 28,
-        );
-        renderer.reset_alpha();
-    }
-
-    fn render_pause_overlay(&self, renderer: &Renderer) {
-        renderer.set_alpha(0.5);
-        renderer.fill_rect(0.0, 0.0, CANVAS_W, CANVAS_H, RetroColors::BLACK);
-        renderer.reset_alpha();
-        renderer.draw_text_centered("PAUSED", CANVAS_H / 2.0 - 20.0, RetroColors::YELLOW, 24);
-        renderer.draw_text_centered("PRESS ESC TO RESUME", CANVAS_H / 2.0 + 10.0, RetroColors::WHITE, 12);
-    }
-
-    fn render_game_over(&self, renderer: &Renderer, timer: f64) {
-        let elapsed = 3.0 - timer;
-        if elapsed < 1.0 { return; } // black screen for 1s
-        let alpha = ((elapsed - 1.0) / 0.5).min(1.0);
-        renderer.set_alpha(alpha * 0.6);
-        renderer.fill_rect(0.0, 0.0, CANVAS_W, CANVAS_H, RetroColors::BLACK);
-        renderer.reset_alpha();
-        renderer.set_alpha(alpha);
-        renderer.draw_text_centered("GAME OVER", CANVAS_H / 2.0 - 30.0, RetroColors::RED, 28);
-        if elapsed > 1.5 {
-            renderer.draw_text_centered(
-                &format!("SCORE {:06}", self.player.score),
-                CANVAS_H / 2.0 + 10.0, RetroColors::WHITE, 16,
-            );
-        }
-        if elapsed > 2.0 {
-            renderer.draw_text_centered(
-                &format!("HI SCORE {:06}", self.high_score),
-                CANVAS_H / 2.0 + 32.0, RetroColors::YELLOW, 14,
-            );
-        }
-        if timer <= 0.0 {
-            renderer.draw_text_centered("PRESS ENTER TO PLAY AGAIN", CANVAS_H / 2.0 + 60.0, RetroColors::GREEN, 10);
-        }
-        renderer.reset_alpha();
-    }
 }
 
-// ── Helper functions ──────────────────────────────────────────────────────────
-
-pub fn is_enemy(etype: &EntityType) -> bool {
-    matches!(
-        etype,
-        EntityType::EnemyGrunt | EntityType::EnemyWeaver | EntityType::EnemyDiver | EntityType::Boss
-    )
-}
+// ── Private helpers ───────────────────────────────────────────────────────────
 
 /// Returns true for regular (non-boss) enemies — used for formation logic.
 fn is_regular_enemy(etype: &EntityType) -> bool {
@@ -1238,27 +685,5 @@ fn enemy_score_value(etype: &EntityType, wave: u32) -> u32 {
         EntityType::EnemyDiver => 30,
         EntityType::Boss => 100 + wave * 20,
         _ => 0,
-    }
-}
-
-fn powerup_duration(ptype: &PowerUpType) -> f64 {
-    match ptype {
-        PowerUpType::TripleShot | PowerUpType::RapidFire | PowerUpType::PiercingShot => 12.0,
-        PowerUpType::ExplosiveShot => 15.0,
-        PowerUpType::LaserBeam => 10.0,
-        PowerUpType::Shield => 30.0,
-        PowerUpType::ExtraLife => 0.0, // instant — no timer
-    }
-}
-
-fn powerup_index(ptype: &PowerUpType) -> usize {
-    match ptype {
-        PowerUpType::TripleShot => 0,
-        PowerUpType::ExplosiveShot => 1,
-        PowerUpType::RapidFire => 2,
-        PowerUpType::LaserBeam => 3,
-        PowerUpType::PiercingShot => 4,
-        PowerUpType::Shield => 5,
-        PowerUpType::ExtraLife => 6,
     }
 }
