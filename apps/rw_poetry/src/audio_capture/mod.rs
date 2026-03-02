@@ -1,5 +1,3 @@
-// Items in this module are consumed starting in T08.
-#![allow(dead_code)]
 
 use std::cell::RefCell;
 use std::fmt;

@@ -1,4 +1,4 @@
-// Items in this module are consumed starting in T08.
+// Remaining store functions (list, get, delete) will be consumed in T09–T11.
 #![allow(dead_code)]
 
 use idb::{Database, DatabaseEvent, Factory, IndexParams, KeyPath, ObjectStoreParams, TransactionMode};

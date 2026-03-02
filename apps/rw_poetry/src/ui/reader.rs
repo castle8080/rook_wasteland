@@ -1,6 +1,7 @@
 use leptos::prelude::*;
 
 use crate::poem_repository::{fetch_index, fetch_poem, pick_random, PoemDetail};
+use crate::ui::recording_controls::RecordingControls;
 
 /// Full poem reader view: loads and displays a random poem.
 #[component]
@@ -47,24 +48,31 @@ pub fn ReaderView() -> impl IntoView {
                             </button>
                         </div>
                     }.into_any(),
-                    Some(Ok(poem)) => view! {
-                        <article>
-                            <h1 class="poem-title">{poem.title.clone()}</h1>
-                            <p class="poem-meta">
-                                {poem.author.clone()}
-                                {poem.date.as_ref().map(|d| format!(" · {d}"))}
-                            </p>
-                            <pre class="poem-body">{poem.content.clone()}</pre>
-                        </article>
-                        <div class="recording-controls" id="recording-controls-placeholder">
-                            // Recording controls added in T08
-                        </div>
-                        <div style="margin-top: 1.5rem;">
-                            <button class="btn btn-secondary" on:click=on_new_poem>
-                                "New Poem"
-                            </button>
-                        </div>
-                    }.into_any(),
+                    Some(Ok(poem)) => {
+                        let poem_id = poem.id.clone();
+                        let poem_title = poem.title.clone();
+                        let poem_author = poem.author.clone();
+                        view! {
+                            <article>
+                                <h1 class="poem-title">{poem.title.clone()}</h1>
+                                <p class="poem-meta">
+                                    {poem.author.clone()}
+                                    {poem.date.as_ref().map(|d| format!(" · {d}"))}
+                                </p>
+                                <pre class="poem-body">{poem.content.clone()}</pre>
+                            </article>
+                            <RecordingControls
+                                poem_id=poem_id
+                                poem_title=poem_title
+                                poem_author=poem_author
+                            />
+                            <div style="margin-top: 1.5rem;">
+                                <button class="btn btn-secondary" on:click=on_new_poem>
+                                    "New Poem"
+                                </button>
+                            </div>
+                        }.into_any()
+                    }
                 }
             }}
         </main>
