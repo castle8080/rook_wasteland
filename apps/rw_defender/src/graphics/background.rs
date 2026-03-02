@@ -1,9 +1,11 @@
-/// Procedural parallax starfield rendered to the background canvas.
+/// Parallax starfield + NASA/ESA background image rendered to the background canvas.
 ///
 /// Three depth layers scroll at different speeds to create depth illusion.
-/// Star colors shift based on the current wave tier.
+/// Star colors shift based on the current wave tier. The real space photo is
+/// drawn first on each frame (via drawImage) and the star particles are
+/// composited on top.
 use wasm_bindgen::JsCast;
-use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement};
+use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement, HtmlImageElement};
 
 use crate::utils::math::lcg_rand;
 
@@ -139,6 +141,10 @@ pub struct StarField {
     /// Layer 0: slow/small/dim; Layer 1: medium; Layer 2: fast/large/bright
     layers: [Vec<Star>; 3],
     pub tier: BackgroundTier,
+    /// Current space photo, loaded asynchronously via HtmlImageElement.
+    bg_image: Option<HtmlImageElement>,
+    /// Filename last set (to avoid recreating the element on every wave check).
+    bg_filename: String,
 }
 
 impl StarField {
@@ -150,7 +156,7 @@ impl StarField {
             .dyn_into::<CanvasRenderingContext2d>()
             .expect("bg context not CanvasRenderingContext2d");
 
-        ctx.set_image_smoothing_enabled(false);
+        ctx.set_image_smoothing_enabled(true);
 
         let layers = [
             Self::generate_layer(0, 80),  // slow, small
@@ -158,7 +164,19 @@ impl StarField {
             Self::generate_layer(2, 25),  // fast, large, bright
         ];
 
-        StarField { ctx, layers, tier: BackgroundTier::Warm }
+        StarField { ctx, layers, tier: BackgroundTier::Warm, bg_image: None, bg_filename: String::new() }
+    }
+
+    /// Set the background image for the current wave. `filename` is the base name
+    /// (e.g. `"esa_orion_nebula_m42.jpg"`). The image is loaded at `/backgrounds/<filename>`.
+    pub fn set_background_image(&mut self, filename: &str) {
+        if filename == self.bg_filename {
+            return; // already loading/loaded this one
+        }
+        self.bg_filename = filename.to_string();
+        let img = HtmlImageElement::new().expect("HtmlImageElement::new failed");
+        img.set_src(&format!("/backgrounds/{filename}"));
+        self.bg_image = Some(img);
     }
 
     fn generate_layer(layer: usize, count: usize) -> Vec<Star> {
@@ -202,17 +220,28 @@ impl StarField {
     pub fn render(&self) {
         let ctx = &self.ctx;
 
-        // Black background
-        ctx.set_fill_style_str("#000005");
-        ctx.fill_rect(0.0, 0.0, CANVAS_W, CANVAS_H);
+        // Clear canvas to transparent so background shows if image not ready yet.
+        ctx.clear_rect(0.0, 0.0, CANVAS_W, CANVAS_H);
 
-        // Optional nebula glow (radial)
+        // Draw the NASA/ESA background image if loaded (img.complete() is true once decoded).
+        if let Some(ref img) = self.bg_image {
+            if img.complete() && img.natural_width() > 0 {
+                // Draw at 45% opacity to keep image visible but not overwhelming.
+                ctx.set_global_alpha(0.45);
+                let _ = ctx.draw_image_with_html_image_element_and_dw_and_dh(
+                    img, 0.0, 0.0, CANVAS_W, CANVAS_H,
+                );
+                ctx.set_global_alpha(1.0);
+            }
+        }
+
+        // Subtle tier-colored nebula tint (transparent overlay, not a solid fill).
         if let Some((color, _alpha)) = self.tier.nebula_color() {
             ctx.set_fill_style_str(color);
             ctx.fill_rect(0.0, 0.0, CANVAS_W, CANVAS_H);
         }
 
-        // Draw stars per layer
+        // Draw stars per layer.
         for (li, layer) in self.layers.iter().enumerate() {
             let size = match li {
                 0 => 1.0,
@@ -278,5 +307,48 @@ mod tests {
         assert_ne!(warm, nebula);
         assert_ne!(warm, deep);
         assert_ne!(nebula, deep);
+    }
+
+    #[test]
+    fn test_background_image_for_wave_returns_jpg() {
+        // Every wave 0–30 must return a .jpg filename
+        for wave in 0u32..=30 {
+            let f = background_image_for_wave(wave);
+            assert!(f.ends_with(".jpg"), "wave {wave}: expected .jpg, got {f}");
+        }
+    }
+
+    #[test]
+    fn test_background_image_for_wave_known_values() {
+        // Wave 0 → UltraDeep (default branch), first image
+        assert_eq!(background_image_for_wave(0), "01_jwst_deep_field_smacs0723.jpg");
+        // Wave 1 → first Warm image
+        assert_eq!(background_image_for_wave(1), "esa_orion_nebula_m42.jpg");
+        // Wave 5 → last Warm image (5-1=4 mod 5 = 4)
+        assert_eq!(background_image_for_wave(5), "esa_helix_nebula.jpg");
+        // Wave 6 → first Nebula image
+        assert_eq!(background_image_for_wave(6), "esa_butterfly_nebula.jpg");
+        // Wave 11 → first Deep image
+        assert_eq!(background_image_for_wave(11), "esa_sombrero_galaxy.jpg");
+        // Wave 16 → first UltraDeep image
+        assert_eq!(background_image_for_wave(16), "01_jwst_deep_field_smacs0723.jpg");
+    }
+
+    #[test]
+    fn test_background_image_cycles_within_tier() {
+        // Warm: waves 1-5 each return different images, wave 6 goes to Nebula
+        let warm_images: Vec<_> = (1u32..=5).map(background_image_for_wave).collect();
+        // All 5 warm images should be distinct
+        let unique: std::collections::HashSet<_> = warm_images.iter().collect();
+        assert_eq!(unique.len(), 5, "expected 5 distinct warm images");
+        // Wave 6 must NOT be same as warm images
+        assert!(!warm_images.contains(&background_image_for_wave(6)));
+    }
+
+    #[test]
+    fn test_ultra_deep_large_wave() {
+        // Very large wave numbers should not panic (cycle wraps)
+        let f = background_image_for_wave(u32::MAX);
+        assert!(f.ends_with(".jpg"));
     }
 }

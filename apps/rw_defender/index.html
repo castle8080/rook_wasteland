@@ -19,22 +19,11 @@
             width: 640px;
             height: 480px;
         }
-        #space-bg {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 640px;
-            height: 480px;
-            z-index: 0;
-            object-fit: cover;
-            filter: brightness(0.4) saturate(0.65) contrast(0.9);
-        }
         #background-canvas {
             position: absolute;
             top: 0;
             left: 0;
             z-index: 1;
-            opacity: 0.55;
         }
         #game-canvas {
             position: absolute;
@@ -50,7 +39,6 @@
 </head>
 <body>
     <div id="game-container">
-        <img id="space-bg" src="" alt="" aria-hidden="true" />
         <canvas id="background-canvas" width="640" height="480"></canvas>
         <canvas id="game-canvas" width="640" height="480"></canvas>
     </div>
