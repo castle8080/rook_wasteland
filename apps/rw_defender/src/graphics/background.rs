@@ -145,14 +145,15 @@ impl StarField {
     }
 
     /// Set the background image for the current wave. `filename` is the base name
-    /// (e.g. `"esa_orion_nebula_m42.jpg"`). The image is loaded at `/backgrounds/<filename>`.
+    /// (e.g. `"esa_orion_nebula_m42.jpg"`). The image is loaded at `backgrounds/<filename>`
+    /// (relative to the page URL, so it resolves correctly under any subdirectory).
     pub fn set_background_image(&mut self, filename: &str) {
         if filename == self.bg_filename {
             return; // already loading/loaded this one
         }
         self.bg_filename = filename.to_string();
         let img = HtmlImageElement::new().expect("HtmlImageElement::new failed");
-        img.set_src(&format!("/backgrounds/{filename}"));
+        img.set_src(&format!("backgrounds/{filename}"));
         self.bg_image = Some(img);
     }
 
