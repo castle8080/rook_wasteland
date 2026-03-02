@@ -1,0 +1,11 @@
+/* RW Poetry — main stylesheet */
+/* Design system populated in T05. Baseline reset only for now. */
+
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+}

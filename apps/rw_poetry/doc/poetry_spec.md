@@ -54,7 +54,114 @@ Notes:
 
 ---
 
-## 5) Core User Stories
+## 4.2) Recommended Crates
+
+The following crates are recommended for this project. Versions noted as of spec date — check crates.io for latest compatible releases.
+
+### Framework
+
+```toml
+leptos = { version = "0.8", features = ["csr"] }
+leptos_meta = { version = "0.8" }
+leptos_router = { version = "0.8" }
+```
+
+### HTTP / Network
+
+```toml
+# Fetch API bindings for WASM — use for loading poem index and poem JSON
+gloo-net = { version = "0.6", features = ["http"] }
+```
+
+### Serialization
+
+```toml
+# Required for deserializing poem JSON and recording metadata
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1" }
+
+# For converting Rust types ↔ JsValue when working with web-sys APIs
+serde-wasm-bindgen = { version = "0.6" }
+```
+
+### Browser APIs (WASM bindings)
+
+```toml
+# Core WASM/JS interop — pulled in by Leptos but may need explicit features
+wasm-bindgen = { version = "0.2" }
+
+# Low-level browser API bindings — needed for MediaDevices, MediaRecorder,
+# HtmlAudioElement, Blob, ArrayBuffer, IndexedDB, URL, etc.
+# Enable only the specific features you use to keep binary size reasonable.
+[dependencies.web-sys]
+version = "0.3"
+features = [
+  "AudioContext",
+  "Blob",
+  "BlobPropertyBag",
+  "console",
+  "Document",
+  "HtmlAnchorElement",
+  "HtmlAudioElement",
+  "IdbDatabase",
+  "IdbFactory",
+  "IdbObjectStore",
+  "IdbOpenDbRequest",
+  "IdbRequest",
+  "IdbTransaction",
+  "MediaDevices",
+  "MediaRecorder",
+  "MediaRecorderOptions",
+  "MediaStream",
+  "Navigator",
+  "TimeRanges",
+  "Url",
+  "Window",
+]
+
+# JS standard library bindings (Array, Promise, etc.)
+js-sys = { version = "0.3" }
+```
+
+### IndexedDB
+
+```toml
+# Higher-level safe Rust wrapper around IndexedDB — preferred over raw web-sys IDB
+idb = { version = "0.6" }
+```
+
+`idb` provides typed, async, Promise-based access to IndexedDB stores and is the recommended choice over `rexie` (less actively maintained) or raw `web-sys` IDB (very verbose).
+
+### UUID Generation
+
+```toml
+# For generating recording_id and audio_blob_key values
+uuid = { version = "1", features = ["v4", "js"] }
+```
+
+The `js` feature uses the browser's `crypto.getRandomValues` for entropy — required for UUID v4 in WASM. Do **not** use the `getrandom` feature directly; use `js` instead.
+
+### Timers / Async
+
+```toml
+# For async timeouts and intervals in WASM (e.g. recording elapsed timer)
+gloo-timers = { version = "0.3", features = ["futures"] }
+```
+
+Use `spawn_local` from `leptos::task` for async work inside components. `gloo-timers` provides `TimeoutFuture` and `IntervalStream` that work with `spawn_local`.
+
+### Local Storage (non-IndexedDB)
+
+```toml
+# For small key-value persistence (e.g. dark mode preference)
+gloo-storage = { version = "0.3" }
+```
+
+Use `LocalStorage` from `gloo-storage` for simple string/JSON settings. Do **not** use it for audio blobs — use IndexedDB (see section 7.4).
+
+---
+
+
 
 ### 5.1 Random Poem Reading
 - As a user, I can request a random poem and immediately read it.
@@ -95,7 +202,7 @@ Notes:
    - `id` (string)
    - `title` (string)
    - `author` (string)
-   - `content` (string or array of lines)
+   - `content` (string — newline-separated lines, blank lines denote stanza breaks)
 4. Optional fields:
    - `date` (string)
    - `source` (string)
@@ -132,7 +239,7 @@ Notes:
    - download action
 
 ### 6.6 Playback
-1. Recording detail supports play/pause/seek (native control acceptable).
+1. Recording detail supports play/pause/seek via a custom-styled player (see section 8.8 for design).
 2. If blob missing/corrupt, app surfaces error and allows deletion.
 
 ### 6.7 Download/Export
@@ -184,6 +291,7 @@ Notes:
   "recording_id": "uuid",
   "poem_id": "emily-dickinson-hope",
   "poem_title": "Hope is the thing with feathers",
+  "poem_author": "Emily Dickinson",
   "recorded_at": "2026-03-01T15:31:00Z",
   "duration_ms": 91342,
   "mime_type": "audio/webm",
@@ -191,7 +299,48 @@ Notes:
 }
 ```
 
-### 7.4 Poetry Database Static Folder Layout (Technical Design)
+Note: `poem_title` and `poem_author` are **snapshotted at save time** so recordings remain displayable even if the poem corpus is reorganized.
+
+### 7.4 IndexedDB Schema
+
+**Database name:** `rw_poetry_db`  
+**Schema version:** `1`
+
+Two object stores:
+
+#### Store: `recordings`
+Holds all recording metadata. No audio data.
+
+| Property | Type | Notes |
+|---|---|---|
+| `recording_id` | string (UUID) | **keyPath** — primary key |
+| `poem_id` | string | Index: `by_poem_id` |
+| `poem_title` | string | Snapshotted at save time |
+| `poem_author` | string | Snapshotted at save time |
+| `recorded_at` | string (ISO-8601) | Index: `by_recorded_at` — used for sort |
+| `duration_ms` | number \| null | May be null if duration unavailable at save time |
+| `mime_type` | string | e.g. `"audio/webm;codecs=opus"` |
+| `audio_blob_key` | string (UUID) | Foreign key into `audio_blobs` store |
+
+Indices:
+- `by_poem_id` on `poem_id` — for querying recordings of a specific poem
+- `by_recorded_at` on `recorded_at` — for sorted list view (newest first)
+
+#### Store: `audio_blobs`
+Holds raw audio data separately to keep metadata queries fast.
+
+| Property | Type | Notes |
+|---|---|---|
+| `blob_key` | string (UUID) | **keyPath** — primary key; matches `audio_blob_key` in `recordings` |
+| `data` | `ArrayBuffer` | Raw audio bytes — store as `ArrayBuffer`, not `Blob`, for maximum IndexedDB compatibility |
+
+**Implementation notes:**
+- Always write metadata and blob in the same logical operation; if either fails, roll back or clean up the orphan.
+- When deleting a recording, delete the `audio_blobs` entry first, then the `recordings` entry.
+- Reconstruct a `Blob` from `ArrayBuffer` + `mime_type` at playback/download time: `new Blob([array_buffer], { type: mime_type })`.
+- Use `web-sys` + `idb` crate for all IndexedDB access (see section 4.2 for crate recommendations).
+
+
 The poetry corpus must be packaged as static JSON assets so the web app can retrieve data using browser HTTP requests (fetch/XHR) without any backend API.
 
 Required layout:
@@ -244,6 +393,36 @@ Index example aligned to layout:
 
 ---
 
+### 7.5 Index Rebuild Script
+
+`poems_index.json` is **generated from the poem files on disk** — do not hand-edit it.
+
+A script is provided to rebuild it:
+
+```
+scripts/build_poems_index.py
+```
+
+**Usage:**
+```sh
+python3 scripts/build_poems_index.py
+```
+
+**Behavior:**
+- Scans all `*.json` files under `public/poems/authors/`
+- Reads `id`, `title`, and `author` from each file
+- Derives the `path` from the file's location under `public/`
+- Writes a fresh `public/poems/poems_index.json` sorted by author then title
+- Skips and reports any files missing required fields or containing invalid JSON
+- Exits with a non-zero code if any files were skipped
+
+**Run this script any time you:**
+- Add new poem files to the corpus
+- Rename or reorganize poem files
+- Remove poems from the corpus
+
+---
+
 ## 8) UI/UX Requirements
 
 ### 8.1 Main Views
@@ -265,7 +444,182 @@ Index example aligned to layout:
 - Show recording in-progress state (timer or indicator).
 - Confirm destructive actions (e.g., delete recording, if implemented).
 
-### 8.3 Accessibility
+### 8.3 Typography and Poem Rendering
+
+Poem body text requires careful typographic treatment — it is not prose and must not be rendered like code.
+
+**Font**
+- Use a **proportional serif font** for poem body text (e.g. Georgia, Garamond, Palatino, or a serif web font). Serif typefaces mirror literary print conventions and are strongly preferred for verse.
+- Fixed-width/monospace fonts must **not** be used for poem text.
+- UI chrome (navigation, buttons, labels) may use sans-serif.
+
+**Whitespace preservation**
+- Apply `white-space: pre-wrap` to the poem content element. This preserves the poet's intentional indentation and line breaks exactly as stored in the `content` field, while still allowing long lines to wrap at the viewport edge rather than overflow.
+- Stanza breaks (blank lines in the content string) must render as visible vertical space — do not collapse them.
+
+**Sizing and spacing**
+- Font size: `1.1rem`–`1.2rem` — slightly generous; poems benefit from breathing room.
+- Line height: `1.7`–`1.8` — poetry needs more vertical rhythm than prose.
+- Constrain the poem column width (e.g. `max-width: 38em`) to preserve comfortable line length for reading.
+
+### 8.4 Color Palette and Visual Design
+
+The guiding principle is **the poem is the content — the UI should disappear**. Keep the visual design calm, warm, and typographically focused. Avoid bright saturated colors that compete with the text.
+
+**Mode**
+- Default to **light mode**. Long-form reading on a light background is ergonomically preferred for most users in normal lighting, and serif fonts render more cleanly on light backgrounds.
+- Provide an optional **dark mode toggle**. A late-night contemplative reading session is a natural use case for this app, and dark mode suits that mood well.
+- Both modes should share the same warm color temperature so they feel like the same app.
+
+**Light mode palette**
+| Role | Value | Notes |
+|---|---|---|
+| Background | `#faf8f4` | Warm off-white — paper tone, not stark white |
+| Body text | `#2c2825` | Dark warm gray — softer than pure black |
+| Secondary text (metadata, labels) | `#6b6460` | Muted warm gray |
+| Accent (buttons, links, active) | one muted tone — e.g. dusty burgundy `#8b3a3a`, warm amber `#a0742a`, or muted teal `#3a7a72` | Pick one and apply consistently |
+| Surface / card backgrounds | `#f2ede6` | Slightly darker than page background |
+| Border / dividers | `#ddd8d0` | Subtle warm gray |
+
+**Dark mode palette**
+| Role | Value | Notes |
+|---|---|---|
+| Background | `#1c1917` | Deep warm charcoal — not pure black |
+| Body text | `#e8e3db` | Soft warm cream |
+| Secondary text | `#a09890` | Muted warm gray |
+| Accent | same hue as light mode, adjusted for contrast | |
+| Surface | `#252220` | Slightly lighter than background |
+| Border / dividers | `#3a3632` | Subtle warm dark |
+
+**Layout**
+- Single centered column for poem content, `max-width: 38em`, horizontally centered in the viewport.
+- Poem title as a prominent heading (`h1` or `h2`), author and date as smaller secondary text below it.
+- Generous vertical padding around the poem block — it should feel like opening a book, not scanning a webpage.
+- Controls (New Poem, Record, Stop) as minimal, low-visual-weight buttons — placed below the poem or in a persistent but unobtrusive bar, so they do not compete with the poem text during reading.
+- Readings list: clean and sparse — a library-catalog aesthetic, not a social feed. Each row shows poem title + date, nothing more.
+- Reference aesthetic: a well-designed literary journal or an e-reader's reading mode (Instapaper, Kindle). Calm, purposeful, text-first.
+
+### 8.5 Navigation
+
+The app has two destinations — the reader and the recordings list. Keep navigation minimal:
+
+- A **slim top bar** containing only:
+  - App name or wordmark (left)
+  - A single `Recordings` link or icon button (right) — a list or microphone icon works well
+- No hamburger menus, no bottom tab bars, no sidebar. The home view *is* the reader.
+
+**User flow:**
+```
+Home (Reader)  ──►  Recordings List  ──►  Recording Detail
+     ▲                                          │
+     └──────────────────────────────────────────┘
+                  (link back to poem)
+```
+
+### 8.6 Recording Controls
+
+Recording controls live contextually below the poem text — they belong to the reading experience, not to the navigation chrome.
+
+**Three states:**
+
+| State | Display |
+|---|---|
+| **Idle** | A single understated `⏺ Record` button in a neutral muted tone. Do not use red — it reads as alarming. |
+| **Recording active** | Button becomes `⏹ Stop` and shifts to the accent color. Show a live elapsed timer (e.g. `0:32`). A subtle pulse ring or indicator signals active capture. The surrounding UI may dim slightly to signal focus mode. |
+| **Saved** | Brief inline confirmation (e.g. `✓ Saved`) replaces the button momentarily, then resets to idle. No modal interruption. |
+
+- Request microphone permission only at the moment the user taps `⏺ Record` — not on page load.
+- If permission is denied, replace the button with a short inline explanation and a link to browser settings. Do not block the rest of the UI.
+
+### 8.7 Recordings List View
+
+Present the recordings list as a **reading journal** — clean, sparse rows, no card chrome or decoration.
+
+Each row:
+```
+Hope is the thing with feathers      Mar 1, 2026   0:43   ▶   ↓
+```
+
+- **Poem title** — primary text, normal weight
+- **Date + duration** — secondary text, smaller, muted color
+- **▶ Play** and **↓ Download** as small inline icon buttons on the right — allow play and download without leaving the list
+- Clicking/tapping the title navigates to the Recording Detail view
+- Sort newest first by default
+
+### 8.8 Recording Detail View
+
+Show the poem and its recording together so the user can read along while listening.
+
+Layout (top to bottom):
+1. Poem title + author (heading)
+2. Full poem text (same rendering as reader view)
+3. Audio player (custom-styled — see section 8.10)
+4. Recording metadata — date recorded, duration
+5. Download button
+6. Link back to the poem in the reader (e.g. `← Read this poem`)
+
+### 8.9 Accessibility
+- Keyboard navigable controls.
+- Semantic headings and landmarks.
+- Visible focus indicators.
+- Sufficient color contrast.
+- Screen-reader friendly labels for recording and playback actions.
+
+### 8.10 Custom Audio Player Design
+
+The browser's native `<audio controls>` element renders inconsistently across browsers and cannot be styled to match the app's visual design. Instead, render a hidden `<audio>` element and drive custom Leptos UI controls on top of its API.
+
+**Implementation approach:**
+
+```rust
+// 1. Bind a NodeRef to the hidden audio element
+let audio_ref: NodeRef<html::Audio> = NodeRef::new();
+
+// 2. Reactive signals for player state
+let (playing, set_playing) = signal(false);
+let (current_time, set_current_time) = signal(0.0f64);
+let (duration, set_duration) = signal(0.0f64);
+
+// 3. Sync audio element events → signals via Effects
+Effect::new(move |_| {
+    if let Some(audio) = audio_ref.get() {
+        // timeupdate fires ~4x/sec while playing
+        let closure = Closure::wrap(Box::new(move || {
+            set_current_time.set(audio.current_time());
+        }) as Box<dyn Fn()>);
+        audio.set_ontimeupdate(Some(closure.as_ref().unchecked_ref()));
+        closure.forget(); // keep alive
+    }
+});
+```
+
+**Visual layout of the player bar:**
+
+```
+[▶/⏸]  0:32 ──────●──────────────── 1:43
+```
+
+| Element | Implementation |
+|---|---|
+| Play/Pause button | Toggle `audio.play()` / `audio.pause()` via `web-sys`; update `playing` signal |
+| Elapsed time | Derived from `current_time` signal — format as `M:SS` |
+| Seek bar | `<input type="range" min=0 max=duration step=0.1>` bound to `current_time`; on change, call `audio.set_current_time(value)` |
+| Total time | Derived from `duration` signal — populated on `loadedmetadata` event |
+| Audio source | Set `src` to an object URL created from the blob: `Url::create_object_url_with_blob(&blob)` |
+
+**Key `web-sys` methods needed:**
+- `HtmlAudioElement::play()` → returns `Promise`; use `spawn_local` + `JsFuture`
+- `HtmlAudioElement::pause()`
+- `HtmlAudioElement::current_time()` / `set_current_time(f64)`
+- `HtmlAudioElement::duration()` — may return `NaN` before metadata loads
+- `HtmlAudioElement::set_src(&str)`
+- `HtmlAudioElement::set_ontimeupdate(Option<&Function>)`
+- `HtmlAudioElement::set_onloadedmetadata(Option<&Function>)`
+- `HtmlAudioElement::set_onended(Option<&Function>)` — reset playing state when track finishes
+
+**Cleanup:** When the component unmounts, revoke the object URL with `Url::revoke_object_url(&url)` to avoid memory leaks.
+
+
 - Keyboard navigable controls.
 - Semantic headings and landmarks.
 - Visible focus indicators.
@@ -324,6 +678,7 @@ Index example aligned to layout:
 - Author `poems_index.json` as the authoritative index of all poems
 - Add initial public-domain poem JSON files (one file per poem) organized under per-author subdirectories
 - Validate that app can fetch index first, then fetch poem detail files via index `path`
+- Provide `scripts/build_poems_index.py` to rebuild `poems_index.json` by scanning the poem files on disk (see section 7.5)
 
 ### Milestone 1: Poem Reader Foundation
 - Load poem index and poem JSON
@@ -695,10 +1050,12 @@ This list is a reference guide for initial corpus population. All entries are be
 - **Shakespeare sonnets**: All 154 sonnets were published in 1609; all are fully public domain worldwide.
 - **Long-form works**: Poems like *The Rime of the Ancient Mariner*, *Tintern Abbey*, and *The Song of Hiawatha* are long. Consider including them but be mindful of reading UX. They can be included as valid corpus entries for completeness even if less ideal for voice recording sessions.
 
-### 16.10 Updated Acceptance Addendum (Recording-specific)
+### 17.6 Updated Acceptance Addendum (Recording-specific)
 Recording feature is considered acceptable only if:
 1. It works in secure context environments.
 2. It gracefully handles denied/blocked/unavailable mic conditions.
 3. It records and replays audio using a browser-supported MIME type discovered at runtime.
 4. It persists recording blobs + metadata locally and survives reload.
 5. It exports downloadable audio with a correct extension for the actual MIME type.
+
+This addendum supplements the main acceptance criteria in section 14.

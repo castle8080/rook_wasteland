@@ -1,0 +1,65 @@
+[package]
+name = "rw_poetry"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# Framework
+leptos = { version = "0.8", features = ["csr"] }
+leptos_meta = { version = "0.8" }
+leptos_router = { version = "0.8" }
+
+# HTTP / Network
+gloo-net = { version = "0.6", features = ["http"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1" }
+serde-wasm-bindgen = { version = "0.6" }
+
+# WASM / Browser APIs
+wasm-bindgen = { version = "0.2" }
+wasm-bindgen-futures = { version = "0.4" }
+js-sys = { version = "0.3" }
+
+# WASM panic hook for better error messages during development
+console_error_panic_hook = "0.1"
+
+# IndexedDB
+idb = { version = "0.6" }
+
+# UUID
+uuid = { version = "1", features = ["v4", "js"] }
+
+# Timers / Async
+gloo-timers = { version = "0.3", features = ["futures"] }
+
+# Local Storage (for dark mode preference)
+gloo-storage = { version = "0.3" }
+
+[dependencies.web-sys]
+version = "0.3"
+features = [
+  "AudioContext",
+  "Blob",
+  "BlobPropertyBag",
+  "console",
+  "Document",
+  "HtmlAnchorElement",
+  "HtmlAudioElement",
+  "IdbDatabase",
+  "IdbFactory",
+  "IdbObjectStore",
+  "IdbOpenDbRequest",
+  "IdbRequest",
+  "IdbTransaction",
+  "MediaDevices",
+  "MediaRecorder",
+  "MediaRecorderOptions",
+  "MediaStream",
+  "Navigator",
+  "TimeRanges",
+  "Url",
+  "Window",
+]
+
