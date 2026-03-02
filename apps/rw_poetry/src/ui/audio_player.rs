@@ -62,9 +62,13 @@ pub fn AudioPlayer(
         });
     }
 
-    // Wire DOM events via Effect once the <audio> node is mounted
+    // Wire DOM events via Effect once the <audio> node is mounted.
+    // IMPORTANT: use get_untracked — we do not want this Effect to re-run if
+    // audio_ref ever changes. The handlers are attached via .forget() (no removal),
+    // so a re-run would accumulate duplicate handlers. get_untracked means the
+    // Effect fires exactly once on mount and is never re-triggered.
     Effect::new(move |_| {
-        if let Some(audio) = audio_ref.get() {
+        if let Some(audio) = audio_ref.get_untracked() {
             let audio_el: &web_sys::HtmlAudioElement = audio.as_ref();
 
             let ct_signal = current_time;

@@ -19,7 +19,12 @@ pub fn ReaderView() -> impl IntoView {
     // Two-step fetch: load index then pick and fetch a random poem.
     let poem_resource: LocalResource<Result<PoemDetail, String>> = LocalResource::new(move || {
         let requested_id = query.read().get("poem_id").map(|s| s.to_string());
-        let exclude = current_poem_id.get();
+        // IMPORTANT: use get_untracked here. Using .get() would register current_poem_id
+        // as a reactive dependency of this resource. Because we also *write* to it inside
+        // the async block (after a successful fetch), that would cause the resource to
+        // re-trigger immediately after every successful load — an infinite poem-cycling loop.
+        // We only want re-runs driven by `refresh` (New Poem / Try again) and query changes.
+        let exclude = current_poem_id.get_untracked();
         let _refresh = refresh.get(); // tracked — triggers re-run on New Poem
         async move {
             let index = fetch_index().await?;
