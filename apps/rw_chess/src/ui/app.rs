@@ -13,7 +13,7 @@ use crate::{
     rules::validation::is_in_check,
     state::{
         game::GameState,
-        piece::{Color, GamePhase},
+        piece::GamePhase,
     },
     ui::{
         board::BoardView,
@@ -49,10 +49,6 @@ pub fn App() -> impl IntoView {
                 game.set_commentary(line);
             }
 
-            // If player chose Black, engine (White) moves first
-            if config.player_color == Color::Black {
-                trigger_engine_move(game.clone());
-            }
         })
     };
 
@@ -77,10 +73,7 @@ pub fn App() -> impl IntoView {
             if let Some(line) = get_commentary(persona.id, CommentaryEvent::GameStart) {
                 game.set_commentary(line);
             }
-
-            if player_color == Color::Black {
-                trigger_engine_move(game.clone());
-            }
+            // The reactive Effect handles triggering the engine move when it's the engine's turn.
         })
     };
 
@@ -143,6 +136,23 @@ pub fn trigger_engine_move(game: GameState) {
     spawn_local(async move {
         // Brief delay so UI updates first
         TimeoutFuture::new(150).await;
+
+        // Guard: verify it is still the engine's turn after the async delay.
+        // State can change between the call site and here (e.g. a duplicate
+        // trigger_engine_move call resolves first and advances active_color).
+        {
+            use crate::state::game::engine_should_move;
+            let active = game.active_color.get_untracked();
+            let player = game.player_color.get_untracked();
+            let phase  = game.phase.get_untracked();
+            if !engine_should_move(active, player, phase) {
+                leptos::logging::error!(
+                    "[trigger_engine_move] Unexpected: called when it is not the engine's turn \
+                     (active={active:?}, player={player:?}, phase={phase:?}). Bailing."
+                );
+                return;
+            }
+        }
 
         let board = game.board.get_untracked();
         let color = game.active_color.get_untracked();

@@ -247,3 +247,96 @@ impl Default for GameState {
         Self::new()
     }
 }
+
+/// Returns true when it is the engine's turn and the game is still active.
+/// This mirrors the reactive Effect guard in app.rs.
+pub fn engine_should_move(active: Color, player: Color, phase: GamePhase) -> bool {
+    active != player && matches!(phase, GamePhase::Playing | GamePhase::Check)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use leptos::prelude::Owner;
+
+    // ── engine_should_move logic ─────────────────────────────────────────────
+
+    #[test]
+    fn engine_moves_first_when_player_is_black() {
+        // White always goes first; if the player chose Black the engine (White) should move.
+        assert!(engine_should_move(Color::White, Color::Black, GamePhase::Playing));
+    }
+
+    #[test]
+    fn player_moves_first_when_player_is_white() {
+        assert!(!engine_should_move(Color::White, Color::White, GamePhase::Playing));
+    }
+
+    #[test]
+    fn engine_should_not_move_when_game_is_over() {
+        assert!(!engine_should_move(Color::White, Color::Black, GamePhase::Checkmate));
+        assert!(!engine_should_move(Color::White, Color::Black, GamePhase::Stalemate));
+        assert!(!engine_should_move(Color::White, Color::Black, GamePhase::DrawFiftyMove));
+    }
+
+    #[test]
+    fn engine_moves_on_check_turn() {
+        assert!(engine_should_move(Color::White, Color::Black, GamePhase::Check));
+    }
+
+    // ── GameState initial / reset state ─────────────────────────────────────
+
+    #[test]
+    fn initial_active_color_is_white() {
+        let owner = Owner::new();
+        owner.with(|| {
+            let gs = GameState::new();
+            assert_eq!(gs.active_color.get_untracked(), Color::White);
+        });
+    }
+
+    #[test]
+    fn reset_restores_white_active_color() {
+        let owner = Owner::new();
+        owner.with(|| {
+            let gs = GameState::new();
+            gs.player_color.set(Color::Black);
+            gs.reset();
+            // White always moves first after a reset.
+            assert_eq!(gs.active_color.get_untracked(), Color::White);
+        });
+    }
+
+    #[test]
+    fn after_reset_engine_should_move_when_player_is_black() {
+        // Regression test for bug #1: engine must be triggered exactly once.
+        // The reactive Effect in app.rs uses engine_should_move conditions; verify
+        // that after reset those conditions correctly indicate the engine should go.
+        let owner = Owner::new();
+        owner.with(|| {
+            let gs = GameState::new();
+            gs.player_color.set(Color::Black);
+            gs.reset();
+            let active = gs.active_color.get_untracked();
+            let player = gs.player_color.get_untracked();
+            let phase = gs.phase.get_untracked();
+            assert!(engine_should_move(active, player, phase),
+                "Engine (White) should be triggered when player chose Black");
+        });
+    }
+
+    #[test]
+    fn after_reset_engine_should_not_move_when_player_is_white() {
+        let owner = Owner::new();
+        owner.with(|| {
+            let gs = GameState::new();
+            gs.player_color.set(Color::White);
+            gs.reset();
+            let active = gs.active_color.get_untracked();
+            let player = gs.player_color.get_untracked();
+            let phase = gs.phase.get_untracked();
+            assert!(!engine_should_move(active, player, phase),
+                "Engine should NOT move when player chose White");
+        });
+    }
+}
