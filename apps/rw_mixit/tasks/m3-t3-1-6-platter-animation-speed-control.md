@@ -1,7 +1,7 @@
 # Task T3.1–T3.6: Platter Animation & Speed Control
 
 **Milestone:** M3 — Platter Animation & Speed Control
-**Status:** 🔄 In Progress
+**Status:** ✅ Done
 
 ---
 
@@ -91,8 +91,26 @@ pub fn rate_to_pitch(rate: f64) -> f64
 
 **Automated:**
 ```
-cargo test output — see build step
+running 34 tests
+test canvas::platter_draw::tests::groove_rotation_one_full_revolution ... ok
+test canvas::platter_draw::tests::groove_rotation_zero_at_rest ... ok
+test canvas::platter_draw::tests::tonearm_at_end ... ok
+test canvas::platter_draw::tests::tonearm_at_start ... ok
+test canvas::platter_draw::tests::truncate_label_long_gets_ellipsis ... ok
+test canvas::platter_draw::tests::truncate_label_long_with_extension ... ok
+test canvas::platter_draw::tests::truncate_label_no_extension ... ok
+test canvas::platter_draw::tests::truncate_label_strips_extension ... ok
+test components::pitch_fader::tests::pitch_to_rate_at_minus_one_is_half ... ok
+test components::pitch_fader::tests::pitch_to_rate_at_plus_one_is_two ... ok
+test components::pitch_fader::tests::pitch_to_rate_at_zero_is_one ... ok
+test components::pitch_fader::tests::pitch_to_rate_monotone_negative ... ok
+test components::pitch_fader::tests::pitch_to_rate_monotone_positive ... ok
+test components::pitch_fader::tests::rate_to_pitch_at_rate_one_is_zero ... ok
+test components::pitch_fader::tests::rate_to_pitch_roundtrip ... ok
+... (34 total, all pass)
 ```
+`cargo clippy --target wasm32-unknown-unknown -- -D warnings`: 0 warnings.
+`trunk build`: ✅ success.
 
 **Manual steps performed:**
 - [ ] Load a track on Deck A — platter draws with label text visible
@@ -104,6 +122,11 @@ cargo test output — see build step
 ---
 
 ## Review Notes
+
+No issues found. All public functions and the component have `///` doc comments.
+Magic numbers extracted to named constants with derivation comments.
+`#[allow(clippy::too_many_arguments)]` on `start_raf_loop` is justified and
+documented inline.
 
 ---
 

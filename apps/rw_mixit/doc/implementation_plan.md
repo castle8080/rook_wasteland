@@ -76,12 +76,12 @@ The visual heartbeat of the app. A spinning vinyl record that responds to the pi
 
 | ID | Task | Success Criteria | Status |
 |---|---|---|---|
-| T3.1 | `src/canvas/platter_draw.rs`: `draw_platter(canvas_ref, state)` — draws: dark circle background, concentric groove rings (thin arcs), center label circle with track name (abbreviated, Bangers font), white center spindle dot | Platter draws correctly when `current_secs = 0` and `is_playing = false` | ⬜ Not Started |
-| T3.2 | Platter rotation in rAF: compute `angle = current_secs * 0.55 * playback_rate * TAU`; apply rotation transform to vinyl record portion of draw (not the label center dot) | Record rotates at correct 33 RPM–equivalent rate during playback | ⬜ Not Started |
-| T3.3 | Tonearm drawing: line segment from fixed top-right pivot point, rotated by `(current_secs / duration_secs) * max_sweep_angle`; draw as thick rounded-cap line in contrasting color | Tonearm starts at outer groove, ends near center label over full track duration | ⬜ Not Started |
-| T3.4 | `src/components/pitch_fader.rs`: horizontal `<input type="range">` from −1.0 to +1.0, step 0.01; styled as a cartoon lever; updates `DeckState.playback_rate` via `pitch_to_rate(fader)` | Dragging fader updates signal in real time; fader position reads back correctly | ⬜ Not Started |
-| T3.5 | `pitch_to_rate()` → `AudioParam.set_value()` via Leptos `Effect`: `Effect::new(move |_| { source.playback_rate().set_value(pitch_to_rate(state.playback_rate.get())); })` | Changing fader audibly changes pitch/speed; the AudioParam is updated not just the signal | ⬜ Not Started |
-| T3.6 | Platter `<canvas>` NodeRef wired into `start_raf_loop` for both decks; platter canvas sized correctly and positioned within deck column | Both platters draw and animate independently at correct size | ⬜ Not Started |
+| T3.1 | `src/canvas/platter_draw.rs`: `draw_platter(canvas_ref, state)` — draws: dark circle background, concentric groove rings (thin arcs), center label circle with track name (abbreviated, Bangers font), white center spindle dot | Platter draws correctly when `current_secs = 0` and `is_playing = false` | ✅ Done |
+| T3.2 | Platter rotation in rAF: compute `angle = current_secs * 0.55 * playback_rate * TAU`; apply rotation transform to vinyl record portion of draw (not the label center dot) | Record rotates at correct 33 RPM–equivalent rate during playback | ✅ Done |
+| T3.3 | Tonearm drawing: line segment from fixed top-right pivot point, rotated by `(current_secs / duration_secs) * max_sweep_angle`; draw as thick rounded-cap line in contrasting color | Tonearm starts at outer groove, ends near center label over full track duration | ✅ Done |
+| T3.4 | `src/components/pitch_fader.rs`: horizontal `<input type="range">` from −1.0 to +1.0, step 0.01; styled as a cartoon lever; updates `DeckState.playback_rate` via `pitch_to_rate(fader)` | Dragging fader updates signal in real time; fader position reads back correctly | ✅ Done |
+| T3.5 | `pitch_to_rate()` → `AudioParam.set_value()` via Leptos `Effect`: `Effect::new(move |_| { source.playback_rate().set_value(pitch_to_rate(state.playback_rate.get())); })` | Changing fader audibly changes pitch/speed; the AudioParam is updated not just the signal | ✅ Done |
+| T3.6 | Platter `<canvas>` NodeRef wired into `start_raf_loop` for both decks; platter canvas sized correctly and positioned within deck column | Both platters draw and animate independently at correct size | ✅ Done |
 
 ---
 
