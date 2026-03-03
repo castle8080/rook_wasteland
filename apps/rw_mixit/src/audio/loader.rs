@@ -60,25 +60,44 @@ async fn read_file_as_array_buffer(file: web_sys::File) -> ArrayBuffer {
 }
 
 /// Downsamples all audio channels to `num_columns` peak values.
+/// Thin web-sys wrapper around [`extract_peaks_from_samples`].
 pub fn extract_peaks(buffer: &AudioBuffer, num_columns: usize) -> Vec<f32> {
-    let num_channels = buffer.number_of_channels();
-    let length = buffer.length() as usize;
-    if length == 0 || num_columns == 0 {
-        return vec![0.0; num_columns];
-    }
-    let samples_per_col = (length / num_columns).max(1);
-
-    let channels: Vec<Vec<f32>> = (0..num_channels)
+    let channels: Vec<Vec<f32>> = (0..buffer.number_of_channels())
         .map(|c| buffer.get_channel_data(c).unwrap_or_default())
         .collect();
+    extract_peaks_from_samples(&channels, buffer.length() as usize, num_columns)
+}
+
+/// Pure peak extraction — no web-sys types, fully unit-testable on the host.
+///
+/// `channels` is a slice of per-channel sample vectors (any length).
+/// `total_length` is the canonical sample count (may differ from `channels[i].len()`
+/// if the browser returned a shorter slice for some reason).
+/// Returns `num_columns` values in `[0.0, 1.0]` representing max absolute amplitude
+/// per column bucket.
+pub fn extract_peaks_from_samples(
+    channels: &[Vec<f32>],
+    total_length: usize,
+    num_columns: usize,
+) -> Vec<f32> {
+    if total_length == 0 || num_columns == 0 || channels.is_empty() {
+        return vec![0.0; num_columns];
+    }
+    let samples_per_col = (total_length / num_columns).max(1);
 
     (0..num_columns)
         .map(|i| {
             let start = i * samples_per_col;
-            let end = (start + samples_per_col).min(length);
+            // Last column extends to total_length so no samples are dropped
+            // when total_length is not evenly divisible by num_columns.
+            let end = if i == num_columns - 1 {
+                total_length
+            } else {
+                (start + samples_per_col).min(total_length)
+            };
             let mut peak = 0.0f32;
             for sample_idx in start..end {
-                for ch in &channels {
+                for ch in channels {
                     if sample_idx < ch.len() {
                         peak = peak.max(ch[sample_idx].abs());
                     }
@@ -87,4 +106,73 @@ pub fn extract_peaks(buffer: &AudioBuffer, num_columns: usize) -> Vec<f32> {
             peak
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn peaks_returns_correct_column_count() {
+        let ch = vec![0.5f32; 2048];
+        let result = extract_peaks_from_samples(&[ch], 2048, 100);
+        assert_eq!(result.len(), 100);
+    }
+
+    #[test]
+    fn peaks_all_same_amplitude() {
+        let ch = vec![0.75f32; 1024];
+        let result = extract_peaks_from_samples(&[ch], 1024, 64);
+        assert!(result.iter().all(|&v| (v - 0.75).abs() < 1e-6),
+            "all columns should equal 0.75, got {result:?}");
+    }
+
+    #[test]
+    fn peaks_negative_samples_abs() {
+        // Negative samples should be treated as absolute value.
+        let ch = vec![-0.9f32; 512];
+        let result = extract_peaks_from_samples(&[ch], 512, 32);
+        assert!(result.iter().all(|&v| (v - 0.9).abs() < 1e-6));
+    }
+
+    #[test]
+    fn peaks_mixed_channels_take_max() {
+        // Channel 0: all 0.3, Channel 1: all 0.8 — peak should be 0.8.
+        let ch0 = vec![0.3f32; 512];
+        let ch1 = vec![0.8f32; 512];
+        let result = extract_peaks_from_samples(&[ch0, ch1], 512, 16);
+        assert!(result.iter().all(|&v| (v - 0.8).abs() < 1e-6));
+    }
+
+    #[test]
+    fn peaks_silence_is_zero() {
+        let ch = vec![0.0f32; 1024];
+        let result = extract_peaks_from_samples(&[ch], 1024, 50);
+        assert!(result.iter().all(|&v| v == 0.0));
+    }
+
+    #[test]
+    fn peaks_empty_channels_returns_zeros() {
+        let result = extract_peaks_from_samples(&[], 0, 10);
+        assert_eq!(result, vec![0.0f32; 10]);
+    }
+
+    #[test]
+    fn peaks_zero_columns_returns_empty() {
+        let ch = vec![1.0f32; 512];
+        let result = extract_peaks_from_samples(&[ch], 512, 0);
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn peaks_last_column_covers_remainder() {
+        // 100 samples into 3 columns: cols cover [0..33], [33..66], [66..99] approx.
+        // Last column should still return a valid peak, not 0.
+        let mut ch = vec![0.0f32; 100];
+        ch[99] = 1.0; // spike at the very end
+        let result = extract_peaks_from_samples(&[ch], 100, 3);
+        assert_eq!(result.len(), 3);
+        // At least one column must contain the spike
+        assert!(result.iter().any(|&v| v > 0.5));
+    }
 }
