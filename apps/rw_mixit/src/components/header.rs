@@ -51,3 +51,58 @@ pub fn Header() -> impl IntoView {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    #[cfg(target_arch = "wasm32")]
+    mod wasm {
+        use leptos::prelude::*;
+        use leptos::mount::mount_to_body;
+        use wasm_bindgen::JsCast;
+        use wasm_bindgen_test::wasm_bindgen_test;
+
+        use crate::components::header::Header;
+
+        fn win() -> web_sys::Window {
+            web_sys::window().unwrap()
+        }
+
+        fn click_selector(selector: &str) {
+            win()
+                .document()
+                .unwrap()
+                .query_selector(selector)
+                .unwrap()
+                .expect("element not found")
+                .unchecked_ref::<web_sys::HtmlElement>()
+                .click();
+        }
+
+        fn current_hash() -> String {
+            win().location().hash().unwrap_or_default()
+        }
+
+        #[wasm_bindgen_test]
+        fn logo_click_sets_main_hash() {
+            let _handle = mount_to_body(|| view! { <Header/> });
+            click_selector("a.rw-logo");
+            assert_eq!(current_hash(), Route::Main.to_hash());
+        }
+
+        #[wasm_bindgen_test]
+        fn settings_link_sets_settings_hash() {
+            let _handle = mount_to_body(|| view! { <Header/> });
+            click_selector(".rw-nav a[href='#/settings']");
+            assert_eq!(current_hash(), Route::Settings.to_hash());
+        }
+
+        #[wasm_bindgen_test]
+        fn about_link_sets_about_hash() {
+            let _handle = mount_to_body(|| view! { <Header/> });
+            click_selector(".rw-nav a[href='#/about']");
+            assert_eq!(current_hash(), Route::About.to_hash());
+        }
+
+        use crate::routing::Route;
+    }
+}
+
