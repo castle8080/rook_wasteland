@@ -1,0 +1,25 @@
+# Generated files
+/target/
+/dist/
+/pkg/
+
+# Leptos / wasm-pack / trunk
+/node_modules/
+/.trunk/
+/.cargo/
+
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

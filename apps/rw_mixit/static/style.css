@@ -1,0 +1,250 @@
+/* ═══════════════════════════════════════════════════════════════════
+   rw_mixit — Cartoon DJ Mixer
+   Design language: bold outlines, saturated primaries, puffy shapes,
+   hand-drawn-inspired typography (Bangers), subtle 3-D drop shadows.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ─── Custom Properties ───────────────────────────────────────────── */
+:root {
+  /* Palette */
+  --color-bg:          #1a1a2e;
+  --color-panel:       #16213e;
+  --color-border:      #111111;
+  --color-shadow:      #111111;
+  --color-text:        #f0f0f0;
+  --color-text-dim:    #888888;
+
+  /* Deck accents */
+  --color-deck-a:      #3b82f6;   /* cobalt blue  */
+  --color-deck-b:      #f97316;   /* fire orange  */
+  --color-mixer:       #22c55e;   /* lime green   */
+  --color-glow:        #facc15;   /* yellow       */
+
+  /* Hot-cue button colours */
+  --color-cue-red:     #ef4444;
+  --color-cue-blue:    #3b82f6;
+  --color-cue-green:   #22c55e;
+  --color-cue-yellow:  #facc15;
+
+  /* Cartoon border + shadow */
+  --border-cartoon:    3px solid var(--color-border);
+  --shadow-cartoon:    4px 4px 0 var(--color-shadow);
+
+  /* Border radii */
+  --radius-panel:      12px;
+  --radius-button:     8px;
+  --radius-knob:       50%;
+}
+
+/* ─── Reset ───────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: 'Bangers', cursive;
+  min-height: 100vh;
+  letter-spacing: 0.04em;
+}
+
+/* ─── Root container ──────────────────────────────────────────────── */
+#rw-mixit-root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* ─── Header ──────────────────────────────────────────────────────── */
+.rw-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.5rem;
+  background-color: var(--color-panel);
+  border-bottom: var(--border-cartoon);
+  box-shadow: var(--shadow-cartoon);
+}
+
+.rw-logo {
+  font-size: 2rem;
+  color: var(--color-glow);
+  text-decoration: none;
+  text-shadow: 2px 2px 0 var(--color-border);
+  letter-spacing: 0.08em;
+}
+
+.rw-logo:hover {
+  color: #ffffff;
+}
+
+.rw-nav {
+  display: flex;
+  gap: 1rem;
+}
+
+.rw-nav a {
+  color: var(--color-text);
+  text-decoration: none;
+  font-size: 1.1rem;
+  padding: 0.25rem 0.75rem;
+  border: var(--border-cartoon);
+  border-radius: var(--radius-button);
+  box-shadow: var(--shadow-cartoon);
+  background-color: var(--color-panel);
+  transition: transform 0.08s ease, background-color 0.1s;
+}
+
+.rw-nav a:hover {
+  transform: translateY(-2px);
+  background-color: #1e2f50;
+}
+
+.rw-nav a:active {
+  transform: translateY(2px);
+  box-shadow: 2px 2px 0 var(--color-shadow);
+}
+
+/* ─── 3-Column Deck Layout ────────────────────────────────────────── */
+.deck-row {
+  display: flex;
+  flex: 1;
+  gap: 1rem;
+  padding: 1rem;
+  align-items: stretch;
+  min-height: 0;
+}
+
+/* ─── Deck Panels ─────────────────────────────────────────────────── */
+.deck {
+  flex: 1;
+  min-width: 0;
+  background-color: var(--color-panel);
+  border: var(--border-cartoon);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-cartoon);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.deck-a { border-top: 5px solid var(--color-deck-a); }
+.deck-b { border-top: 5px solid var(--color-deck-b); }
+
+.deck-label {
+  font-size: 1.8rem;
+  margin: 0;
+  text-align: center;
+  letter-spacing: 0.1em;
+}
+
+.deck-a .deck-label {
+  color: var(--color-deck-a);
+  text-shadow: 2px 2px 0 var(--color-border);
+}
+
+.deck-b .deck-label {
+  color: var(--color-deck-b);
+  text-shadow: 2px 2px 0 var(--color-border);
+}
+
+/* ─── Mixer Panel ─────────────────────────────────────────────────── */
+.mixer {
+  width: 280px;
+  flex-shrink: 0;
+  background-color: var(--color-panel);
+  border: var(--border-cartoon);
+  border-top: 5px solid var(--color-mixer);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-cartoon);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.mixer-label {
+  font-size: 1.8rem;
+  margin: 0;
+  text-align: center;
+  color: var(--color-mixer);
+  text-shadow: 2px 2px 0 var(--color-border);
+  letter-spacing: 0.1em;
+}
+
+/* ─── Placeholder views (Settings, About until M11) ──────────────── */
+.placeholder-view {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  color: var(--color-text-dim);
+  padding: 2rem;
+}
+
+/* ─── Button base (shared across all milestone components) ───────── */
+.btn {
+  font-family: 'Bangers', cursive;
+  font-size: 1rem;
+  letter-spacing: 0.05em;
+  padding: 0.4rem 0.8rem;
+  border: var(--border-cartoon);
+  border-radius: var(--radius-button);
+  box-shadow: var(--shadow-cartoon);
+  cursor: pointer;
+  background-color: var(--color-panel);
+  color: var(--color-text);
+  transition: transform 0.08s ease;
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+}
+
+/* Physical "press" feel on click — applied via JS class toggle or :active */
+@keyframes pop {
+  0%   { scale: 1; }
+  50%  { scale: 0.92; }
+  100% { scale: 1; }
+}
+
+.btn:active,
+.btn.active {
+  animation: pop 80ms ease-out;
+  box-shadow: 2px 2px 0 var(--color-shadow);
+}
+
+/* ─── Knob (rotary input) ─────────────────────────────────────────── */
+.knob {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-knob);
+  border: var(--border-cartoon);
+  box-shadow: var(--shadow-cartoon);
+  background-color: var(--color-panel);
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+/* ─── Responsive: keep usable at 1024 px wide ────────────────────── */
+@media (max-width: 1200px) {
+  .mixer {
+    width: 220px;
+  }
+}
+
+@media (max-width: 900px) {
+  .deck-row {
+    flex-direction: column;
+  }
+
+  .mixer {
+    width: 100%;
+  }
+}

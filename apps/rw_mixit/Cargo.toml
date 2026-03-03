@@ -1,0 +1,40 @@
+[package]
+name = "rw_mixit"
+version = "0.1.0"
+edition = "2021"
+
+# cdylib  — wasm-bindgen output (loaded by the browser via Trunk)
+# rlib    — used by `cargo test` on the host for unit tests
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+leptos = { version = "0.8", features = ["csr"] }
+wasm-bindgen = "0.2"
+web-sys = { version = "0.3", features = [
+  # DOM
+  "Window", "Document", "Element", "HtmlElement", "HtmlCanvasElement",
+  "HtmlInputElement", "CanvasRenderingContext2d", "FileList", "File",
+  "FileReader", "Blob", "Url",
+  # Web Audio
+  "AudioContext", "AudioBuffer", "AudioBufferSourceNode",
+  "AudioDestinationNode", "AudioNode", "AudioParam", "GainNode",
+  "BiquadFilterNode", "BiquadFilterType", "ConvolverNode", "DelayNode",
+  "DynamicsCompressorNode", "AnalyserNode", "OfflineAudioContext",
+  "OscillatorNode",
+  # Events
+  "Event", "MouseEvent", "PointerEvent", "KeyboardEvent",
+  "HashChangeEvent", "ProgressEvent", "EventTarget",
+  # Misc
+  "Performance", "Navigator", "Location",
+] }
+js-sys = "0.3"
+gloo-events = "0.2"
+console_error_panic_hook = "0.1"
+# BPM detection (M4): spectral flux + autocorrelation; runs on file load (no AudioWorklet needed)
+rustfft = { version = "6", default-features = false }
+
+[profile.release]
+opt-level = "z"      # optimise for binary size
+lto = true
+codegen-units = 1

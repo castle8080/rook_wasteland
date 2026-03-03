@@ -1,0 +1,9 @@
+[build]
+target = "index.html"
+dist = "dist"
+# IMPORTANT: must match the deployment subdirectory exactly so Trunk injects
+# correct absolute paths for the WASM binary, JS glue, and CSS into index.html.
+public_url = "/rw_mixit/"
+
+[watch]
+ignore = ["dist", "doc"]
