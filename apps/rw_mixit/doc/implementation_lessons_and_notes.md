@@ -29,3 +29,44 @@ Without `#[wasm_bindgen(start)]` on `fn main()` in `lib.rs`, the WASM module sil
 ### BPM and DSP code can be unit-tested natively
 
 The `rlib` target means all pure-Rust code (`src/audio/bpm.rs`, peak extraction in `src/audio/loader.rs`, etc.) can have `#[test]` functions that run with plain `cargo test` — no browser, no WASM needed. The M4 BPM tasks (`compute_spectral_flux`, `estimate_bpm`) are explicitly designed with this in mind; write the core logic as testable pure functions.
+
+
+---
+
+## Lessons from M2 — Playback & Waveform
+
+### `AudioBufferSourceNode` is one-shot
+
+An `AudioBufferSourceNode` can only be started once. After `stop()` it is inert and must be discarded. Store in `Option<AudioBufferSourceNode>` and create a fresh node on every `play()` call.
+
+### `stop()` / `stop_with_when()` deprecation in web-sys 0.3.91
+
+Both `AudioBufferSourceNode::stop()` (no args) and `stop_with_when(f64)` are marked deprecated in current web-sys. There is no non-deprecated replacement in this version — use `#[allow(deprecated)]` on the wrapping helper function and `stop_with_when(0.0)` until a newer web-sys updates the bindings.
+
+### `linear_ramp_to_value_at_time` argument types
+
+In web-sys the signature is `(value: f32, end_time: f64)` — the target value is `f32`, the time is `f64`. Passing two `f64`s causes a type error that is not always obvious from the message.
+
+### Canvas draw method naming (3-arg form)
+
+`draw_image_with_html_canvas_element(canvas, dx, dy)` is the 3-argument form in web-sys that positions the blit. Do NOT use `draw_image_with_html_canvas_element_and_dx_and_dy` — that overload does not exist with that name and will fail to compile.
+
+### `set_fill_style_str` / `set_stroke_style_str`
+
+Use `ctx.set_fill_style_str("colour")` (and the stroke equivalent) instead of the deprecated `set_fill_style(&JsValue)`. Both are available in web-sys 0.3.91.
+
+### rAF closure memory pattern in WASM
+
+The recursive `requestAnimationFrame` loop requires `Rc<RefCell<Option<Closure<dyn FnMut()>>>>` with the `g = f.clone(); *g.borrow_mut() = Some(Closure::new(move || { ... }))` idiom. The whole setup must be wrapped in `spawn_local(async move { ... })` so it runs after the first render — otherwise `NodeRef`s for canvas elements are still `None`.
+
+### Sharing a closure across two `on:` handlers
+
+Two event listeners on the same element (e.g. `on:mouseup` + `on:mouseleave` for nudge-end) cannot share a single Rust `Fn` closure — the borrow checker prevents moving it into both. Solution: wrap in `Rc<dyn Fn()>` and `.clone()` for each handler.
+
+### Leptos trait imports for signals in non-component modules
+
+`get_untracked()`, `set()`, `get()` on `RwSignal` are trait methods from `leptos::prelude`. Canvas/rAF modules that don't already pull in `use leptos::prelude::*` must add it explicitly or the methods appear to not exist.
+
+### Clippy `new_without_default` on state structs
+
+State structs with a `new()` constructor should also implement `Default` (delegating to `Self::new()`). Clippy's `-D warnings` mode will refuse to compile without it. Add a trivial `impl Default` for every state struct that has `new()`.
