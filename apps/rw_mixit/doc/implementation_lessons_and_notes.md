@@ -70,3 +70,34 @@ Two event listeners on the same element (e.g. `on:mouseup` + `on:mouseleave` for
 ### Clippy `new_without_default` on state structs
 
 State structs with a `new()` constructor should also implement `Default` (delegating to `Self::new()`). Clippy's `-D warnings` mode will refuse to compile without it. Add a trivial `impl Default` for every state struct that has `new()`.
+
+---
+
+## Lessons from M3 — Platter Animation & Speed Control
+
+### `ctx.save()` and `ctx.restore()` return `()`
+
+`CanvasRenderingContext2d::save()` and `restore()` in web-sys return `()`, not
+`Result`. Do not call `.expect()` on them. Only `translate()`, `rotate()`, and
+`arc()` return `Result<(), JsValue>` and need `.expect()`.
+
+### `#[allow(clippy::too_many_arguments)]` on `start_raf_loop`
+
+Clippy enforces a 7-argument limit by default. `start_raf_loop` now has 8
+parameters (2 state, 2 audio, 2 waveform, 2 platter). Suppress with
+`#[allow(clippy::too_many_arguments)]` and a comment explaining the count.
+If the parameter count grows further, wrap per-deck arguments into a struct.
+
+### Groove rotation angle is stateless — no accumulated float issue
+
+The rotation angle is computed fresh each frame as
+`current_secs * RPM_33_RPS * playback_rate * TAU`. For tracks up to 2 hours,
+`current_secs` stays below 7200, giving an angle below ~25 000 rad — well
+within f64 precision. No angle accumulator needed.
+
+### Canvas text_baseline, set_font, set_text_align take `&str` directly
+
+Unlike `fill_style`/`stroke_style` (which needed `_str` suffix variants),
+`set_text_baseline`, `set_font`, `set_text_align`, and `set_line_cap` all
+already accept `&str` in web-sys 0.3 with no deprecated JsValue variant.
+Use them directly without the `_str` suffix.
