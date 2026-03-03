@@ -147,3 +147,63 @@ impl AudioDeck {
         }))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use wasm_bindgen_test::wasm_bindgen_test;
+    use crate::audio::context::ensure_audio_context;
+
+    fn make_ctx() -> AudioContext {
+        let holder = std::rc::Rc::new(std::cell::RefCell::new(None::<AudioContext>));
+        ensure_audio_context(&holder)
+    }
+
+    #[wasm_bindgen_test]
+    fn constructs_without_panic() {
+        // Verifies every node creation and connection call in AudioDeck::new
+        // succeeds in a real browser environment.
+        let _deck = AudioDeck::new(make_ctx());
+    }
+
+    #[wasm_bindgen_test]
+    fn buffer_is_none_before_load() {
+        let deck = AudioDeck::new(make_ctx());
+        assert!(deck.borrow().buffer.is_none());
+    }
+
+    #[wasm_bindgen_test]
+    fn source_is_none_before_play() {
+        let deck = AudioDeck::new(make_ctx());
+        assert!(deck.borrow().source.is_none());
+    }
+
+    #[wasm_bindgen_test]
+    fn channel_gain_defaults_to_one() {
+        let deck = AudioDeck::new(make_ctx());
+        let gain = deck.borrow().channel_gain.gain().value();
+        assert!((gain - 1.0).abs() < 1e-6, "expected 1.0, got {gain}");
+    }
+
+    #[wasm_bindgen_test]
+    fn reverb_wet_defaults_to_zero() {
+        // Reverb is off by default — wet gain must be 0 so dry path carries signal.
+        let deck = AudioDeck::new(make_ctx());
+        let wet = deck.borrow().reverb_wet.gain().value();
+        assert!(wet.abs() < 1e-6, "reverb_wet should be 0.0, got {wet}");
+    }
+
+    #[wasm_bindgen_test]
+    fn echo_wet_defaults_to_zero() {
+        let deck = AudioDeck::new(make_ctx());
+        let wet = deck.borrow().echo_wet.gain().value();
+        assert!(wet.abs() < 1e-6, "echo_wet should be 0.0, got {wet}");
+    }
+
+    #[wasm_bindgen_test]
+    fn flanger_wet_defaults_to_zero() {
+        let deck = AudioDeck::new(make_ctx());
+        let wet = deck.borrow().flanger_wet.gain().value();
+        assert!(wet.abs() < 1e-6, "flanger_wet should be 0.0, got {wet}");
+    }
+}

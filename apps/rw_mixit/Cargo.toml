@@ -35,6 +35,10 @@ console_error_panic_hook = "0.1"
 # BPM detection (M4): spectral flux + autocorrelation; runs on file load (no AudioWorklet needed)
 rustfft = { version = "6", default-features = false }
 
+[dev-dependencies]
+# WASM integration tests — run with: wasm-pack test --headless --chrome
+wasm-bindgen-test = "0.3"
+
 [profile.release]
 opt-level = "z"      # optimise for binary size
 lto = true

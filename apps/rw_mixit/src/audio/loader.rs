@@ -175,4 +175,58 @@ mod tests {
         // At least one column must contain the spike
         assert!(result.iter().any(|&v| v > 0.5));
     }
+
+    // --- WASM tests: exercise the web-sys wrapper with a real AudioBuffer ---
+
+    #[cfg(target_arch = "wasm32")]
+    mod wasm {
+        use super::*;
+        use wasm_bindgen_test::wasm_bindgen_test;
+        use crate::audio::context::ensure_audio_context;
+
+        fn make_constant_buffer(num_channels: u32, num_samples: u32, value: f32) -> web_sys::AudioBuffer {
+            let holder = std::rc::Rc::new(std::cell::RefCell::new(None));
+            let ctx = ensure_audio_context(&holder);
+            let buf = ctx.create_buffer(num_channels, num_samples, 44100.0)
+                .expect("create_buffer");
+            let data: Vec<f32> = vec![value; num_samples as usize];
+            for ch in 0..num_channels {
+                buf.copy_to_channel(&data, ch as i32).expect("copy_to_channel");
+            }
+            buf
+        }
+
+        #[wasm_bindgen_test]
+        fn wrapper_returns_correct_column_count() {
+            let buf = make_constant_buffer(1, 44100, 0.5);
+            assert_eq!(extract_peaks(&buf, 100).len(), 100);
+        }
+
+        #[wasm_bindgen_test]
+        fn wrapper_constant_buffer_all_same_value() {
+            let buf = make_constant_buffer(2, 44100, 0.6);
+            for (i, &v) in extract_peaks(&buf, 64).iter().enumerate() {
+                assert!((v - 0.6).abs() < 1e-4, "col {i}: expected ~0.6, got {v}");
+            }
+        }
+
+        #[wasm_bindgen_test]
+        fn wrapper_silence_is_all_zero() {
+            let buf = make_constant_buffer(2, 44100, 0.0);
+            assert!(extract_peaks(&buf, 50).iter().all(|&v| v == 0.0));
+        }
+
+        #[wasm_bindgen_test]
+        fn wrapper_stereo_takes_max_channel() {
+            // ch0 = 0.3, ch1 = 0.9  →  peaks should be ≈ 0.9
+            let holder = std::rc::Rc::new(std::cell::RefCell::new(None));
+            let ctx = ensure_audio_context(&holder);
+            let buf = ctx.create_buffer(2, 4096, 44100.0).expect("create_buffer");
+            buf.copy_to_channel(&vec![0.3f32; 4096], 0).expect("copy ch0");
+            buf.copy_to_channel(&vec![0.9f32; 4096], 1).expect("copy ch1");
+            for (i, &v) in extract_peaks(&buf, 32).iter().enumerate() {
+                assert!((v - 0.9).abs() < 1e-4, "col {i}: expected ~0.9, got {v}");
+            }
+        }
+    }
 }
