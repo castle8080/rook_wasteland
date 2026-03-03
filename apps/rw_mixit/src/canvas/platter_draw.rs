@@ -285,4 +285,66 @@ mod tests {
         let angle = secs_per_rev * RPM_33_RPS * 1.0 * TAU;
         assert!((angle - TAU).abs() < 1e-9, "expected TAU, got {angle}");
     }
+
+    // ── WASM smoke tests (require browser DOM) ────────────────────────────────
+    #[cfg(target_arch = "wasm32")]
+    mod wasm {
+        use super::*;
+        use leptos::prelude::*;
+        use wasm_bindgen::JsCast;
+        use wasm_bindgen_test::wasm_bindgen_test;
+        use crate::state::DeckState;
+
+        fn make_canvas() -> web_sys::HtmlCanvasElement {
+            let doc = web_sys::window().unwrap().document().unwrap();
+            let el = doc.create_element("canvas").unwrap();
+            el.set_attribute("width", "240").unwrap();
+            el.set_attribute("height", "240").unwrap();
+            el.unchecked_into()
+        }
+
+        /// Empty NodeRef (no canvas mounted yet) must return early, not panic.
+        #[wasm_bindgen_test]
+        fn draw_platter_empty_ref_does_not_panic() {
+            let owner = Owner::new();
+            owner.with(|| {
+                let state = DeckState::new();
+                let canvas_ref = NodeRef::<leptos::html::Canvas>::new();
+                draw_platter(&canvas_ref, &state, "a");
+            });
+        }
+
+        /// Real canvas element — both deck sides must draw without panicking.
+        #[wasm_bindgen_test]
+        fn draw_platter_with_canvas_does_not_panic() {
+            let owner = Owner::new();
+            owner.with(|| {
+                let state = DeckState::new();
+                state.duration_secs.set(180.0);
+                state.current_secs.set(30.0);
+
+                let canvas_ref = NodeRef::<leptos::html::Canvas>::new();
+                canvas_ref.load(&make_canvas());
+
+                draw_platter(&canvas_ref, &state, "a");
+                draw_platter(&canvas_ref, &state, "b");
+            });
+        }
+
+        /// Tonearm at end of track (progress = 1.0) must not panic.
+        #[wasm_bindgen_test]
+        fn draw_platter_at_track_end_does_not_panic() {
+            let owner = Owner::new();
+            owner.with(|| {
+                let state = DeckState::new();
+                state.duration_secs.set(180.0);
+                state.current_secs.set(180.0);
+
+                let canvas_ref = NodeRef::<leptos::html::Canvas>::new();
+                canvas_ref.load(&make_canvas());
+
+                draw_platter(&canvas_ref, &state, "a");
+            });
+        }
+    }
 }
