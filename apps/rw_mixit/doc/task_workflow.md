@@ -308,6 +308,43 @@ T2.11: mark task done, add callouts
 
 ---
 
+## Phase 11 — Milestone Lessons & Notes (after last task in a milestone)
+
+After completing the final task of a milestone — or after any major standalone task that surfaced non-obvious discoveries — append a new section to `doc/implementation_lessons_and_notes.md`.
+
+### What belongs here
+
+- Patterns discovered during implementation that will recur in later milestones
+- Gotchas not obvious from the spec (e.g. macro expansion quirks, browser API surprises, ownership / lifetime edge cases)
+- Decisions where the spec and reality diverged, and why
+- Performance or correctness caveats a future developer should know before touching related code
+
+### Format
+
+Add a new top-level section to the file:
+
+```markdown
+## Lessons from M<N> — <Milestone Name>
+
+### <Short title>
+
+<2–5 sentences explaining the lesson and the correct pattern going forward.>
+```
+
+One sub-section per lesson. Keep entries concise — this is a reference document, not a design doc.
+
+### Commit
+
+Commit the notes file as a separate micro-commit after the milestone commit:
+
+```
+M<N>: add implementation lessons and notes
+```
+
+> **Rule:** Do not skip this phase. Even "no new lessons" is worth a one-liner confirming it. The document compounds in value over time.
+
+---
+
 ## Status Values
 
 | Symbol | Meaning |
