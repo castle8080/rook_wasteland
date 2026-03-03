@@ -1297,6 +1297,7 @@ dependencies = [
  "leptos",
  "rustfft",
  "wasm-bindgen",
+ "wasm-bindgen-futures",
  "web-sys",
 ]
 

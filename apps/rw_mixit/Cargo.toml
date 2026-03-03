@@ -21,7 +21,7 @@ web-sys = { version = "0.3", features = [
   "AudioDestinationNode", "AudioNode", "AudioParam", "GainNode",
   "BiquadFilterNode", "BiquadFilterType", "ConvolverNode", "DelayNode",
   "DynamicsCompressorNode", "AnalyserNode", "OfflineAudioContext",
-  "OscillatorNode",
+  "OscillatorNode", "OscillatorType",
   # Events
   "Event", "MouseEvent", "PointerEvent", "KeyboardEvent",
   "HashChangeEvent", "ProgressEvent", "EventTarget",
@@ -29,6 +29,7 @@ web-sys = { version = "0.3", features = [
   "Performance", "Navigator", "Location",
 ] }
 js-sys = "0.3"
+wasm-bindgen-futures = "0.4"
 gloo-events = "0.2"
 console_error_panic_hook = "0.1"
 # BPM detection (M4): spectral flux + autocorrelation; runs on file load (no AudioWorklet needed)

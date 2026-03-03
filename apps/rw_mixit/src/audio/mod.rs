@@ -1,1 +1,5 @@
-// AudioContext, AudioDeck, file loader, and BPM detection will be added in M1/M4.
+pub mod context;
+pub mod deck_audio;
+pub mod loader;
+
+pub use context::ensure_audio_context;
