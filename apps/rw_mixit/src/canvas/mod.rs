@@ -1,1 +1,2 @@
-// rAF loop and canvas draw passes (platter, waveform) will be added in M2.
+pub mod raf_loop;
+pub mod waveform_draw;
