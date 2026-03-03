@@ -40,6 +40,9 @@ pub struct AudioDeck {
     pub offset_at_play: f64,
     /// Saved cue point position in seconds; set by `cue()`.
     pub cue_point:      Option<f64>,
+    /// Playback rate at the time `play()` was last called.  Used by
+    /// `current_position()` to convert wall-clock elapsed time to track time.
+    pub rate_at_play:   f64,
     /// Playback rate saved before a nudge starts; restored on nudge end.
     pub pre_nudge_rate: Option<f32>,
 }
@@ -159,6 +162,7 @@ impl AudioDeck {
             analyser,
             started_at: None,
             offset_at_play: 0.0,
+            rate_at_play: 1.0,
             cue_point: None,
             pre_nudge_rate: None,
         }))
@@ -193,6 +197,7 @@ impl AudioDeck {
 
         self.started_at = Some(self.ctx.current_time());
         self.offset_at_play = offset;
+        self.rate_at_play = rate as f64;
         self.source = Some(src);
     }
 
@@ -277,7 +282,8 @@ impl AudioDeck {
     pub fn current_position(&self) -> f64 {
         match self.started_at {
             Some(started_at) => {
-                (self.ctx.current_time() - started_at + self.offset_at_play).max(0.0)
+                let elapsed = self.ctx.current_time() - started_at;
+                (elapsed * self.rate_at_play + self.offset_at_play).max(0.0)
             }
             None => self.offset_at_play,
         }
@@ -358,6 +364,36 @@ mod tests {
         let deck = AudioDeck::new(make_ctx());
         let wet = deck.borrow().flanger_wet.gain().value();
         assert!(wet.abs() < 1e-6, "flanger_wet should be 0.0, got {wet}");
+    }
+
+    #[wasm_bindgen_test]
+    fn current_position_scales_by_rate_at_play() {
+        // Simulate 10 wall-clock seconds elapsed at 2× rate → position should be ~20s.
+        let deck = AudioDeck::new(make_ctx());
+        {
+            let mut d = deck.borrow_mut();
+            let now = d.ctx.current_time();
+            d.started_at     = Some(now - 10.0);
+            d.offset_at_play = 0.0;
+            d.rate_at_play   = 2.0;
+        }
+        let pos = deck.borrow().current_position();
+        assert!((pos - 20.0).abs() < 0.1, "expected ~20.0 at 2× rate, got {pos}");
+    }
+
+    #[wasm_bindgen_test]
+    fn current_position_with_offset_and_rate() {
+        // 5 wall seconds elapsed at 0.5× rate from offset 10s → position should be ~12.5s.
+        let deck = AudioDeck::new(make_ctx());
+        {
+            let mut d = deck.borrow_mut();
+            let now = d.ctx.current_time();
+            d.started_at     = Some(now - 5.0);
+            d.offset_at_play = 10.0;
+            d.rate_at_play   = 0.5;
+        }
+        let pos = deck.borrow().current_position();
+        assert!((pos - 12.5).abs() < 0.1, "expected ~12.5, got {pos}");
     }
 
     #[wasm_bindgen_test]
