@@ -290,7 +290,8 @@ mod tests {
     #[cfg(target_arch = "wasm32")]
     mod wasm {
         use super::*;
-        use leptos::prelude::*;
+        use leptos::prelude::{NodeRef, Owner};
+        use leptos::tachys::html::node_ref::NodeRefContainer;
         use wasm_bindgen::JsCast;
         use wasm_bindgen_test::wasm_bindgen_test;
         use crate::state::DeckState;
