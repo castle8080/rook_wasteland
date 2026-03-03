@@ -248,3 +248,175 @@ html, body {
     width: 100%;
   }
 }
+
+/* ─── Platter Canvas ──────────────────────────────────────────────── */
+.platter-canvas {
+  display: block;
+  width: 100%;
+  max-width: 240px;
+  height: auto;
+  margin: 0 auto;
+  border-radius: 50%;
+  border: var(--border-cartoon);
+  box-shadow: var(--shadow-cartoon);
+}
+
+/* ─── Pitch Fader ─────────────────────────────────────────────────── */
+.pitch-fader-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.pitch-fader-label {
+  font-size: 0.8rem;
+  color: var(--color-text-dim);
+  text-align: center;
+  letter-spacing: 0.08em;
+}
+
+.pitch-fader-track {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.pitch-fader-limit {
+  font-size: 0.7rem;
+  color: var(--color-text-dim);
+  white-space: nowrap;
+}
+
+.pitch-fader {
+  flex: 1;
+  accent-color: var(--color-glow);
+  cursor: pointer;
+  height: 6px;
+}
+
+.pitch-fader-readout {
+  font-size: 0.85rem;
+  color: var(--color-glow);
+  text-align: center;
+  min-height: 1.2em;
+}
+
+/* ─── Transport controls ──────────────────────────────────────────── */
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: center;
+}
+
+.btn-transport,
+.btn-nudge {
+  font-family: 'Bangers', cursive;
+  font-size: 1rem;
+  letter-spacing: 0.05em;
+  padding: 0.4rem 0.75rem;
+  border: var(--border-cartoon);
+  border-radius: var(--radius-button);
+  box-shadow: var(--shadow-cartoon);
+  cursor: pointer;
+  background-color: var(--color-panel);
+  color: var(--color-text);
+  transition: transform 0.08s ease;
+}
+
+.btn-transport:hover,
+.btn-nudge:hover {
+  transform: translateY(-2px);
+}
+
+.btn-transport:active,
+.btn-nudge:active {
+  box-shadow: 2px 2px 0 var(--color-shadow);
+  transform: translateY(1px);
+}
+
+.btn-load {
+  font-family: 'Bangers', cursive;
+  font-size: 1.1rem;
+  letter-spacing: 0.06em;
+  width: 100%;
+  padding: 0.5rem;
+  border: var(--border-cartoon);
+  border-radius: var(--radius-button);
+  box-shadow: var(--shadow-cartoon);
+  cursor: pointer;
+  background-color: var(--color-panel);
+  color: var(--color-glow);
+  transition: transform 0.08s ease;
+  margin-top: auto;
+}
+
+.btn-load:hover {
+  transform: translateY(-2px);
+  background-color: #1e2f50;
+}
+
+/* ─── Track label ─────────────────────────────────────────────────── */
+.track-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--color-text-dim);
+  overflow: hidden;
+}
+
+.track-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.track-duration {
+  white-space: nowrap;
+  flex-shrink: 0;
+  color: var(--color-text);
+}
+
+/* ─── Waveform canvas ─────────────────────────────────────────────── */
+.waveform-canvas {
+  display: block;
+  width: 100%;
+  border: var(--border-cartoon);
+  border-radius: 4px;
+  box-shadow: var(--shadow-cartoon);
+  cursor: crosshair;
+}
+
+/* ─── Zoom controls ───────────────────────────────────────────────── */
+.zoom-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.btn-zoom {
+  font-family: 'Bangers', cursive;
+  font-size: 1rem;
+  padding: 0.2rem 0.6rem;
+  border: var(--border-cartoon);
+  border-radius: var(--radius-button);
+  box-shadow: var(--shadow-cartoon);
+  cursor: pointer;
+  background-color: var(--color-panel);
+  color: var(--color-text);
+}
+
+.btn-zoom:hover {
+  transform: translateY(-1px);
+}
+
+.zoom-label {
+  font-size: 0.8rem;
+  color: var(--color-text-dim);
+  min-width: 2.5rem;
+  text-align: center;
+}

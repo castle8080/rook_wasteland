@@ -12,12 +12,14 @@ use leptos::prelude::*;
 use crate::audio::deck_audio::AudioDeck;
 use crate::state::DeckState;
 use crate::canvas::waveform_draw::{draw_waveform, WaveformCache};
+use crate::canvas::platter_draw::draw_platter;
 
 /// Start the shared rAF loop.
 ///
 /// Uses the classic recursive-closure pattern: an `Rc<RefCell<Option<Closure>>>`
 /// that re-schedules itself. The outer `spawn_local` defers the first frame until
 /// after the current synchronous render so all `NodeRef`s are populated.
+#[allow(clippy::too_many_arguments)] // 8 params needed: 2 states, 2 audio, 2 waveform, 2 platter
 pub fn start_raf_loop(
     state_a:       DeckState,
     state_b:       DeckState,
@@ -25,6 +27,8 @@ pub fn start_raf_loop(
     audio_b:       Rc<RefCell<Option<Rc<RefCell<AudioDeck>>>>>,
     waveform_a:    NodeRef<html::Canvas>,
     waveform_b:    NodeRef<html::Canvas>,
+    platter_a:     NodeRef<html::Canvas>,
+    platter_b:     NodeRef<html::Canvas>,
 ) {
     // Per-deck offscreen canvas caches — allocated once, shared into the closure.
     let cache_a = WaveformCache::new();
@@ -48,7 +52,11 @@ pub fn start_raf_loop(
             draw_waveform(&waveform_a, &state_a, &cache_a, "a");
             draw_waveform(&waveform_b, &state_b, &cache_b, "b");
 
-            // ── 4. Schedule the next frame ────────────────────────────────────
+            // ── 4. Draw platters ──────────────────────────────────────────────
+            draw_platter(&platter_a, &state_a, "a");
+            draw_platter(&platter_b, &state_b, "b");
+
+            // ── 5. Schedule the next frame ────────────────────────────────────
             web_sys::window()
                 .expect("raf_loop — window unavailable")
                 .request_animation_frame(

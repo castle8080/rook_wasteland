@@ -9,8 +9,10 @@ use web_sys::AudioContext;
 use crate::audio::{ensure_audio_context, deck_audio::AudioDeck};
 use crate::audio::loader::load_audio_file;
 use crate::canvas::raf_loop::start_raf_loop;
+use crate::canvas::platter_draw::PLATTER_SIZE;
 use crate::components::controls::Controls;
 use crate::components::mixer::Mixer;
+use crate::components::pitch_fader::PitchFader;
 use crate::state::DeckState;
 
 /// Waveform canvas dimensions (pixels).
@@ -38,6 +40,10 @@ pub fn DeckView() -> impl IntoView {
     let waveform_a_ref: NodeRef<leptos::html::Canvas> = NodeRef::new();
     let waveform_b_ref: NodeRef<leptos::html::Canvas> = NodeRef::new();
 
+    // Canvas NodeRefs for the platter draw pass.
+    let platter_a_ref: NodeRef<leptos::html::Canvas> = NodeRef::new();
+    let platter_b_ref: NodeRef<leptos::html::Canvas> = NodeRef::new();
+
     // Start the rAF loop (deferred via spawn_local so NodeRefs are populated).
     start_raf_loop(
         state_a.clone(),
@@ -46,6 +52,8 @@ pub fn DeckView() -> impl IntoView {
         audio_b.clone(),
         waveform_a_ref,
         waveform_b_ref,
+        platter_a_ref,
+        platter_b_ref,
     );
 
     view! {
@@ -56,6 +64,7 @@ pub fn DeckView() -> impl IntoView {
                 audio_ctx_holder=audio_ctx_holder.clone()
                 audio_deck_holder=audio_a
                 waveform_ref=waveform_a_ref
+                platter_ref=platter_a_ref
             />
             <Mixer/>
             <Deck
@@ -64,6 +73,7 @@ pub fn DeckView() -> impl IntoView {
                 audio_ctx_holder=audio_ctx_holder
                 audio_deck_holder=audio_b
                 waveform_ref=waveform_b_ref
+                platter_ref=platter_b_ref
             />
         </div>
     }
@@ -71,8 +81,8 @@ pub fn DeckView() -> impl IntoView {
 
 /// A single DJ deck column.
 ///
-/// Contains the track label, waveform canvas, transport controls, and
-/// the hidden file input triggered by the "Load Track" button.
+/// Contains the track label, waveform canvas, platter canvas, transport
+/// controls, pitch fader, and the hidden file input triggered by "Load Track".
 #[component]
 pub fn Deck(
     side:              &'static str,
@@ -80,6 +90,7 @@ pub fn Deck(
     audio_ctx_holder:  Rc<RefCell<Option<AudioContext>>>,
     audio_deck_holder: Rc<RefCell<Option<Rc<RefCell<AudioDeck>>>>>,
     waveform_ref:      NodeRef<leptos::html::Canvas>,
+    platter_ref:       NodeRef<leptos::html::Canvas>,
 ) -> impl IntoView {
     let file_input: NodeRef<leptos::html::Input> = NodeRef::new();
 
@@ -162,6 +173,22 @@ pub fn Deck(
 
     let deck_class = format!("deck deck-{}", side.to_lowercase());
 
+    // T3.5 — Propagate playback_rate signal changes to the live AudioParam.
+    // Fires once on mount (source is None → no-op) and again whenever the
+    // pitch fader (or any other writer) changes `state.playback_rate`.
+    {
+        let state_eff = state.clone();
+        let holder_eff = audio_deck_holder.clone();
+        Effect::new(move |_| {
+            let rate = state_eff.playback_rate.get() as f32;
+            if let Some(ref deck_rc) = *holder_eff.borrow() {
+                if let Some(ref src) = deck_rc.borrow().source {
+                    src.playback_rate().set_value(rate);
+                }
+            }
+        });
+    }
+
     view! {
         <div class=deck_class>
             <h2 class="deck-label">{format!("DECK {side}")}</h2>
@@ -179,8 +206,19 @@ pub fn Deck(
             // Zoom controls (T2.11)
             <ZoomControls state=state.clone()/>
 
+            // Platter canvas (T3.1–T3.3 / T3.6)
+            <canvas
+                class="platter-canvas"
+                width=PLATTER_SIZE
+                height=PLATTER_SIZE
+                node_ref=platter_ref
+            />
+
             // Transport controls (T2.5)
             <Controls state=state.clone() audio_deck_holder=audio_deck_holder.clone()/>
+
+            // Pitch fader (T3.4)
+            <PitchFader state=state.clone()/>
 
             // Hidden file input
             <input
