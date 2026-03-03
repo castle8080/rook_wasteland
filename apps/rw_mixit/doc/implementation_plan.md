@@ -17,14 +17,14 @@ Stand up the skeleton: compilable WASM app with routing, layout shell, and base 
 
 | ID | Task | Success Criteria | Status |
 |---|---|---|---|
-| T0.1 | Init Cargo workspace: `Cargo.toml` with all v1 crates (`leptos/csr`, `web-sys`, `wasm-bindgen`, `gloo-events`, `console_error_panic_hook`, `rustfft`), `wasm32-unknown-unknown` target, release profile with `opt-level="z"` / `lto=true` | `cargo check --target wasm32-unknown-unknown` passes | ⬜ Not Started |
-| T0.2 | `Trunk.toml` with `public_url = "/rw_mixit/"`, `index.html` with `<div id="app">` and Trunk asset links | `trunk build` produces a `dist/` directory with correct base paths | ⬜ Not Started |
-| T0.3 | `src/main.rs` entry: `console_error_panic_hook::set_once()` + `mount_to_body(App)` | Browser console shows no panic; WASM loads | ⬜ Not Started |
-| T0.4 | `src/routing.rs`: `Route` enum (`Main`, `Settings`, `About`), `from_hash()`, `to_hash()` | Unit-testable; all hash strings round-trip correctly | ⬜ Not Started |
-| T0.5 | `src/app.rs`: `App` component reads initial hash, `hashchange` listener via `gloo-events`, `provide_context(current_route)`, `<Show>` gates for each route | Navigating to `#/settings` and `#/about` renders placeholder views; browser back/forward works | ⬜ Not Started |
-| T0.6 | `src/components/header.rs`: `<Header>` with logo link (`#/`) and nav links (`[Settings]` `[About]`) that call `set_hash` | Clicking all three links changes the URL fragment and swaps views | ⬜ Not Started |
-| T0.7 | `src/components/deck.rs` shell, `src/components/mixer.rs` shell: empty `<div>` placeholders with CSS class names; `<DeckView>` lays them out in a 3-column flex/grid row | Three columns visible with placeholder labels "DECK A", "MIXER", "DECK B" | ⬜ Not Started |
-| T0.8 | `static/style.css`: CSS custom properties (colors, deck-a/deck-b accents), Bangers font face from `static/fonts/`, base cartoon border/shadow rule, `box-sizing: border-box` reset | Bangers font renders on all text; black outline style visible on bordered elements | ⬜ Not Started |
+| T0.1 | Init Cargo workspace: `Cargo.toml` with all v1 crates (`leptos/csr`, `web-sys`, `wasm-bindgen`, `gloo-events`, `console_error_panic_hook`, `rustfft`), `wasm32-unknown-unknown` target, release profile with `opt-level="z"` / `lto=true` | `cargo check --target wasm32-unknown-unknown` passes | ✅ Done |
+| T0.2 | `Trunk.toml` with `public_url = "/rw_mixit/"`, `index.html` with `<div id="app">` and Trunk asset links | `trunk build` produces a `dist/` directory with correct base paths | ✅ Done |
+| T0.3 | `src/main.rs` entry: `console_error_panic_hook::set_once()` + `mount_to_body(App)` | Browser console shows no panic; WASM loads | ✅ Done |
+| T0.4 | `src/routing.rs`: `Route` enum (`Main`, `Settings`, `About`), `from_hash()`, `to_hash()` | Unit-testable; all hash strings round-trip correctly | ✅ Done |
+| T0.5 | `src/app.rs`: `App` component reads initial hash, `hashchange` listener via `gloo-events`, `provide_context(current_route)`, `<Show>` gates for each route | Navigating to `#/settings` and `#/about` renders placeholder views; browser back/forward works | ✅ Done |
+| T0.6 | `src/components/header.rs`: `<Header>` with logo link (`#/`) and nav links (`[Settings]` `[About]`) that call `set_hash` | Clicking all three links changes the URL fragment and swaps views | ✅ Done |
+| T0.7 | `src/components/deck.rs` shell, `src/components/mixer.rs` shell: empty `<div>` placeholders with CSS class names; `<DeckView>` lays them out in a 3-column flex/grid row | Three columns visible with placeholder labels "DECK A", "MIXER", "DECK B" | ✅ Done |
+| T0.8 | `static/style.css`: CSS custom properties (colors, deck-a/deck-b accents), Bangers font face from `static/fonts/`, base cartoon border/shadow rule, `box-sizing: border-box` reset | Bangers font renders on all text; black outline style visible on bordered elements | ✅ Done |
 
 ---
 
@@ -36,13 +36,13 @@ Wire up the full Web Audio node graph for both decks and load a file into it. No
 
 | ID | Task | Success Criteria | Status |
 |---|---|---|---|
-| T1.1 | `src/state/deck.rs`: `DeckState` struct with all `RwSignal<T>` fields from the tech spec (is_playing, playback_rate, volume, track_name, duration_secs, current_secs, loop_active, loop_in, loop_out, hot_cues, eq_high/mid/low, filter_val, fx_echo/fx_reverb/fx_flanger/fx_stutter/fx_scratch booleans, vu_level, waveform_peaks) + `DeckState::new()` constructor | All signals have correct default values | ⬜ Not Started |
-| T1.2 | `src/state/mixer.rs`: `MixerState` struct (`crossfader`, `master_volume`, `bpm_a`, `bpm_b`, `sync_master`) + `MixerState::new()` | Signals initialize at sensible defaults (crossfader=0.5, master_volume=1.0) | ⬜ Not Started |
-| T1.3 | `src/audio/context.rs`: `ensure_audio_context()` — lazy `AudioContext` creation on first call, stored as `Rc<RefCell<Option<AudioContext>>>` provided via Leptos context from `App` | `AudioContext` is `None` before first interaction; created on first call; subsequent calls return same instance | ⬜ Not Started |
-| T1.4 | `src/audio/deck_audio.rs`: `AudioDeck` struct holding all node handles (pre_gain, eq_high/mid/low, sweep_filter, reverb+dry/wet, echo_delay+feedback+wet/dry, flanger_delay+lfo+depth+wet, channel_gain, analyser); `AudioDeck::new(ctx)` constructs and connects the full node chain: `source(opt)` → `pre_gain` → `eq_high` → `eq_mid` → `eq_low` → `sweep_filter` → `reverb_dry/wet` → `ConvolverNode` → `echo_delay` → `echo_feedback` → `channel_gain` → `analyser` (output end of chain; crossfader GainNodes added in M5) | Nodes connect without web-sys errors; `AudioDeck` stored in `Rc<RefCell<AudioDeck>>` | ⬜ Not Started |
-| T1.5 | `src/audio/loader.rs`: `load_audio_file(file, deck, state, ctx)` async fn — `FileReader` → `ArrayBuffer` Promise → `decodeAudioData` Promise → store `AudioBuffer` in `AudioDeck`; update `state.track_name` and `state.duration_secs` | After awaiting, `DeckState.track_name` contains the filename; `duration_secs` matches actual audio length | ⬜ Not Started |
-| T1.6 | `<Deck>` component: "Load Track" button triggers `<input type="file" accept=".mp3,.wav,.ogg,.flac,.aac">` click; `on_change` event calls `load_audio_file` via `spawn_local` | File picker opens on button click; selecting a file updates the deck UI with name and duration | ⬜ Not Started |
-| T1.7 | Track label component: displays `state.track_name` (filename, truncated to fit) and formatted `state.duration_secs` (M:SS) | Track name and duration visible on deck after load | ⬜ Not Started |
+| T1.1 | `src/state/deck.rs`: `DeckState` struct with all `RwSignal<T>` fields from the tech spec (is_playing, playback_rate, volume, track_name, duration_secs, current_secs, loop_active, loop_in, loop_out, hot_cues, eq_high/mid/low, filter_val, fx_echo/fx_reverb/fx_flanger/fx_stutter/fx_scratch booleans, vu_level, waveform_peaks) + `DeckState::new()` constructor | All signals have correct default values | ✅ Done |
+| T1.2 | `src/state/mixer.rs`: `MixerState` struct (`crossfader`, `master_volume`, `bpm_a`, `bpm_b`, `sync_master`) + `MixerState::new()` | Signals initialize at sensible defaults (crossfader=0.5, master_volume=1.0) | ✅ Done |
+| T1.3 | `src/audio/context.rs`: `ensure_audio_context()` — lazy `AudioContext` creation on first call, stored as `Rc<RefCell<Option<AudioContext>>>` provided via Leptos context from `App` | `AudioContext` is `None` before first interaction; created on first call; subsequent calls return same instance | ✅ Done |
+| T1.4 | `src/audio/deck_audio.rs`: `AudioDeck` struct holding all node handles (pre_gain, eq_high/mid/low, sweep_filter, reverb+dry/wet, echo_delay+feedback+wet/dry, flanger_delay+lfo+depth+wet, channel_gain, analyser); `AudioDeck::new(ctx)` constructs and connects the full node chain: `source(opt)` → `pre_gain` → `eq_high` → `eq_mid` → `eq_low` → `sweep_filter` → `reverb_dry/wet` → `ConvolverNode` → `echo_delay` → `echo_feedback` → `channel_gain` → `analyser` (output end of chain; crossfader GainNodes added in M5) | Nodes connect without web-sys errors; `AudioDeck` stored in `Rc<RefCell<AudioDeck>>` | ✅ Done |
+| T1.5 | `src/audio/loader.rs`: `load_audio_file(file, deck, state, ctx)` async fn — `FileReader` → `ArrayBuffer` Promise → `decodeAudioData` Promise → store `AudioBuffer` in `AudioDeck`; update `state.track_name` and `state.duration_secs` | After awaiting, `DeckState.track_name` contains the filename; `duration_secs` matches actual audio length | ✅ Done |
+| T1.6 | `<Deck>` component: "Load Track" button triggers `<input type="file" accept=".mp3,.wav,.ogg,.flac,.aac">` click; `on_change` event calls `load_audio_file` via `spawn_local` | File picker opens on button click; selecting a file updates the deck UI with name and duration | ✅ Done |
+| T1.7 | Track label component: displays `state.track_name` (filename, truncated to fit) and formatted `state.duration_secs` (M:SS) | Track name and duration visible on deck after load | ✅ Done |
 
 ---
 
@@ -225,8 +225,8 @@ Complete the UI: secondary views, cartoon aesthetic fully applied, animations al
 
 | Milestone | Tasks | Status |
 |---|---|---|
-| M0 — Project Scaffold | T0.1 – T0.8 (8 tasks) | ⬜ Not Started |
-| M1 — Audio Foundation & File Loading | T1.1 – T1.7 (7 tasks) | ⬜ Not Started |
+| M0 — Project Scaffold | T0.1 – T0.8 (8 tasks) | ✅ Done |
+| M1 — Audio Foundation & File Loading | T1.1 – T1.7 (7 tasks) | ✅ Done |
 | M2 — Playback & Waveform | T2.1 – T2.11 (11 tasks) | ⬜ Not Started |
 | M3 — Platter Animation & Speed Control | T3.1 – T3.6 (6 tasks) | ⬜ Not Started |
 | M4 — BPM Detection & Sync | T4.1 – T4.6 (6 tasks) | ⬜ Not Started |
