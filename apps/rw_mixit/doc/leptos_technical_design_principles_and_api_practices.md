@@ -14,6 +14,7 @@
 - Add leptos with `csr` feature: `cargo add leptos --features=csr`
 - Use `leptos_meta` for `<head>` management
 - **Do not use `leptos_router`** — use hand-coded hash routing instead (see §8)
+- Use **wasm-pack** for browser-environment tests: `cargo install wasm-pack` (see §20)
 
 ### Cargo.toml Feature Flags
 ```toml
@@ -1042,24 +1043,33 @@ cargo install wasm-pack
 
 #### Writing WASM Tests
 
-Tests live in `tests/wasm.rs` (or any `pub mod` — they must be public):
+Tests live **inline in the source file** inside a `#[cfg(test)]` module — **not** in `tests/` (see "Inline vs Integration Tests" below for why):
 
 ```rust
-// tests/wasm.rs
-use wasm_bindgen_test::*;
+// src/audio/context.rs
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use wasm_bindgen_test::wasm_bindgen_test;
 
-// Configure all tests in this file to run in a real browser (not Node.js)
-wasm_bindgen_test_configure!(run_in_browser);
-
-#[wasm_bindgen_test]
-fn signal_updates_correctly() {
-    use leptos::prelude::*;
-
-    let count = RwSignal::new(0i32);
-    count.set(42);
-    assert_eq!(count.get_untracked(), 42);
+    #[wasm_bindgen_test]
+    fn context_created_on_first_call() {
+        let holder: Rc<RefCell<Option<AudioContext>>> = Rc::new(RefCell::new(None));
+        let _ctx = ensure_audio_context(&holder);
+        assert!(holder.borrow().is_some());
+    }
 }
 ```
+
+Place `wasm_bindgen_test_configure!(run_in_browser)` **once** in `lib.rs` inside `#[cfg(test)]` — it covers all inline test modules automatically:
+
+```rust
+// src/lib.rs
+#[cfg(test)]
+wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
+```
+
+Do **not** repeat the configure call in individual test modules.
 
 #### Testing That a Leptos Component Renders to the DOM
 
@@ -1130,35 +1140,114 @@ async fn reactive_update_is_reflected_in_dom() {
 # Run all native tests (fast, no browser needed)
 cargo test
 
+# Run WASM tests in a headless Firefox browser (recommended — see Notes)
+wasm-pack test --headless --firefox --lib
+
 # Run WASM tests in a headless Chrome browser
-wasm-pack test --headless --chrome
-
-# Run WASM tests in headless Firefox
-wasm-pack test --headless --firefox
-
-# Run both browsers
-wasm-pack test --headless --chrome --firefox
+wasm-pack test --headless --chrome --lib
 
 # Run without --headless to open the browser and use DevTools to debug failures
-wasm-pack test --chrome
+wasm-pack test --firefox
+
+# Run both browsers
+wasm-pack test --headless --chrome --firefox --lib
 ```
+
+> **Always pass `--lib`** when your crate has `#[wasm_bindgen(start)]`. This runs only lib unit tests, not integration tests in `tests/`, which avoids a start-symbol conflict (see "Inline vs Integration Tests" below).
 
 #### What to Test at Each Layer
 
 | Scenario | Layer |
 |---|---|
 | Route enum parsing | Native |
-| Audio math (`pitch_to_rate`, peak extraction) | Native |
-| Signal read/write behaviour | WASM (or Native for pure signal logic) |
+| Audio math (`pitch_to_rate`, peak extraction inner fn) | Native |
+| Track name truncation, duration formatting | Native |
+| Signal read/write behaviour (pure logic) | Native |
 | Leptos component renders correct initial HTML | WASM browser |
 | Signal change updates DOM text/class | WASM browser (async) |
 | `NodeRef` resolves after mount | WASM browser |
 | Hash-change updates route signal | WASM browser |
-| Web Audio `AudioContext` creation | ⚠️ Headless browsers may block audio — skip or mock |
-| Canvas pixel output | ⚠️ Fragile — prefer visual regression tools instead |
+| Web Audio node graph construction (gains, connections) | WASM browser |
+| `AudioContext` lazy-init pattern | WASM browser |
+| `AudioBuffer` operations (`copy_to_channel`, channel data) | WASM browser |
+| `localStorage` read/write | WASM browser |
+| File API (`File.array_buffer()`, `FileReader`) | WASM browser |
+| Canvas 2D context drawing operations | ⚠️ Fragile — prefer visual regression tools |
+| Canvas pixel output assertions | ⚠️ Very fragile — skip in favour of higher-level checks |
 
 #### Notes and Caveats
 
-- **`AudioContext` in headless Chrome** requires the `--autoplay-policy=no-user-gesture-required` flag or a `webdriver.json` capabilities file. In practice, skip Web Audio integration tests in CI and test audio math with native unit tests instead.
+- **Firefox is preferred over Chrome for local development**: headless Firefox does not require extra flags for Web Audio API (`AudioContext`, `GainNode`, etc.). Chrome may encounter port mismatches or require `--autoplay-policy=no-user-gesture-required`. Use Firefox unless you have a specific reason to test in Chrome.
+- **Web Audio API works in headless Firefox**: unlike Chrome which may block audio contexts, Firefox headless allows `AudioContext` creation and node graph construction freely. You can and should test Web Audio node setup (gains, connections, analyser nodes) with `#[wasm_bindgen_test]`.
 - **Test isolation**: `mount_to_body` appends to the real `<body>`. If tests share a page, use unique IDs and clean up after each test with `on_cleanup` or by storing the mount handle (dropping it removes the component).
 - **`wasm-pack test` vs `cargo test --target wasm32-unknown-unknown`**: `wasm-pack test` is the recommended approach because it automatically installs and manages the correct WebDriver binary version for your browser. The raw `cargo test --target` approach requires manually installing `wasm-bindgen-cli` at the exact matching version.
+- **`copy_to_channel` takes `&[f32]`, not `&Float32Array`**: this is a common mistake when writing WASM test helpers that populate `AudioBuffer` channels.
+
+---
+
+#### Inline vs Integration Tests — Critical for Crates with `#[wasm_bindgen(start)]`
+
+This project uses `#[wasm_bindgen(start)]` to designate the entry point. This creates a hard constraint on where WASM tests can live.
+
+**The problem with `tests/` integration tests:**
+
+Integration tests in `tests/` compile the crate **without** `cfg(test)` in scope. This means:
+1. `#[wasm_bindgen(start)]` is included in the rlib as normal.
+2. The `wasm-pack` test harness also provides a `main`/start entry point.
+3. The linker sees two `start` symbols and errors: _"entry symbol declared multiple times"_.
+
+A `#[cfg(not(test))]` guard on `#[wasm_bindgen(start)]` does NOT help for integration tests — `cfg(test)` is false when compiling the rlib for an integration test.
+
+**The solution — always inline WASM tests in `src/`:**
+
+```rust
+// src/audio/loader.rs — CORRECT approach
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Native test — runs with `cargo test`
+    #[test]
+    fn peak_extraction_empty() {
+        let peaks = extract_peaks_from_samples(&[], 100, 10);
+        assert!(peaks.is_empty());
+    }
+
+    // WASM browser test — runs with `wasm-pack test --headless --firefox --lib`
+    #[cfg(target_arch = "wasm32")]
+    mod wasm {
+        use super::*;
+        use wasm_bindgen_test::wasm_bindgen_test;
+
+        #[wasm_bindgen_test]
+        async fn can_load_audio_context() {
+            let ctx = web_sys::AudioContext::new().unwrap();
+            assert!(ctx.sample_rate() > 0.0);
+        }
+    }
+}
+```
+
+> **Rule**: never put `#[wasm_bindgen_test]` tests in `tests/`. Always place them inside `#[cfg(test)]` modules within the relevant `src/` file.
+
+**The `#[cfg(not(test))]` guard on `#[wasm_bindgen(start)]`:**
+
+Add this guard in `lib.rs` so that `cargo test --lib` (which compiles with `cfg(test)` = true) does not include the start symbol:
+
+```rust
+// src/lib.rs
+#[cfg(not(test))]
+use leptos::prelude::*;  // Only needed at runtime
+
+#[cfg(not(test))]
+#[wasm_bindgen::prelude::wasm_bindgen(start)]
+pub fn main() {
+    mount_to_body(App);
+}
+
+// Configures all inline wasm_bindgen_test tests to run in a real browser
+#[cfg(test)]
+wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
+```
+
+This `#[cfg(not(test))]` pattern only suppresses the start symbol when compiling with `--lib`, because `wasm-pack test --lib` compiles the lib with `cfg(test)` set.
