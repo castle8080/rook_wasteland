@@ -24,6 +24,15 @@ pub struct DeckState {
     pub fx_scratch:     RwSignal<bool>,
     pub vu_level:       RwSignal<f32>,
     pub waveform_peaks: RwSignal<Option<Vec<f32>>>,
+    /// Waveform zoom level: 1, 2, 4, or 8× (powers of two). Controls the
+    /// visible time window around the playhead.
+    pub zoom_level:     RwSignal<u8>,
+}
+
+impl Default for DeckState {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl DeckState {
@@ -50,6 +59,7 @@ impl DeckState {
             fx_scratch:     RwSignal::new(false),
             vu_level:       RwSignal::new(0.0f32),
             waveform_peaks: RwSignal::new(None),
+            zoom_level:     RwSignal::new(1u8),
         }
     }
 }

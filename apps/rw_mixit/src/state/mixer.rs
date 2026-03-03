@@ -26,3 +26,9 @@ impl MixerState {
         }
     }
 }
+
+impl Default for MixerState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
