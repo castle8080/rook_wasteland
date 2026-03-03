@@ -93,7 +93,7 @@ The final deployed site is a single flat directory tree:
 /poetry/             ← rw_poetry dist/ contents
 ```
 
-Each app is copied into a named subdirectory. Because Trunk-built apps use relative asset paths, apps must be configured (via `Trunk.toml` `public_url`) to match their deployment subpath.
+Each app is copied into a named subdirectory, with the exception of `rw_index`, whose contents are copied directly to the root of the combined output. Because Trunk-built apps use relative asset paths, apps must be configured (via `Trunk.toml` `public_url`) to match their deployment subpath.
 
 The assembly step (in `rw_serve/` or a top-level script) is responsible for:
 1. Running `trunk build --release` (or equivalent) for each app

@@ -2,7 +2,7 @@
   {
     "name": "Chess",
     "slug": "rw_chess",
-    "path": "/rw_chess/",
+    "path": "/rw_chess/index.html",
     "icon": "♜",
     "tagline": "Play chess against an AI with a personality problem.",
     "description": "Three difficulty levels, each backed by a ridiculous persona with live in-game commentary. Easy, medium, or hard — they're all weird.",
@@ -11,7 +11,7 @@
   {
     "name": "Defender",
     "slug": "rw_defender",
-    "path": "/rw_defender/",
+    "path": "/rw_defender/index.html",
     "icon": "👾",
     "tagline": "Shoot things. They shoot back.",
     "description": "Classic arcade vertical shooter with waves, bosses every 5 rounds, power-ups, and a high score saved locally. Enemies procedurally drawn in pixel art.",
@@ -20,7 +20,7 @@
   {
     "name": "Poetry",
     "slug": "rw_poetry",
-    "path": "/rw_poetry/",
+    "path": "/rw_poetry/index.html",
     "icon": "📜",
     "tagline": "Read poems. Record yourself. Cringe later.",
     "description": "Browse public-domain poetry, record yourself reading aloud, save it locally, and replay it. Surprisingly calming, occasionally mortifying.",

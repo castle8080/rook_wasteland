@@ -3,9 +3,9 @@ use std::path::PathBuf;
 use clap::Parser;
 
 #[derive(Parser, Debug)]
-#[command(name = "rw_serve", about = "Static multi-app web server")]
+#[command(name = "rw_serve", about = "Static file server")]
 pub struct Args {
-    /// Directory containing app subdirectories (each becomes /<name>/)
+    /// Directory to serve static files from
     #[arg(short = 'd', long, default_value = "./dist")]
     pub apps_dir: PathBuf,
 

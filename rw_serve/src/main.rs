@@ -10,7 +10,7 @@ use axum::extract::ConnectInfo;
 use axum::http::{Request, Response};
 use clap::Parser;
 use tower_http::trace::TraceLayer;
-use tracing::{error, info, warn, Span};
+use tracing::{error, info, Span};
 use tracing_subscriber::EnvFilter;
 
 use cli::Args;
@@ -22,19 +22,11 @@ async fn main() -> anyhow::Result<()> {
     setup_logging(args.log_json);
 
     if !args.apps_dir.exists() {
-        error!(path = %args.apps_dir.display(), "Apps directory not found");
+        error!(path = %args.apps_dir.display(), "Directory not found");
         std::process::exit(1);
     }
 
-    let apps = router::scan_apps(&args.apps_dir).context("Failed to scan apps directory")?;
-
-    if apps.is_empty() {
-        warn!(path = %args.apps_dir.display(), "No app subdirectories found");
-    } else {
-        info!(apps = ?apps, "Discovered apps");
-    }
-
-    let app = router::build_router(&args.apps_dir, &apps).layer(
+    let app = router::build_router(&args.apps_dir).layer(
         TraceLayer::new_for_http()
             .make_span_with(|request: &Request<_>| {
                 let ip = extract_ip(request);

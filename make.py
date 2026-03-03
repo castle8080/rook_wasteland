@@ -11,6 +11,7 @@ Targets:
     build   Debug build for all apps
     test    Run tests for all apps
     dist    Release build all apps and assemble into dist/
+    clean   Remove the top-level dist/ directory
     help    Show this message
 """
 
@@ -48,11 +49,26 @@ def dist():
 
     for app_dir in _apps():
         src = app_dir / "dist"
-        dst = out / app_dir.name
-        if dst.exists():
-            shutil.rmtree(dst)
-        shutil.copytree(src, dst)
-        print(f"  copied {app_dir.name}/dist  →  dist/{app_dir.name}/")
+        if app_dir.name == "rw_index":
+            for item in src.iterdir():
+                dst_item = out / item.name
+                if dst_item.exists():
+                    shutil.rmtree(dst_item) if dst_item.is_dir() else dst_item.unlink()
+                (shutil.copytree if item.is_dir() else shutil.copy2)(item, dst_item)
+            print(f"  copied {app_dir.name}/dist  →  dist/")
+        else:
+            dst = out / app_dir.name
+            if dst.exists():
+                shutil.rmtree(dst)
+            shutil.copytree(src, dst)
+            print(f"  copied {app_dir.name}/dist  →  dist/{app_dir.name}/")
+
+
+def clean():
+    out = ROOT / "dist"
+    if out.exists():
+        shutil.rmtree(out)
+        print(f"  removed {out}")
 
 
 def help():
