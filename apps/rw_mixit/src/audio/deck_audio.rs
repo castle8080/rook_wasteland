@@ -6,10 +6,15 @@ use web_sys::{
     ConvolverNode, DelayNode, AnalyserNode, OscillatorNode,
 };
 
-#[allow(dead_code)]
+/// All Web Audio nodes for one DJ deck plus timing bookkeeping.
+///
+/// `source` is recreated on each `play()` call — `AudioBufferSourceNode` is one-shot.
+/// The rest of the chain is persistent for the lifetime of the deck.
 pub struct AudioDeck {
     pub ctx:            AudioContext,
+    /// One-shot playback node; `None` when not playing.
     pub source:         Option<AudioBufferSourceNode>,
+    /// Decoded audio data; `None` before file load.
     pub buffer:         Option<AudioBuffer>,
     pub pre_gain:       GainNode,
     pub eq_high:        BiquadFilterNode,
@@ -29,8 +34,14 @@ pub struct AudioDeck {
     pub flanger_wet:    GainNode,
     pub channel_gain:   GainNode,
     pub analyser:       AnalyserNode,
+    /// `AudioContext.currentTime` at the moment `play()` was last called.
     pub started_at:     Option<f64>,
+    /// Track offset (seconds) when `play()` was last called.
     pub offset_at_play: f64,
+    /// Saved cue point position in seconds; set by `cue()`.
+    pub cue_point:      Option<f64>,
+    /// Playback rate saved before a nudge starts; restored on nudge end.
+    pub pre_nudge_rate: Option<f32>,
 }
 
 impl AudioDeck {
@@ -120,6 +131,10 @@ impl AudioDeck {
         // channel_gain → analyser (analyser → destination wired in M5)
         channel_gain.connect_with_audio_node(&analyser).expect("connect channel_gain → analyser");
 
+        // M2: connect analyser → destination directly so audio is audible.
+        // M5 will disconnect this and route through the crossfader GainNodes instead.
+        analyser.connect_with_audio_node(&ctx.destination()).expect("connect analyser → destination");
+
         Rc::new(RefCell::new(AudioDeck {
             ctx,
             source: None,
@@ -144,9 +159,147 @@ impl AudioDeck {
             analyser,
             started_at: None,
             offset_at_play: 0.0,
+            cue_point: None,
+            pre_nudge_rate: None,
         }))
     }
+
+    // ── Playback ──────────────────────────────────────────────────────────────
+
+    /// Start or restart playback from `offset` seconds at the given `rate`.
+    ///
+    /// Creates a new `AudioBufferSourceNode` (one-shot by Web Audio design),
+    /// connects it to the processing chain, and calls `start(0, offset)`.
+    /// Does nothing if no buffer has been loaded.
+    pub fn play(&mut self, offset: f64, rate: f32) {
+        // Stop any currently playing source first.
+        self.stop_source();
+
+        let buffer = match &self.buffer {
+            Some(b) => b.clone(),
+            None => return,
+        };
+
+        let src = self.ctx.create_buffer_source()
+            .expect("AudioDeck::play — create_buffer_source");
+        src.set_buffer(Some(&buffer));
+        src.playback_rate().set_value(rate);
+        src.connect_with_audio_node(&self.pre_gain)
+            .expect("AudioDeck::play — connect source → pre_gain");
+
+        // start(when=0, offset) — begin immediately at the given track offset.
+        src.start_with_when_and_grain_offset(0.0, offset)
+            .expect("AudioDeck::play — source.start");
+
+        self.started_at = Some(self.ctx.current_time());
+        self.offset_at_play = offset;
+        self.source = Some(src);
+    }
+
+    /// Pause playback. Records the current position so `play()` can resume it.
+    ///
+    /// Returns the held position in seconds.
+    pub fn pause(&mut self) -> f64 {
+        let pos = self.current_position();
+        self.stop_source();
+        self.started_at = None;
+        self.offset_at_play = pos;
+        pos
+    }
+
+    /// Stop playback and reset the playhead to the beginning of the track.
+    pub fn stop(&mut self) {
+        self.stop_source();
+        self.started_at = None;
+        self.offset_at_play = 0.0;
+    }
+
+    /// Seek to `position` seconds. Restarts playback at the new position if
+    /// the deck was already playing.
+    pub fn seek(&mut self, position: f64, rate: f32) {
+        let was_playing = self.source.is_some();
+        self.stop_source();
+        self.started_at = None;
+        self.offset_at_play = position;
+        if was_playing {
+            self.play(position, rate);
+        }
+    }
+
+    /// Set or jump to the cue point.
+    ///
+    /// - If no cue point is set, saves the current position as the cue point.
+    /// - If a cue point is already set, seeks to it (resuming playback state).
+    pub fn cue(&mut self, rate: f32) {
+        match self.cue_point {
+            None => {
+                self.cue_point = Some(self.current_position());
+            }
+            Some(cue_pos) => {
+                self.seek(cue_pos, rate);
+            }
+        }
+    }
+
+    // ── Nudge ─────────────────────────────────────────────────────────────────
+
+    /// Begin a tempo nudge in `direction` (+1.0 = speed up, -1.0 = slow down).
+    ///
+    /// Temporarily shifts the active source's `playbackRate` by ±5% and saves
+    /// the pre-nudge rate so `nudge_end` can restore it smoothly.
+    pub fn nudge_start(&mut self, direction: f32) {
+        if let Some(ref src) = self.source {
+            let current = src.playback_rate().value();
+            self.pre_nudge_rate = Some(current);
+            // Nudge by ±5% of the current rate.
+            src.playback_rate().set_value(current * (1.0 + NUDGE_FACTOR * direction));
+        }
+    }
+
+    /// End the nudge, ramping `playbackRate` back to the pre-nudge value over
+    /// `NUDGE_RAMP_SECS` seconds.
+    pub fn nudge_end(&mut self) {
+        if let Some(rate) = self.pre_nudge_rate.take() {
+            if let Some(ref src) = self.source {
+                let target_time = self.ctx.current_time() + NUDGE_RAMP_SECS;
+                src.playback_rate()
+                    .linear_ramp_to_value_at_time(rate, target_time)
+                    .expect("AudioDeck::nudge_end — linear_ramp_to_value_at_time");
+            }
+        }
+    }
+
+    // ── Position tracking ────────────────────────────────────────────────────
+
+    /// Compute the current playhead position in seconds.
+    ///
+    /// Returns `offset_at_play` when not playing (i.e. `started_at` is `None`).
+    pub fn current_position(&self) -> f64 {
+        match self.started_at {
+            Some(started_at) => {
+                (self.ctx.current_time() - started_at + self.offset_at_play).max(0.0)
+            }
+            None => self.offset_at_play,
+        }
+    }
+
+    // ── Private helpers ───────────────────────────────────────────────────────
+
+    /// Stop and drop the active source node, ignoring errors (already-stopped is fine).
+    #[allow(deprecated)] // stop_with_when is deprecated in web-sys but remains the correct call
+    fn stop_source(&mut self) {
+        if let Some(ref src) = self.source {
+            // stop_with_when(0.0) = stop immediately; the parameterless stop() is also deprecated.
+            let _ = src.stop_with_when(0.0);
+        }
+        self.source = None;
+    }
 }
+
+/// Nudge tempo shift factor (5% of current rate).
+const NUDGE_FACTOR: f32 = 0.05;
+/// Time in seconds to ramp back to normal rate after releasing the nudge button.
+const NUDGE_RAMP_SECS: f64 = 0.1;
 
 #[cfg(test)]
 mod tests {
@@ -205,5 +358,37 @@ mod tests {
         let deck = AudioDeck::new(make_ctx());
         let wet = deck.borrow().flanger_wet.gain().value();
         assert!(wet.abs() < 1e-6, "flanger_wet should be 0.0, got {wet}");
+    }
+
+    #[wasm_bindgen_test]
+    fn current_position_is_zero_before_play() {
+        let deck = AudioDeck::new(make_ctx());
+        let pos = deck.borrow().current_position();
+        assert!(pos.abs() < 1e-9, "expected 0.0, got {pos}");
+    }
+
+    #[wasm_bindgen_test]
+    fn stop_resets_position_to_zero() {
+        let deck = AudioDeck::new(make_ctx());
+        deck.borrow_mut().offset_at_play = 42.0;
+        deck.borrow_mut().stop();
+        let pos = deck.borrow().current_position();
+        assert!(pos.abs() < 1e-9, "stop() should reset to 0.0, got {pos}");
+    }
+
+    #[wasm_bindgen_test]
+    fn cue_point_is_none_before_cue_called() {
+        let deck = AudioDeck::new(make_ctx());
+        assert!(deck.borrow().cue_point.is_none());
+    }
+
+    #[wasm_bindgen_test]
+    fn cue_sets_cue_point_when_none() {
+        let deck = AudioDeck::new(make_ctx());
+        // offset_at_play is 0.0 and started_at is None so current_position() = 0.0
+        deck.borrow_mut().cue(1.0);
+        let cue = deck.borrow().cue_point;
+        assert!(cue.is_some(), "cue_point should be set");
+        assert!((cue.unwrap()).abs() < 1e-9);
     }
 }
