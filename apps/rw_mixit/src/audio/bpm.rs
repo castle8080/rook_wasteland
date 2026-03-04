@@ -324,4 +324,94 @@ mod tests {
             );
         }
     }
+
+    // ── WASM tests: exercise the web-sys wrapper with a real AudioBuffer ──────
+    // These run only in the browser via: wasm-pack test --headless --chrome
+
+    #[cfg(target_arch = "wasm32")]
+    mod wasm {
+        use super::*;
+        use wasm_bindgen_test::wasm_bindgen_test;
+        use crate::audio::context::ensure_audio_context;
+
+        /// Helper: create an AudioBuffer at 44100 Hz, fill channel 0 with `samples`.
+        fn make_buffer(samples: &[f32]) -> web_sys::AudioBuffer {
+            let holder = std::rc::Rc::new(std::cell::RefCell::new(None));
+            let ctx = ensure_audio_context(&holder);
+            let buf = ctx
+                .create_buffer(1, samples.len() as u32, 44100.0)
+                .expect("create_buffer");
+            buf.copy_to_channel(samples, 0).expect("copy_to_channel");
+            buf
+        }
+
+        /// Helper: build a simple impulse train in a Vec<f32> for WASM-side use.
+        fn impulse_train_samples(bpm: f64, duration_secs: f32, sr: f32) -> Vec<f32> {
+            let n = (duration_secs * sr) as usize;
+            let period = (60.0 / bpm * sr as f64) as usize;
+            let mut v = vec![0.0f32; n];
+            let mut i = 0;
+            while i < n {
+                for k in 0..64usize {
+                    let idx = i + k;
+                    if idx < n {
+                        let x = k as f32 / 16.0;
+                        v[idx] += (-x * x).exp();
+                    }
+                }
+                i += period;
+            }
+            v
+        }
+
+        /// Verify that `get_channel_data(0)` returns data that produces a
+        /// non-empty, non-trivial flux — i.e. the web-sys round-trip works.
+        #[wasm_bindgen_test]
+        fn flux_from_audio_buffer_is_non_empty_for_beat_signal() {
+            let samples = impulse_train_samples(120.0, 10.0, 44100.0);
+            let buf = make_buffer(&samples);
+            let ch0 = buf.get_channel_data(0).expect("get_channel_data");
+            let sr = buf.sample_rate();
+            let flux = compute_spectral_flux(&ch0, sr);
+            assert!(!flux.is_empty(), "flux should not be empty");
+            assert!(flux.iter().any(|&v| v > 0.0), "flux should have non-zero values");
+        }
+
+        /// Silence in → near-zero flux out, through the browser buffer path.
+        #[wasm_bindgen_test]
+        fn flux_from_silence_buffer_is_near_zero() {
+            let buf = make_buffer(&vec![0.0f32; 44100 * 3]);
+            let ch0 = buf.get_channel_data(0).expect("get_channel_data");
+            let sr = buf.sample_rate();
+            let flux = compute_spectral_flux(&ch0, sr);
+            let max_flux = flux.iter().cloned().fold(0.0f32, f32::max);
+            assert!(max_flux < 1e-3, "silence should give near-zero flux, got {max_flux}");
+        }
+
+        /// End-to-end: AudioBuffer with 120 BPM signal → estimate_bpm in range.
+        #[wasm_bindgen_test]
+        fn bpm_estimate_in_range_from_audio_buffer() {
+            let samples = impulse_train_samples(120.0, 20.0, 44100.0);
+            let buf = make_buffer(&samples);
+            let ch0 = buf.get_channel_data(0).expect("get_channel_data");
+            let sr = buf.sample_rate();
+            let flux = compute_spectral_flux(&ch0, sr);
+            let bpm = estimate_bpm(&flux, sr, HOP_SIZE);
+            assert!(
+                bpm >= 60.0 && bpm <= 200.0,
+                "estimated BPM {bpm:.1} out of [60, 200]"
+            );
+            assert!(
+                (bpm - 120.0).abs() < 8.0,
+                "expected ~120 BPM from browser buffer, got {bpm:.1}"
+            );
+        }
+
+        /// Verify sample_rate() from the browser AudioBuffer is passed correctly.
+        #[wasm_bindgen_test]
+        fn audio_buffer_sample_rate_is_44100() {
+            let buf = make_buffer(&vec![0.0f32; 1024]);
+            assert!((buf.sample_rate() - 44100.0).abs() < 1.0);
+        }
+    }
 }
