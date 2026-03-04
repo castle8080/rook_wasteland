@@ -9,6 +9,7 @@ use web_sys::AudioContext;
 use crate::audio::{ensure_audio_context, deck_audio::AudioDeck};
 use crate::audio::loader::load_audio_file;
 use crate::audio::bpm::sync_rate;
+use crate::audio::mixer_audio::MixerAudio;
 use crate::canvas::raf_loop::start_raf_loop;
 use crate::canvas::platter_draw::PLATTER_SIZE;
 use crate::components::controls::Controls;
@@ -36,6 +37,10 @@ pub fn DeckView() -> impl IntoView {
 
     // Mixer state holds BPM signals and sync master (T4.3–T4.6).
     let mixer_state = MixerState::new();
+
+    // Shared mixer output nodes (xfade gains + master gain). Created lazily
+    // on first file load when the AudioContext becomes available.
+    let mixer_audio: Rc<RefCell<Option<MixerAudio>>> = Rc::new(RefCell::new(None));
 
     // Per-deck audio graph holders (None until first file load).
     let audio_a: Rc<RefCell<Option<Rc<RefCell<AudioDeck>>>>> = Rc::new(RefCell::new(None));
@@ -66,27 +71,38 @@ pub fn DeckView() -> impl IntoView {
             <Deck
                 side="A"
                 deck_id=DeckId::A
-                state=state_a
+                state=state_a.clone()
                 audio_ctx_holder=audio_ctx_holder.clone()
-                audio_deck_holder=audio_a
+                audio_deck_holder=audio_a.clone()
                 waveform_ref=waveform_a_ref
                 platter_ref=platter_a_ref
                 bpm_own=mixer_state.bpm_a
                 bpm_other=mixer_state.bpm_b
                 sync_master=mixer_state.sync_master
+                mixer_audio=mixer_audio.clone()
+                crossfader=mixer_state.crossfader
+                master_volume=mixer_state.master_volume
             />
-            <Mixer/>
+            <Mixer
+                mixer_state=mixer_state.clone()
+                mixer_audio=mixer_audio.clone()
+                vol_a=state_a.volume
+                vol_b=state_b.volume
+            />
             <Deck
                 side="B"
                 deck_id=DeckId::B
-                state=state_b
+                state=state_b.clone()
                 audio_ctx_holder=audio_ctx_holder
-                audio_deck_holder=audio_b
+                audio_deck_holder=audio_b.clone()
                 waveform_ref=waveform_b_ref
                 platter_ref=platter_b_ref
                 bpm_own=mixer_state.bpm_b
                 bpm_other=mixer_state.bpm_a
                 sync_master=mixer_state.sync_master
+                mixer_audio=mixer_audio.clone()
+                crossfader=mixer_state.crossfader
+                master_volume=mixer_state.master_volume
             />
         </div>
     }
@@ -108,6 +124,12 @@ pub fn Deck(
     bpm_own:           RwSignal<Option<f64>>,
     bpm_other:         RwSignal<Option<f64>>,
     sync_master:       RwSignal<Option<DeckId>>,
+    /// Shared mixer output nodes — created on first load, then connected.
+    mixer_audio:       Rc<RefCell<Option<MixerAudio>>>,
+    /// Current crossfader value — applied when MixerAudio is first created.
+    crossfader:        RwSignal<f32>,
+    /// Current master volume — applied when MixerAudio is first created.
+    master_volume:     RwSignal<f32>,
 ) -> impl IntoView {
     let file_input: NodeRef<leptos::html::Input> = NodeRef::new();
 
@@ -123,6 +145,7 @@ pub fn Deck(
         let audio_ctx_holder   = audio_ctx_holder.clone();
         let audio_deck_holder  = audio_deck_holder.clone();
         let state              = state.clone();
+        let mixer_audio        = mixer_audio.clone();
         move |ev: web_sys::Event| {
             let input: web_sys::HtmlInputElement =
                 ev.target().expect("event target").unchecked_into();
@@ -137,11 +160,39 @@ pub fn Deck(
 
             let ctx = ensure_audio_context(&audio_ctx_holder);
 
-            // Create AudioDeck on first load (requires AudioContext).
+            // T5.1 — Ensure MixerAudio exists and is wired to destination.
+            // Both deck closures race here; only the first one creates it.
+            {
+                let mut ma_opt = mixer_audio.borrow_mut();
+                if ma_opt.is_none() {
+                    let ma = MixerAudio::new(&ctx);
+                    // Apply current slider positions in case user moved them
+                    // before loading any track (Effects won't re-fire otherwise).
+                    let xf = crossfader.get_untracked();
+                    let mv = master_volume.get_untracked();
+                    ma.set_crossfader(xf);
+                    ma.master_gain.gain().set_value(mv);
+                    *ma_opt = Some(ma);
+                }
+            }
+
+            // Create AudioDeck on first load and connect to mixer output.
+            // MixerAudio is guaranteed to exist at this point (created above).
+            // Both operations are guarded by the same `is_none()` check so the
+            // audio graph wiring happens exactly once per deck lifetime.
             {
                 let mut deck_opt = audio_deck_holder.borrow_mut();
                 if deck_opt.is_none() {
-                    *deck_opt = Some(AudioDeck::new(ctx.clone()));
+                    let deck = AudioDeck::new(ctx.clone());
+                    let ma_opt = mixer_audio.borrow();
+                    if let Some(ref ma) = *ma_opt {
+                        let xfade_gain = match deck_id {
+                            DeckId::A => ma.xfade_gain_a.clone(),
+                            DeckId::B => ma.xfade_gain_b.clone(),
+                        };
+                        deck.borrow().connect_to_mixer_output(&xfade_gain);
+                    }
+                    *deck_opt = Some(deck);
                 }
             }
             let deck_rc = audio_deck_holder.borrow().as_ref().unwrap().clone();
@@ -202,6 +253,18 @@ pub fn Deck(
                 if let Some(ref src) = deck_rc.borrow().source {
                     src.playback_rate().set_value(rate);
                 }
+            }
+        });
+    }
+
+    // T5.3 — Propagate volume signal changes to the channel_gain AudioParam.
+    {
+        let state_eff = state.clone();
+        let holder_eff = audio_deck_holder.clone();
+        Effect::new(move |_| {
+            let vol = state_eff.volume.get();
+            if let Some(ref deck_rc) = *holder_eff.borrow() {
+                deck_rc.borrow().channel_gain.gain().set_value(vol);
             }
         });
     }

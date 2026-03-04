@@ -508,3 +508,104 @@ html, body {
 .btn-sync {
   color: var(--color-glow);
 }
+
+/* ─── Mixer Channel Faders (M5) ───────────────────────────────────── */
+.mixer-channel-faders {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  padding: 0.5rem 0;
+}
+
+.channel-fader-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  flex: 1;
+}
+
+.fader-deck-label {
+  font-size: 1.1rem;
+  letter-spacing: 0.08em;
+  text-shadow: 1px 1px 0 var(--color-border);
+}
+
+.fader-deck-a { color: var(--color-deck-a); }
+.fader-deck-b { color: var(--color-deck-b); }
+
+/* Vertical channel fader — orient the range input vertically */
+.channel-fader {
+  writing-mode: vertical-lr;
+  direction: rtl;
+  height: 100px;
+  width: 28px;
+  accent-color: var(--color-mixer);
+  cursor: pointer;
+}
+
+.fader-value {
+  font-size: 0.7rem;
+  color: var(--color-text-dim);
+  min-height: 1em;
+  text-align: center;
+}
+
+/* ─── Mixer Sections (crossfader, master vol) ─────────────────────── */
+.mixer-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.5rem 0.25rem;
+  border-top: 1px solid rgba(255,255,255,0.07);
+}
+
+.mixer-section-label {
+  font-size: 0.7rem;
+  color: var(--color-text-dim);
+  letter-spacing: 0.1em;
+  text-align: center;
+}
+
+/* ─── Crossfader (M5) ─────────────────────────────────────────────── */
+.crossfader-track {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.crossfader-end {
+  font-size: 0.85rem;
+  color: var(--color-text-dim);
+  flex-shrink: 0;
+  width: 1rem;
+  text-align: center;
+}
+
+.crossfader {
+  flex: 1;
+  accent-color: var(--color-glow);
+  cursor: pointer;
+  height: 8px;
+}
+
+/* ─── Master Volume (M5) ──────────────────────────────────────────── */
+.master-vol-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.master-vol {
+  flex: 1;
+  accent-color: var(--color-mixer);
+  cursor: pointer;
+  height: 8px;
+}
+
+.master-vol-value {
+  font-size: 0.75rem;
+  color: var(--color-mixer);
+  min-width: 2.5rem;
+  text-align: right;
+}

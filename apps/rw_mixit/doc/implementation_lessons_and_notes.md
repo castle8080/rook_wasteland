@@ -151,3 +151,47 @@ capped at 9 entries (8 intervals) by removing the oldest on overflow.
 `web_sys::Window::performance()` returns `Option<web_sys::Performance>`, and
 `Performance::now()` returns `f64` milliseconds. Both are already enabled via
 the `"Performance"` entry in `Cargo.toml`'s web-sys feature list.
+
+---
+
+## Lessons from M5 — Mixer Panel
+
+### Shared audio nodes need lazy init co-located with the first-user-gesture path
+
+The Web Audio API requires a user gesture before `AudioContext` can be created.
+`MixerAudio` (xfade gains + master gain) is shared across both decks and must
+use the same `AudioContext`, so it cannot be constructed at `DeckView` render
+time. The pattern: store `Rc<RefCell<Option<MixerAudio>>>`, create it inside the
+`on_file_change` handler on first call (same place `AudioContext` is lazily
+initialised), then connect each deck's `analyser` node immediately after its
+`AudioDeck` is created. Both deck closures race to create `MixerAudio`; the
+`is_none()` guard ensures only the first wins.
+
+### Apply current signal values immediately after lazy node creation
+
+Leptos `Effect`s track reactive signals — they fire when a signal changes, not
+when the audio node they target comes into existence. If the user moves the
+crossfader or master volume slider *before* loading any track, the Effects fire
+but `MixerAudio` is still `None` (no-op). When `MixerAudio` is finally created,
+those Effects won't re-fire because the signals didn't change. Fix: read the
+current signal values with `.get_untracked()` and apply them to the newly
+created nodes at construction time.
+
+### Connect audio graph topology exactly once — guard with the same `is_none()` check
+
+`AudioNode::connect()` in the Web Audio API is idempotent: repeated calls
+between the same source→destination pair are silently ignored. However, calling
+`connect_to_mixer_output()` on every file reload is a logic error. The correct
+pattern: co-locate the wiring inside the `if deck_opt.is_none()` block that
+creates the `AudioDeck`. Since `MixerAudio` is always created in the block just
+before, it is guaranteed to exist at that point. This ensures the audio graph
+topology is established exactly once per deck lifetime.
+
+### Extract pure math helpers for testability (same pattern as `pitch_to_rate`)
+
+The equal-power crossfader formula (`cos(val·π/2)`, `sin(val·π/2)`) cannot be
+tested natively if it lives inside a method that takes `&GainNode` (a `web-sys`
+type requiring a browser). Extract it as a `pub(crate) fn crossfader_gains(val:
+f32) -> (f32, f32)` so the math properties (boundary values, constant-power
+invariant, symmetry) can all be covered with plain `#[test]` functions. Reserve
+`#[wasm_bindgen_test]` for node construction and actual `AudioParam` updates.

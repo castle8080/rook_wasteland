@@ -131,12 +131,8 @@ impl AudioDeck {
         flanger_depth.connect_with_audio_param(&flanger_delay.delay_time()).expect("connect depth → delay_time");
         flanger_lfo.start().expect("flanger_lfo.start");
 
-        // channel_gain → analyser (analyser → destination wired in M5)
+        // channel_gain → analyser (analyser → xfade GainNode wired in M5 via connect_to_mixer_output)
         channel_gain.connect_with_audio_node(&analyser).expect("connect channel_gain → analyser");
-
-        // M2: connect analyser → destination directly so audio is audible.
-        // M5 will disconnect this and route through the crossfader GainNodes instead.
-        analyser.connect_with_audio_node(&ctx.destination()).expect("connect analyser → destination");
 
         Rc::new(RefCell::new(AudioDeck {
             ctx,
@@ -169,6 +165,15 @@ impl AudioDeck {
     }
 
     // ── Playback ──────────────────────────────────────────────────────────────
+
+    /// Wire this deck's output (analyser) into the mixer's crossfader gain node.
+    ///
+    /// Must be called once after `MixerAudio` has been constructed.
+    pub fn connect_to_mixer_output(&self, xfade_gain: &GainNode) {
+        self.analyser
+            .connect_with_audio_node(xfade_gain)
+            .expect("AudioDeck::connect_to_mixer_output — analyser → xfade");
+    }
 
     /// Start or restart playback from `offset` seconds at the given `rate`.
     ///

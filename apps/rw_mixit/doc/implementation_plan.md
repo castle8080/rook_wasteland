@@ -116,11 +116,11 @@ Blend two decks. Crossfader, channel faders, and master volume all working with 
 
 | ID | Task | Success Criteria | Status |
 |---|---|---|---|
-| T5.1 | Add crossfader `GainNode` pair to audio graph: `xfade_gain_a` and `xfade_gain_b`; connect `AudioDeck.channel_gain` output → respective xfade GainNode → `master_gain` → `ctx.destination` for each deck | Audio flows from both decks to destination; both audible at default crossfader 0.5 | ⬜ Not Started |
-| T5.2 | `src/components/mixer.rs`: Crossfader `<input type="range">` 0.0→1.0; `Effect` updates `xfade_gain_a.gain = cos(val * π/2)` and `xfade_gain_b.gain = sin(val * π/2)` | Moving crossfader to 0.0 silences Deck B; to 1.0 silences Deck A; constant perceived loudness at center | ⬜ Not Started |
-| T5.3 | Channel fader components in Mixer: two vertical `<input type="range">` sliders 0.0→1.0; each `Effect` drives `AudioDeck.channel_gain.gain` | Dragging channel fader A down silences Deck A without affecting Deck B | ⬜ Not Started |
-| T5.4 | Master volume knob component: rotary-style `<input type="range">` 0.0→1.0; `Effect` drives `master_gain.gain` | Master volume knob scales overall output level | ⬜ Not Started |
-| T5.5 | `<Mixer>` component layout: channel faders side by side, crossfader below them, master volume, BPM display panel | Mixer column visually complete with all controls in correct positions | ⬜ Not Started |
+| T5.1 | Add crossfader `GainNode` pair to audio graph: `xfade_gain_a` and `xfade_gain_b`; connect `AudioDeck.channel_gain` output → respective xfade GainNode → `master_gain` → `ctx.destination` for each deck | Audio flows from both decks to destination; both audible at default crossfader 0.5 | ✅ Done |
+| T5.2 | `src/components/mixer.rs`: Crossfader `<input type="range">` 0.0→1.0; `Effect` updates `xfade_gain_a.gain = cos(val * π/2)` and `xfade_gain_b.gain = sin(val * π/2)` | Moving crossfader to 0.0 silences Deck B; to 1.0 silences Deck A; constant perceived loudness at center | ✅ Done |
+| T5.3 | Channel fader components in Mixer: two vertical `<input type="range">` sliders 0.0→1.0; each `Effect` drives `AudioDeck.channel_gain.gain` | Dragging channel fader A down silences Deck A without affecting Deck B | ✅ Done |
+| T5.4 | Master volume knob component: rotary-style `<input type="range">` 0.0→1.0; `Effect` drives `master_gain.gain` | Master volume knob scales overall output level | ✅ Done |
+| T5.5 | `<Mixer>` component layout: channel faders side by side, crossfader below them, master volume, BPM display panel | Mixer column visually complete with all controls in correct positions | ✅ Done |
 
 ---
 
