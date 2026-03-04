@@ -163,6 +163,17 @@ pub fn tap_bpm_from_intervals(intervals_ms: &[f64]) -> Option<f64> {
     Some((60_000.0 / avg_ms).clamp(40.0, 250.0))
 }
 
+/// Compute the playback rate needed so a deck running at `own_bpm` plays at `target_bpm`.
+///
+/// Clamps to [0.25, 4.0] to prevent extreme pitch shifts.
+/// Returns `None` if `own_bpm` is zero or negative.
+pub fn sync_rate(current_rate: f64, own_bpm: f64, target_bpm: f64) -> Option<f64> {
+    if own_bpm <= 0.0 {
+        return None;
+    }
+    Some((current_rate * (target_bpm / own_bpm)).clamp(0.25, 4.0))
+}
+
 // ─── Tests ─────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -323,6 +334,48 @@ mod tests {
                 "BPM {bpm:.1} out of [60,200] for target {target}"
             );
         }
+    }
+
+    // ── sync_rate ─────────────────────────────────────────────────────────────
+
+    #[test]
+    fn sync_rate_matches_tempo_exactly() {
+        // Deck at 1.0x rate playing 120 BPM track, syncing to 128 BPM.
+        // New rate should be 128/120 ≈ 1.0667.
+        let rate = sync_rate(1.0, 120.0, 128.0).unwrap();
+        assert!((rate - 128.0 / 120.0).abs() < 1e-9, "got {rate}");
+    }
+
+    #[test]
+    fn sync_rate_scales_with_current_rate() {
+        // Deck already playing at 1.1x rate, own BPM 100, target BPM 100.
+        // Rate should stay 1.1 (same tempo).
+        let rate = sync_rate(1.1, 100.0, 100.0).unwrap();
+        assert!((rate - 1.1).abs() < 1e-9, "got {rate}");
+    }
+
+    #[test]
+    fn sync_rate_clamps_at_upper_bound() {
+        // Extreme upward shift (own=60, target=300) would be 5.0x; clamp to 4.0.
+        let rate = sync_rate(1.0, 60.0, 300.0).unwrap();
+        assert_eq!(rate, 4.0);
+    }
+
+    #[test]
+    fn sync_rate_clamps_at_lower_bound() {
+        // Extreme downward shift (own=200, target=30) would be 0.15x; clamp to 0.25.
+        let rate = sync_rate(1.0, 200.0, 30.0).unwrap();
+        assert_eq!(rate, 0.25);
+    }
+
+    #[test]
+    fn sync_rate_returns_none_for_zero_own_bpm() {
+        assert_eq!(sync_rate(1.0, 0.0, 120.0), None);
+    }
+
+    #[test]
+    fn sync_rate_returns_none_for_negative_own_bpm() {
+        assert_eq!(sync_rate(1.0, -10.0, 120.0), None);
     }
 
     // ── WASM tests: exercise the web-sys wrapper with a real AudioBuffer ──────

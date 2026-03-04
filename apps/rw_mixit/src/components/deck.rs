@@ -8,6 +8,7 @@ use web_sys::AudioContext;
 
 use crate::audio::{ensure_audio_context, deck_audio::AudioDeck};
 use crate::audio::loader::load_audio_file;
+use crate::audio::bpm::sync_rate;
 use crate::canvas::raf_loop::start_raf_loop;
 use crate::canvas::platter_draw::PLATTER_SIZE;
 use crate::components::controls::Controls;
@@ -357,15 +358,15 @@ pub fn BpmPanel(
             let other = bpm_other.get_untracked();
             if let (Some(own_bpm), Some(other_bpm)) = (own, other) {
                 if own_bpm > 0.0 {
-                    let new_rate = (playback_rate.get_untracked() * (other_bpm / own_bpm))
-                        .clamp(0.25, 4.0);
-                    playback_rate.set(new_rate);
-                    // The deck we're syncing TO becomes the master reference
-                    let other_id = match deck_id {
-                        DeckId::A => DeckId::B,
-                        DeckId::B => DeckId::A,
-                    };
-                    sync_master.set(Some(other_id));
+                    if let Some(new_rate) = sync_rate(playback_rate.get_untracked(), own_bpm, other_bpm) {
+                        playback_rate.set(new_rate);
+                        // The deck we're syncing TO becomes the master reference
+                        let other_id = match deck_id {
+                            DeckId::A => DeckId::B,
+                            DeckId::B => DeckId::A,
+                        };
+                        sync_master.set(Some(other_id));
+                    }
                 }
             }
         }
