@@ -360,7 +360,12 @@ pub fn BpmPanel(
                     let new_rate = (playback_rate.get_untracked() * (other_bpm / own_bpm))
                         .clamp(0.25, 4.0);
                     playback_rate.set(new_rate);
-                    sync_master.set(Some(deck_id));
+                    // The deck we're syncing TO becomes the master reference
+                    let other_id = match deck_id {
+                        DeckId::A => DeckId::B,
+                        DeckId::B => DeckId::A,
+                    };
+                    sync_master.set(Some(other_id));
                 }
             }
         }
