@@ -149,11 +149,14 @@ test result: ok. 50 passed; 0 failed
 - [ ] Load two tracks at different speeds; press SYNC on one — platter + audio speed changes to match the other
 - [ ] MASTER button lights up on click; transfers between decks
 
-**WASM browser tests** (`wasm-pack test --headless --chrome` — to be run manually):
-- `flux_from_audio_buffer_is_non_empty_for_beat_signal` — `get_channel_data(0)` → `compute_spectral_flux` round-trip
-- `flux_from_silence_buffer_is_near_zero` — silence path via web-sys
-- `bpm_estimate_in_range_from_audio_buffer` — end-to-end 120 BPM AudioBuffer → BPM in [60, 200] and ≈120
-- `audio_buffer_sample_rate_is_44100` — sanity-check the sample_rate() return
+**WASM browser tests** (`wasm-pack test --headless --firefox` — Chrome has a pre-existing ChromeDriver 146 version mismatch in this environment):
+```
+test audio::bpm::tests::wasm::flux_from_audio_buffer_is_non_empty_for_beat_signal ... ok
+test audio::bpm::tests::wasm::flux_from_silence_buffer_is_near_zero ... ok
+test audio::bpm::tests::wasm::bpm_estimate_in_range_from_audio_buffer ... ok
+test audio::bpm::tests::wasm::audio_buffer_sample_rate_is_44100 ... ok
+test result: ok. 31 passed; 0 failed; 0 ignored; 0 filtered out
+```
 
 ---
 
