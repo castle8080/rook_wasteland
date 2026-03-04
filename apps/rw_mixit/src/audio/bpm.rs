@@ -19,7 +19,7 @@ pub const HOP_SIZE: usize = 512;
 /// 4. Smooth the resulting curve with a 5-frame centred moving average.
 ///
 /// Returns one flux value per frame; empty if `samples` is shorter than `WINDOW_SIZE`.
-pub fn compute_spectral_flux(samples: &[f32], _sample_rate: f32) -> Vec<f32> {
+pub fn compute_spectral_flux(samples: &[f32], sample_rate: f32) -> Vec<f32> {
     if samples.len() < WINDOW_SIZE {
         return Vec::new();
     }
@@ -35,11 +35,16 @@ pub fn compute_spectral_flux(samples: &[f32], _sample_rate: f32) -> Vec<f32> {
     let mut planner = FftPlanner::<f32>::new();
     let fft = planner.plan_fft_forward(WINDOW_SIZE);
 
-    // Only positive frequencies are needed (DC…Nyquist).
-    let half = WINDOW_SIZE / 2 + 1;
+    // Restrict flux to kick-drum / bass range (up to ~1400 Hz).
+    // At 44100 Hz with WINDOW_SIZE=1024 each bin is ≈43 Hz, giving ~32 bins.
+    // This avoids hi-hat, guitar, and melodic content that create sub-beat
+    // autocorrelation peaks (e.g. 8th-note hi-hats doubling detected tempo).
+    let bin_hz = sample_rate / WINDOW_SIZE as f32;
+    let bass_bins = ((1400.0 / bin_hz) as usize).clamp(1, WINDOW_SIZE / 2);
+
     let num_frames = (samples.len() - WINDOW_SIZE) / HOP_SIZE + 1;
 
-    let mut prev_mag = vec![0.0f32; half];
+    let mut prev_mag = vec![0.0f32; bass_bins];
     let mut flux: Vec<f32> = Vec::with_capacity(num_frames);
 
     for frame_idx in 0..num_frames {
@@ -57,7 +62,8 @@ pub fn compute_spectral_flux(samples: &[f32], _sample_rate: f32) -> Vec<f32> {
 
         fft.process(&mut buf);
 
-        let mag: Vec<f32> = buf[..half].iter().map(|c| c.norm()).collect();
+        // Only use bins 1..=bass_bins (skip DC bin 0).
+        let mag: Vec<f32> = buf[1..=bass_bins].iter().map(|c| c.norm()).collect();
 
         // Half-wave-rectified spectral flux: sum max(0, |X_k(t)| - |X_k(t-1)|).
         let frame_flux: f32 = mag
