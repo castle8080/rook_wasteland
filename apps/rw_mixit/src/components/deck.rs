@@ -195,7 +195,9 @@ pub fn Deck(
                     *deck_opt = Some(deck);
                 }
             }
-            let deck_rc = audio_deck_holder.borrow().as_ref().unwrap().clone();
+            let deck_rc = audio_deck_holder.borrow().as_ref()
+                .expect("AudioDeck was just created in the is_none() block above")
+                .clone();
 
             let state = state.clone();
             spawn_local(async move {
@@ -274,6 +276,11 @@ pub fn Deck(
             <h2 class="deck-label">{format!("DECK {side}")}</h2>
             <TrackLabel state=state.clone()/>
 
+            // Inline error message — shown when a file fails to load or decode.
+            {move || state.load_error.get().map(|err| view! {
+                <div class="load-error">{err}</div>
+            })}
+
             // Waveform canvas
             <canvas
                 class="waveform-canvas"
@@ -330,19 +337,13 @@ pub fn ZoomControls(state: DeckState) -> impl IntoView {
     let on_zoom_out = {
         let state = state.clone();
         move |_: web_sys::MouseEvent| {
-            let current = state.zoom_level.get_untracked();
-            if current > 1 {
-                state.zoom_level.set(current / 2);
-            }
+            state.zoom_level.set(state.zoom_level.get_untracked().zoom_out());
         }
     };
     let on_zoom_in = {
         let state = state.clone();
         move |_: web_sys::MouseEvent| {
-            let current = state.zoom_level.get_untracked();
-            if current < 8 {
-                state.zoom_level.set(current * 2);
-            }
+            state.zoom_level.set(state.zoom_level.get_untracked().zoom_in());
         }
     };
 

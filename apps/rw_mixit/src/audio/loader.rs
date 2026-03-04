@@ -17,18 +17,47 @@ pub async fn load_audio_file(
     ctx: AudioContext,
     bpm_signal: RwSignal<Option<f64>>,
 ) {
+    // Clear any previous error at the start of each load attempt.
+    state.load_error.set(None);
+
     let file_name = file.name();
 
     // Step 1: File → ArrayBuffer via FileReader wrapped in a Promise
-    let array_buffer = read_file_as_array_buffer(file).await;
+    let array_buffer = match read_file_as_array_buffer(file).await {
+        Ok(buf) => buf,
+        Err(msg) => {
+            let err = format!("File read failed: {msg}");
+            web_sys::console::error_1(&err.clone().into());
+            state.load_error.set(Some(err));
+            return;
+        }
+    };
 
-    // Step 2: ArrayBuffer → AudioBuffer via Web Audio decodeAudioData
-    let promise: Promise = ctx.decode_audio_data(&array_buffer)
-        .expect("decode_audio_data");
-    let audio_buffer: AudioBuffer = JsFuture::from(promise)
-        .await
-        .expect("decodeAudioData future")
-        .unchecked_into();
+    // Step 2: ArrayBuffer → AudioBuffer via Web Audio decodeAudioData.
+    // Note: decode_audio_data() itself only fails if the ArrayBuffer is detached,
+    // which cannot happen here since we just created it above.  The JsFuture
+    // await is the real failure point — it rejects on corrupt or unsupported audio.
+    let promise: Promise = match ctx.decode_audio_data(&array_buffer) {
+        Ok(p) => p,
+        Err(e) => {
+            let err = format!("Could not start audio decode: {}", js_val_to_string(&e));
+            web_sys::console::error_1(&err.clone().into());
+            state.load_error.set(Some(err));
+            return;
+        }
+    };
+    let audio_buffer: AudioBuffer = match JsFuture::from(promise).await {
+        Ok(v) => v.unchecked_into(),
+        Err(e) => {
+            let err = format!(
+                "Could not decode audio (unsupported format or corrupt file): {}",
+                js_val_to_string(&e)
+            );
+            web_sys::console::error_1(&err.clone().into());
+            state.load_error.set(Some(err));
+            return;
+        }
+    };
 
     // Step 3: Extract waveform peaks and duration
     let duration = audio_buffer.duration();
@@ -48,24 +77,56 @@ pub async fn load_audio_file(
     bpm_signal.set(Some(detected_bpm));
 }
 
-async fn read_file_as_array_buffer(file: web_sys::File) -> ArrayBuffer {
-    let promise = Promise::new(&mut |resolve, _reject| {
-        let reader = FileReader::new().expect("FileReader::new");
+/// Wrap FileReader's async read in a Promise that resolves to an ArrayBuffer
+/// or rejects with a descriptive error string.
+async fn read_file_as_array_buffer(file: web_sys::File) -> Result<ArrayBuffer, String> {
+    let promise = Promise::new(&mut |resolve, reject| {
+        let reader = FileReader::new()
+            .expect("FileReader::new: FileReader is available in all supported browsers");
+
         let reader_clone = reader.clone();
+        let reject_for_onerror = reject.clone();
+        let reject_for_read_err = reject.clone();
+
         let onload = Closure::<dyn FnMut(web_sys::ProgressEvent)>::new(
             move |_: web_sys::ProgressEvent| {
-                let result = reader_clone.result().expect("FileReader.result");
-                resolve.call1(&JsValue::NULL, &result).expect("resolve");
+                match reader_clone.result() {
+                    Ok(result) => { let _ = resolve.call1(&JsValue::NULL, &result); }
+                    // result() only fails if onload fired before read completed — not possible.
+                    Err(e) => { let _ = reject.call1(&JsValue::NULL, &e); }
+                }
             },
         );
+        let onerror = Closure::<dyn FnMut(web_sys::ProgressEvent)>::new(
+            move |_: web_sys::ProgressEvent| {
+                let _ = reject_for_onerror.call1(
+                    &JsValue::NULL,
+                    &JsValue::from_str("FileReader encountered a read error"),
+                );
+            },
+        );
+
         reader.set_onload(Some(onload.as_ref().unchecked_ref()));
+        reader.set_onerror(Some(onerror.as_ref().unchecked_ref()));
         onload.forget();
-        reader.read_as_array_buffer(&file).expect("read_as_array_buffer");
+        onerror.forget();
+
+        if let Err(e) = reader.read_as_array_buffer(&file) {
+            let _ = reject_for_read_err.call1(&JsValue::NULL, &e);
+        }
     });
+
     JsFuture::from(promise)
         .await
-        .expect("FileReader promise")
-        .unchecked_into::<ArrayBuffer>()
+        .map(|v| v.unchecked_into::<ArrayBuffer>())
+        .map_err(|e| {
+            e.as_string().unwrap_or_else(|| "FileReader failed with an unknown error".to_string())
+        })
+}
+
+/// Convert a JsValue error to a human-readable string.
+fn js_val_to_string(v: &JsValue) -> String {
+    v.as_string().unwrap_or_else(|| format!("{v:?}"))
 }
 
 /// Downsamples all audio channels to `num_columns` peak values.

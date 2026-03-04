@@ -58,20 +58,24 @@ pub fn start_raf_loop(
 
             // ── 5. Schedule the next frame ────────────────────────────────────
             web_sys::window()
-                .expect("raf_loop — window unavailable")
+                .expect("raf_loop — window is always present in a browser WASM context")
                 .request_animation_frame(
-                    f.borrow().as_ref().unwrap().as_ref().unchecked_ref(),
+                    f.borrow().as_ref()
+                        .expect("RAF closure was assigned two lines above; this Option is always Some")
+                        .as_ref().unchecked_ref(),
                 )
-                .expect("raf_loop — request_animation_frame");
+                .expect("raf_loop — request_animation_frame is infallible with a valid Closure");
         }));
 
         // Kick off the first frame.
         web_sys::window()
-            .expect("raf_loop — window unavailable")
+            .expect("raf_loop — window is always present in a browser WASM context")
             .request_animation_frame(
-                g.borrow().as_ref().unwrap().as_ref().unchecked_ref(),
+                g.borrow().as_ref()
+                    .expect("RAF closure was assigned in the block above; this Option is always Some")
+                    .as_ref().unchecked_ref(),
             )
-            .expect("raf_loop — first request_animation_frame");
+            .expect("raf_loop — first request_animation_frame is infallible with a valid Closure");
     });
 }
 

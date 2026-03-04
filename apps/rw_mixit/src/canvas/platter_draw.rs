@@ -105,7 +105,8 @@ pub fn draw_platter(
 
     // ── 2. Vinyl disc base (outer edge / label backing) ───────────────────────
     ctx.begin_path();
-    ctx.arc(cx, cy, r, 0.0, TAU).expect("platter: disc arc");
+    ctx.arc(cx, cy, r, 0.0, TAU)
+        .expect("platter: disc arc — arc() only fails if radius < 0; r is computed from canvas size and is always > 0");
     ctx.set_fill_style_str(COLOR_VINYL);
     ctx.fill();
 
@@ -116,8 +117,10 @@ pub fn draw_platter(
     let angle = current_secs * RPM_33_RPS * playback_rate * TAU;
 
     ctx.save();
-    ctx.translate(cx, cy).expect("platter: translate");
-    ctx.rotate(angle).expect("platter: rotate");
+    ctx.translate(cx, cy)
+        .expect("platter: translate — translate() is infallible on a valid 2D context");
+    ctx.rotate(angle)
+        .expect("platter: rotate — rotate() is infallible on a valid 2D context");
 
     ctx.set_stroke_style_str(COLOR_GROOVE);
     ctx.set_line_width(0.8);
@@ -129,7 +132,8 @@ pub fn draw_platter(
     for i in 0..GROOVE_COUNT {
         let groove_r = inner_groove_r + i as f64 * groove_spacing;
         ctx.begin_path();
-        ctx.arc(0.0, 0.0, groove_r, 0.0, TAU).expect("platter: groove arc");
+        ctx.arc(0.0, 0.0, groove_r, 0.0, TAU)
+            .expect("platter: groove arc — groove_r is derived from canvas size and is always > 0");
         ctx.stroke();
     }
 
@@ -139,7 +143,8 @@ pub fn draw_platter(
     let label_r = r * LABEL_RADIUS_FRAC;
 
     ctx.begin_path();
-    ctx.arc(cx, cy, label_r, 0.0, TAU).expect("platter: label arc");
+    ctx.arc(cx, cy, label_r, 0.0, TAU)
+        .expect("platter: label arc — label_r is a positive fraction of r which is always > 0");
     ctx.set_fill_style_str(accent);
     ctx.fill();
 
@@ -156,14 +161,14 @@ pub fn draw_platter(
         ctx.set_text_align("center");
         ctx.set_text_baseline("middle");
         ctx.fill_text(&abbrev, cx, cy - label_r * 0.25)
-            .expect("platter: fill_text");
+            .expect("platter: fill_text — fill_text() only fails on a detached or invalid context, which is checked before entering this function");
     }
 
     // ── 5. Spindle dot ────────────────────────────────────────────────────────
     const SPINDLE_R: f64 = 4.0;
     ctx.begin_path();
     ctx.arc(cx, cy + label_r * 0.3, SPINDLE_R, 0.0, TAU)
-        .expect("platter: spindle arc");
+        .expect("platter: spindle arc — SPINDLE_R is a positive constant");
     ctx.set_fill_style_str(COLOR_SPINDLE);
     ctx.fill();
 
@@ -193,13 +198,15 @@ pub fn draw_platter(
 
     // Pivot disc
     ctx.begin_path();
-    ctx.arc(pivot_x, pivot_y, 5.0, 0.0, TAU).expect("platter: pivot arc");
+    ctx.arc(pivot_x, pivot_y, 5.0, 0.0, TAU)
+        .expect("platter: pivot arc — radius 5.0 is a positive constant");
     ctx.set_fill_style_str(COLOR_TONEARM);
     ctx.fill();
 
     // Needle cartridge dot (accent colour)
     ctx.begin_path();
-    ctx.arc(tip_x, tip_y, 3.0, 0.0, TAU).expect("platter: needle arc");
+    ctx.arc(tip_x, tip_y, 3.0, 0.0, TAU)
+        .expect("platter: needle arc — radius 3.0 is a positive constant");
     ctx.set_fill_style_str(accent);
     ctx.fill();
 }

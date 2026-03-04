@@ -49,90 +49,130 @@ pub struct AudioDeck {
 
 impl AudioDeck {
     pub fn new(ctx: AudioContext) -> Rc<RefCell<AudioDeck>> {
-        let pre_gain = ctx.create_gain().expect("create_gain pre_gain");
+        let pre_gain = ctx.create_gain()
+            .expect("create_gain pre_gain: AudioContext node creation is infallible on a live context");
         pre_gain.gain().set_value(1.0);
 
-        let eq_high = ctx.create_biquad_filter().expect("create_biquad_filter eq_high");
+        let eq_high = ctx.create_biquad_filter()
+            .expect("create_biquad_filter eq_high: AudioContext node creation is infallible on a live context");
         eq_high.set_type(BiquadFilterType::Highshelf);
         eq_high.frequency().set_value(8000.0);
         eq_high.gain().set_value(0.0);
 
-        let eq_mid = ctx.create_biquad_filter().expect("create_biquad_filter eq_mid");
+        let eq_mid = ctx.create_biquad_filter()
+            .expect("create_biquad_filter eq_mid: AudioContext node creation is infallible on a live context");
         eq_mid.set_type(BiquadFilterType::Peaking);
         eq_mid.frequency().set_value(1000.0);
         eq_mid.q().set_value(0.7);
         eq_mid.gain().set_value(0.0);
 
-        let eq_low = ctx.create_biquad_filter().expect("create_biquad_filter eq_low");
+        let eq_low = ctx.create_biquad_filter()
+            .expect("create_biquad_filter eq_low: AudioContext node creation is infallible on a live context");
         eq_low.set_type(BiquadFilterType::Lowshelf);
         eq_low.frequency().set_value(200.0);
         eq_low.gain().set_value(0.0);
 
-        let sweep_filter = ctx.create_biquad_filter().expect("create_biquad_filter sweep");
+        let sweep_filter = ctx.create_biquad_filter()
+            .expect("create_biquad_filter sweep: AudioContext node creation is infallible on a live context");
         sweep_filter.set_type(BiquadFilterType::Peaking);
         sweep_filter.gain().set_value(0.0);
 
-        let reverb = ctx.create_convolver().expect("create_convolver");
-        let reverb_dry = ctx.create_gain().expect("create_gain reverb_dry");
+        let reverb = ctx.create_convolver()
+            .expect("create_convolver: AudioContext node creation is infallible on a live context");
+        let reverb_dry = ctx.create_gain()
+            .expect("create_gain reverb_dry: AudioContext node creation is infallible on a live context");
         reverb_dry.gain().set_value(1.0);
-        let reverb_wet = ctx.create_gain().expect("create_gain reverb_wet");
+        let reverb_wet = ctx.create_gain()
+            .expect("create_gain reverb_wet: AudioContext node creation is infallible on a live context");
         reverb_wet.gain().set_value(0.0);
 
-        let echo_delay = ctx.create_delay_with_max_delay_time(2.0).expect("create_delay echo");
+        let echo_delay = ctx.create_delay_with_max_delay_time(2.0)
+            .expect("create_delay echo: AudioContext node creation is infallible on a live context");
         echo_delay.delay_time().set_value(0.3);
-        let echo_feedback = ctx.create_gain().expect("create_gain echo_feedback");
+        let echo_feedback = ctx.create_gain()
+            .expect("create_gain echo_feedback: AudioContext node creation is infallible on a live context");
         echo_feedback.gain().set_value(0.0);
-        let echo_wet = ctx.create_gain().expect("create_gain echo_wet");
+        let echo_wet = ctx.create_gain()
+            .expect("create_gain echo_wet: AudioContext node creation is infallible on a live context");
         echo_wet.gain().set_value(0.0);
-        let echo_dry = ctx.create_gain().expect("create_gain echo_dry");
+        let echo_dry = ctx.create_gain()
+            .expect("create_gain echo_dry: AudioContext node creation is infallible on a live context");
         echo_dry.gain().set_value(1.0);
 
-        let flanger_delay = ctx.create_delay_with_max_delay_time(0.02).expect("create_delay flanger");
+        let flanger_delay = ctx.create_delay_with_max_delay_time(0.02)
+            .expect("create_delay flanger: AudioContext node creation is infallible on a live context");
         flanger_delay.delay_time().set_value(0.005);
-        let flanger_lfo = ctx.create_oscillator().expect("create_oscillator");
+        let flanger_lfo = ctx.create_oscillator()
+            .expect("create_oscillator flanger_lfo: AudioContext node creation is infallible on a live context");
         flanger_lfo.frequency().set_value(0.5);
-        let flanger_depth = ctx.create_gain().expect("create_gain flanger_depth");
+        let flanger_depth = ctx.create_gain()
+            .expect("create_gain flanger_depth: AudioContext node creation is infallible on a live context");
         flanger_depth.gain().set_value(0.003);
-        let flanger_wet = ctx.create_gain().expect("create_gain flanger_wet");
+        let flanger_wet = ctx.create_gain()
+            .expect("create_gain flanger_wet: AudioContext node creation is infallible on a live context");
         flanger_wet.gain().set_value(0.0);
 
-        let channel_gain = ctx.create_gain().expect("create_gain channel");
+        let channel_gain = ctx.create_gain()
+            .expect("create_gain channel: AudioContext node creation is infallible on a live context");
         channel_gain.gain().set_value(1.0);
 
-        let analyser = ctx.create_analyser().expect("create_analyser");
+        let analyser = ctx.create_analyser()
+            .expect("create_analyser: AudioContext node creation is infallible on a live context");
         analyser.set_fft_size(256);
 
         // Wire: pre_gain → eq_high → eq_mid → eq_low → sweep_filter
-        pre_gain.connect_with_audio_node(&eq_high).expect("connect pre_gain → eq_high");
-        eq_high.connect_with_audio_node(&eq_mid).expect("connect eq_high → eq_mid");
-        eq_mid.connect_with_audio_node(&eq_low).expect("connect eq_mid → eq_low");
-        eq_low.connect_with_audio_node(&sweep_filter).expect("connect eq_low → sweep_filter");
+        pre_gain.connect_with_audio_node(&eq_high)
+            .expect("connect pre_gain → eq_high: AudioNode.connect() is infallible between valid in-graph nodes");
+        eq_high.connect_with_audio_node(&eq_mid)
+            .expect("connect eq_high → eq_mid: AudioNode.connect() is infallible between valid in-graph nodes");
+        eq_mid.connect_with_audio_node(&eq_low)
+            .expect("connect eq_mid → eq_low: AudioNode.connect() is infallible between valid in-graph nodes");
+        eq_low.connect_with_audio_node(&sweep_filter)
+            .expect("connect eq_low → sweep_filter: AudioNode.connect() is infallible between valid in-graph nodes");
 
         // Reverb dry/wet bypass
-        sweep_filter.connect_with_audio_node(&reverb_dry).expect("connect sweep → reverb_dry");
-        sweep_filter.connect_with_audio_node(&reverb).expect("connect sweep → reverb");
-        reverb.connect_with_audio_node(&reverb_wet).expect("connect reverb → reverb_wet");
-        reverb_dry.connect_with_audio_node(&echo_dry).expect("connect reverb_dry → echo_dry");
-        reverb_wet.connect_with_audio_node(&echo_dry).expect("connect reverb_wet → echo_dry");
+        sweep_filter.connect_with_audio_node(&reverb_dry)
+            .expect("connect sweep → reverb_dry: AudioNode.connect() is infallible between valid in-graph nodes");
+        sweep_filter.connect_with_audio_node(&reverb)
+            .expect("connect sweep → reverb: AudioNode.connect() is infallible between valid in-graph nodes");
+        reverb.connect_with_audio_node(&reverb_wet)
+            .expect("connect reverb → reverb_wet: AudioNode.connect() is infallible between valid in-graph nodes");
+        reverb_dry.connect_with_audio_node(&echo_dry)
+            .expect("connect reverb_dry → echo_dry: AudioNode.connect() is infallible between valid in-graph nodes");
+        reverb_wet.connect_with_audio_node(&echo_dry)
+            .expect("connect reverb_wet → echo_dry: AudioNode.connect() is infallible between valid in-graph nodes");
 
         // Echo chain
-        echo_dry.connect_with_audio_node(&channel_gain).expect("connect echo_dry → channel_gain");
-        echo_dry.connect_with_audio_node(&echo_delay).expect("connect echo_dry → echo_delay");
-        echo_delay.connect_with_audio_node(&echo_wet).expect("connect echo_delay → echo_wet");
-        echo_wet.connect_with_audio_node(&channel_gain).expect("connect echo_wet → channel_gain");
-        echo_delay.connect_with_audio_node(&echo_feedback).expect("connect echo_delay → echo_feedback");
-        echo_feedback.connect_with_audio_node(&echo_delay).expect("connect echo_feedback → echo_delay");
+        echo_dry.connect_with_audio_node(&channel_gain)
+            .expect("connect echo_dry → channel_gain: AudioNode.connect() is infallible between valid in-graph nodes");
+        echo_dry.connect_with_audio_node(&echo_delay)
+            .expect("connect echo_dry → echo_delay: AudioNode.connect() is infallible between valid in-graph nodes");
+        echo_delay.connect_with_audio_node(&echo_wet)
+            .expect("connect echo_delay → echo_wet: AudioNode.connect() is infallible between valid in-graph nodes");
+        echo_wet.connect_with_audio_node(&channel_gain)
+            .expect("connect echo_wet → channel_gain: AudioNode.connect() is infallible between valid in-graph nodes");
+        echo_delay.connect_with_audio_node(&echo_feedback)
+            .expect("connect echo_delay → echo_feedback: AudioNode.connect() is infallible between valid in-graph nodes");
+        echo_feedback.connect_with_audio_node(&echo_delay)
+            .expect("connect echo_feedback → echo_delay: AudioNode.connect() is infallible between valid in-graph nodes");
 
         // Flanger (wet=0.0 by default)
-        sweep_filter.connect_with_audio_node(&flanger_delay).expect("connect sweep → flanger_delay");
-        flanger_delay.connect_with_audio_node(&flanger_wet).expect("connect flanger_delay → flanger_wet");
-        flanger_wet.connect_with_audio_node(&channel_gain).expect("connect flanger_wet → channel_gain");
-        flanger_lfo.connect_with_audio_node(&flanger_depth).expect("connect lfo → flanger_depth");
-        flanger_depth.connect_with_audio_param(&flanger_delay.delay_time()).expect("connect depth → delay_time");
-        flanger_lfo.start().expect("flanger_lfo.start");
+        sweep_filter.connect_with_audio_node(&flanger_delay)
+            .expect("connect sweep → flanger_delay: AudioNode.connect() is infallible between valid in-graph nodes");
+        flanger_delay.connect_with_audio_node(&flanger_wet)
+            .expect("connect flanger_delay → flanger_wet: AudioNode.connect() is infallible between valid in-graph nodes");
+        flanger_wet.connect_with_audio_node(&channel_gain)
+            .expect("connect flanger_wet → channel_gain: AudioNode.connect() is infallible between valid in-graph nodes");
+        flanger_lfo.connect_with_audio_node(&flanger_depth)
+            .expect("connect lfo → flanger_depth: AudioNode.connect() is infallible between valid in-graph nodes");
+        flanger_depth.connect_with_audio_param(&flanger_delay.delay_time())
+            .expect("connect depth → delay_time: AudioNode.connect() is infallible between valid in-graph nodes");
+        flanger_lfo.start()
+            .expect("flanger_lfo.start(): OscillatorNode.start() is infallible when called exactly once on a new node");
 
         // channel_gain → analyser (analyser → xfade GainNode wired in M5 via connect_to_mixer_output)
-        channel_gain.connect_with_audio_node(&analyser).expect("connect channel_gain → analyser");
+        channel_gain.connect_with_audio_node(&analyser)
+            .expect("connect channel_gain → analyser: AudioNode.connect() is infallible between valid in-graph nodes");
 
         Rc::new(RefCell::new(AudioDeck {
             ctx,
@@ -172,7 +212,7 @@ impl AudioDeck {
     pub fn connect_to_mixer_output(&self, xfade_gain: &GainNode) {
         self.analyser
             .connect_with_audio_node(xfade_gain)
-            .expect("AudioDeck::connect_to_mixer_output — analyser → xfade");
+            .expect("AudioDeck::connect_to_mixer_output — analyser → xfade: AudioNode.connect() is infallible between valid in-graph nodes");
     }
 
     /// Start or restart playback from `offset` seconds at the given `rate`.
@@ -190,15 +230,15 @@ impl AudioDeck {
         };
 
         let src = self.ctx.create_buffer_source()
-            .expect("AudioDeck::play — create_buffer_source");
+            .expect("AudioDeck::play — create_buffer_source: AudioBufferSourceNode creation is infallible on a live context");
         src.set_buffer(Some(&buffer));
         src.playback_rate().set_value(rate);
         src.connect_with_audio_node(&self.pre_gain)
-            .expect("AudioDeck::play — connect source → pre_gain");
+            .expect("AudioDeck::play — connect source → pre_gain: AudioNode.connect() is infallible between valid in-graph nodes");
 
         // start(when=0, offset) — begin immediately at the given track offset.
         src.start_with_when_and_grain_offset(0.0, offset)
-            .expect("AudioDeck::play — source.start");
+            .expect("AudioDeck::play — source.start: AudioBufferSourceNode.start() cannot fail on a node that has not been started before");
 
         self.started_at = Some(self.ctx.current_time());
         self.offset_at_play = offset;
@@ -274,7 +314,7 @@ impl AudioDeck {
                 let target_time = self.ctx.current_time() + NUDGE_RAMP_SECS;
                 src.playback_rate()
                     .linear_ramp_to_value_at_time(rate, target_time)
-                    .expect("AudioDeck::nudge_end — linear_ramp_to_value_at_time");
+                    .expect("AudioDeck::nudge_end — linear_ramp_to_value_at_time: AudioParam scheduling is infallible");
             }
         }
     }

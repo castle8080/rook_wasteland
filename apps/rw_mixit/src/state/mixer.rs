@@ -1,9 +1,14 @@
 use leptos::prelude::*;
 
+// Leptos RwSignal fields and enum variants are accessed via reactive closures
+// and pattern matches inside view! and Effect macros.  rustc's dead-code pass
+// does not trace through the macro boundary, producing false-positive warnings.
+// These allow attributes are correct — all items ARE used in the app.
 #[allow(dead_code)]
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum DeckId { A, B }
 
+// Same false-positive reason as DeckId above.
 #[allow(dead_code)]
 #[derive(Clone)]
 pub struct MixerState {
@@ -14,6 +19,7 @@ pub struct MixerState {
     pub sync_master:   RwSignal<Option<DeckId>>,
 }
 
+// Same false-positive reason as DeckId and MixerState above.
 #[allow(dead_code)]
 impl MixerState {
     pub fn new() -> Self {

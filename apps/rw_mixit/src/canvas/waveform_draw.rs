@@ -14,7 +14,7 @@ use wasm_bindgen::JsCast;
 use web_sys::{HtmlCanvasElement, CanvasRenderingContext2d};
 use leptos::html;
 use leptos::prelude::*;
-use crate::state::DeckState;
+use crate::state::{DeckState, ZoomLevel};
 
 /// Deck-accent hex colors for waveform bars; A = blue, B = orange.
 const COLOR_DECK_A: &str = "#3b82f6";
@@ -32,8 +32,8 @@ pub struct WaveformCache {
     canvas:     Option<HtmlCanvasElement>,
     /// Number of peaks in the last drawn snapshot (used to detect changes).
     peak_count: usize,
-    /// Zoom level at the time of the last static draw.
-    zoom:       u8,
+    /// Zoom level at the time of the last static draw. None = never drawn.
+    zoom:       Option<ZoomLevel>,
 }
 
 impl WaveformCache {
@@ -41,7 +41,7 @@ impl WaveformCache {
         Rc::new(RefCell::new(WaveformCache {
             canvas: None,
             peak_count: 0,
-            zoom: 0, // 0 = "never drawn" sentinel
+            zoom: None, // None = "never drawn" sentinel
         }))
     }
 }
@@ -77,7 +77,7 @@ pub fn draw_waveform(
     {
         let mut c = cache.borrow_mut();
         let needs_redraw = match &peaks_opt {
-            Some(p) => c.peak_count != p.len() || c.zoom != zoom,
+            Some(p) => c.peak_count != p.len() || c.zoom != Some(zoom),
             None    => false,
         };
         if needs_redraw {
@@ -87,7 +87,7 @@ pub fn draw_waveform(
                 draw_peaks_to_canvas(&offscreen, peaks, zoom, height, color);
                 c.canvas     = Some(offscreen);
                 c.peak_count = peaks.len();
-                c.zoom       = zoom;
+                c.zoom       = Some(zoom);
             }
         }
     }
@@ -107,7 +107,7 @@ pub fn draw_waveform(
         let c = cache.borrow();
         if let Some(ref offscreen) = c.canvas {
             ctx2d.draw_image_with_html_canvas_element(offscreen, scroll_x, 0.0)
-                .expect("draw_waveform — drawImage");
+                .expect("draw_waveform — drawImage: canvas and context are valid, dimensions are non-negative");
         }
     }
 
@@ -155,7 +155,7 @@ pub fn draw_waveform(
 fn draw_peaks_to_canvas(
     offscreen: &HtmlCanvasElement,
     peaks:     &[f32],
-    zoom:       u8,
+    zoom:       ZoomLevel,
     height:     f64,
     color:      &str,
 ) {
@@ -175,7 +175,7 @@ fn draw_peaks_to_canvas(
 
     // Determine the slice of peaks visible at this zoom level.
     let n_total  = peaks.len();
-    let n_visible = (n_total / zoom.max(1) as usize).max(1);
+    let n_visible = (n_total / zoom.factor() as usize).max(1);
     let start_col = 0usize; // at zoom > 1 the start shifts with playhead — handled in dynamic pass
     let end_col   = n_visible.min(n_total);
     let visible   = &peaks[start_col..end_col];
@@ -208,13 +208,15 @@ fn canvas_2d(canvas: &HtmlCanvasElement) -> Option<CanvasRenderingContext2d> {
 
 /// Create a detached (not in the DOM) canvas of the given dimensions.
 fn make_offscreen_canvas(width: u32, height: u32) -> HtmlCanvasElement {
-    let window   = web_sys::window().expect("no window");
-    let document = window.document().expect("no document");
+    let window   = web_sys::window()
+        .expect("make_offscreen_canvas: window is always present in a browser WASM context");
+    let document = window.document()
+        .expect("make_offscreen_canvas: document is always present when window exists");
     let canvas   = document
         .create_element("canvas")
-        .expect("create_element canvas")
+        .expect("create_element('canvas'): createElement is infallible for known element types")
         .dyn_into::<HtmlCanvasElement>()
-        .expect("dyn_into HtmlCanvasElement");
+        .expect("dyn_into HtmlCanvasElement: the element was just created as 'canvas'");
     canvas.set_width(width);
     canvas.set_height(height);
     canvas

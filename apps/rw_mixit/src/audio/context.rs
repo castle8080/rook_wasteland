@@ -7,9 +7,16 @@ use web_sys::AudioContext;
 pub fn ensure_audio_context(ctx: &Rc<RefCell<Option<AudioContext>>>) -> AudioContext {
     let mut borrow = ctx.borrow_mut();
     if borrow.is_none() {
-        *borrow = Some(AudioContext::new().expect("AudioContext::new failed"));
+        *borrow = Some(
+            AudioContext::new()
+                .expect("AudioContext::new(): Web Audio API is available in all supported browsers"),
+        );
     }
-    borrow.as_ref().unwrap().clone()
+    // The branch above guarantees the Option is Some; this expect() is unreachable.
+    borrow
+        .as_ref()
+        .expect("AudioContext was just inserted in the branch above")
+        .clone()
 }
 
 #[cfg(test)]

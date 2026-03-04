@@ -20,9 +20,12 @@ impl MixerAudio {
     /// The caller should apply current signal values immediately after
     /// construction if the user moved any sliders before loading a track.
     pub fn new(ctx: &AudioContext) -> Self {
-        let xfade_gain_a = ctx.create_gain().expect("create_gain xfade_a");
-        let xfade_gain_b = ctx.create_gain().expect("create_gain xfade_b");
-        let master_gain  = ctx.create_gain().expect("create_gain master");
+        let xfade_gain_a = ctx.create_gain()
+            .expect("create_gain xfade_a: AudioContext node creation is infallible on a live context");
+        let xfade_gain_b = ctx.create_gain()
+            .expect("create_gain xfade_b: AudioContext node creation is infallible on a live context");
+        let master_gain  = ctx.create_gain()
+            .expect("create_gain master: AudioContext node creation is infallible on a live context");
 
         let (cf_a, cf_b) = crossfader_gains(0.5);
         xfade_gain_a.gain().set_value(cf_a);
@@ -31,13 +34,13 @@ impl MixerAudio {
 
         xfade_gain_a
             .connect_with_audio_node(&master_gain)
-            .expect("connect xfade_a → master");
+            .expect("connect xfade_a → master: AudioNode.connect() is infallible between valid in-graph nodes");
         xfade_gain_b
             .connect_with_audio_node(&master_gain)
-            .expect("connect xfade_b → master");
+            .expect("connect xfade_b → master: AudioNode.connect() is infallible between valid in-graph nodes");
         master_gain
             .connect_with_audio_node(&ctx.destination())
-            .expect("connect master → destination");
+            .expect("connect master → destination: AudioNode.connect() is infallible between valid in-graph nodes");
 
         Self { xfade_gain_a, xfade_gain_b, master_gain }
     }
