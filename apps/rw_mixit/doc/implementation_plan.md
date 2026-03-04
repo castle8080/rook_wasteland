@@ -100,6 +100,12 @@ Tempo awareness: detect BPM on load, allow manual TAP override, and snap two dec
 | T4.5 | TAP BPM button: on each tap, record `performance.now()`; maintain a rolling window of last 8 tap intervals; compute average interval → BPM; write to `MixerState.bpm_a` / `bpm_b` | Tapping in tempo for ~4 taps produces a stable BPM reading | ✅ Done |
 | T4.6 | SYNC button + MASTER indicator: pressing SYNC on Deck B computes `rate_adjustment = bpm_a / bpm_b` and multiplies Deck B's `playback_rate` by it; MASTER indicator shows which deck is the tempo reference; clicking MASTER transfers it | SYNC snaps the deck to matching BPM; MASTER marker is visible | ✅ Done |
 
+> **⚠️ Known limitation — BPM detection accuracy:** The spectral flux + autocorrelation algorithm works well for electronic music with clear kick drums (house, techno, D&B, hip-hop). It has known failure modes for:
+> - **Syncopated funk/soul** (e.g. bass hits on off-beats rather than downbeats): autocorrelation may lock onto a 3-beat or sub-beat periodicity instead of the quarter-note pulse.
+> - **Orchestral / acoustic music without a kick drum**: low-frequency flux is dominated by string/brass swells rather than a beat signal, causing doubling errors.
+>
+> TAP BPM is the intended manual override for these cases. Improving detection for non-electronic music would require a multi-band flux approach or a comb-filter resonator — tracked as a future enhancement.
+
 ---
 
 ## Milestone 5 — Mixer Panel
@@ -229,7 +235,7 @@ Complete the UI: secondary views, cartoon aesthetic fully applied, animations al
 | M1 — Audio Foundation & File Loading | T1.1 – T1.7 (7 tasks) | ✅ Done |
 | M2 — Playback & Waveform | T2.1 – T2.11 (11 tasks) | ✅ Done |
 | M3 — Platter Animation & Speed Control | T3.1 – T3.6 (6 tasks) | ⬜ Not Started |
-| M4 — BPM Detection & Sync | T4.1 – T4.6 (6 tasks) | ⬜ Not Started |
+| M4 — BPM Detection & Sync | T4.1 – T4.6 (6 tasks) | ✅ Done — see known limitations note |
 | M5 — Mixer Panel | T5.1 – T5.5 (5 tasks) | ⬜ Not Started |
 | M6 — Loop Controls | T6.1 – T6.6 (6 tasks) | ⬜ Not Started |
 | M7 — Hot Cues | T7.1 – T7.5 (5 tasks) | ⬜ Not Started |

@@ -36,8 +36,10 @@ console_error_panic_hook = "0.1"
 rustfft = { version = "6", default-features = false }
 
 [dev-dependencies]
-# WASM integration tests — run with: wasm-pack test --headless --chrome
+# WASM integration tests — run with: wasm-pack test --headless --firefox
 wasm-bindgen-test = "0.3"
+# Native integration tests: decode MP3 to PCM, feed into BPM detection functions
+symphonia = { version = "0.5", features = ["mp3"], default-features = false }
 
 [profile.release]
 opt-level = "z"      # optimise for binary size

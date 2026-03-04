@@ -810,47 +810,63 @@ analyser.set_smoothing_time_constant(0.8);  // 0.8 = smooth bounce, not jumpy
 
 ---
 
-### 8.14 BPM Detection Algorithm (v2 Target)
+### 8.14 BPM Detection Algorithm (Implemented in M4)
 
-BPM detection is deferred from v1 (TAP BPM is used instead). The intended v2 algorithm uses **spectral flux onset detection** followed by **autocorrelation tempo estimation**, computed once on file load against the decoded `AudioBuffer`.
+BPM detection runs automatically on file load. The algorithm uses **spectral flux onset detection** (restricted to the kick/bass frequency band) followed by **autocorrelation tempo estimation**, computed once against the decoded `AudioBuffer` PCM data.
 
 #### Phase 1 — Spectral Flux Onset Strength
 
 1. Frame the signal with a **1024-sample Hanning window**, 512-sample hop (50% overlap).
 2. **FFT each frame** using `rustfft` (WASM-compatible).
-3. For each frame `t`, compute **half-wave-rectified spectral flux**:
+3. Restrict analysis to **bins 1–32 (~43–1400 Hz)** — the kick drum and bass range. This excludes hi-hat, guitar, and melodic content that create sub-beat autocorrelation peaks.
+4. For each frame `t`, compute **half-wave-rectified spectral flux**:
    ```
    flux[t] = Σ_k  max(0,  |X_t[k]| − |X_{t−1}[k]|)
    ```
-   Positive spectral growth = onset energy.
-4. **Smooth** the flux curve with a 5-frame causal moving average to reduce noise.
+5. **Smooth** the flux curve with a 5-frame centred moving average.
 
 #### Phase 2 — Autocorrelation Tempo Estimation
 
-5. Compute **autocorrelation** of the flux signal:
-   ```
-   r[lag] = Σ_t  flux[t] × flux[t + lag]
-   ```
-   over lags corresponding to the BPM range 60–200. At 44 100 Hz with a 512-sample hop, this maps to lag frames ≈ 128–428.
+6. Compute **autocorrelation** of the flux signal over lags corresponding to BPM 60–200.
+7. Find **dominant lag** = `argmax r[lag]`.
+8. **Sub-lag correction** (threshold 0.90): if `r[lag/2] ≥ 0.90 × r[lag]`, prefer the half-lag (doubles the BPM). This corrects integer-alignment artefacts where the double-period scores marginally higher than the true period. Threshold is set conservatively at 0.90 to avoid false-triggering on sub-harmonic rhythmic content in real music.
+9. Convert to BPM and clamp to [60, 200].
 
-6. Find **dominant lag** = `argmax r[lag]` over the BPM range.
+#### Known Limitations
 
-7. Convert to BPM:
-   ```
-   period_secs = lag_frames × hop_size / sample_rate
-   bpm = 60.0 / period_secs
-   ```
+The algorithm is well-suited to **electronic music with clear kick drums** (house, techno, drum & bass, hip-hop). Known failure modes:
 
-8. **Octave correction**: if `r[lag/2] > 0.85 × r[lag]` then the true BPM may be double; if `r[lag×2] > 0.85 × r[lag]` it may be half. Prefer the value closest to 120.
+- **Syncopated funk/soul**: bass hits on off-beats create stronger sub-beat periodicities than the quarter-note pulse. Autocorrelation may lock onto a 3-beat or dotted-quarter period.
+- **Orchestral / acoustic without a kick drum**: low-frequency flux is dominated by string and brass swells rather than a percussive beat, causing 2× errors.
 
-#### Crate requirement (v2)
+TAP BPM is the intended manual override for these cases. Future improvement would require a multi-band flux + majority-vote approach or a comb-filter resonator.
+
+#### Testing with Real Audio Files
+
+Integration tests (`tests/bpm_real_tracks.rs`) decode real MP3 files natively using the `symphonia` crate (dev-dependency) and feed the resulting PCM directly into `compute_spectral_flux` + `estimate_bpm`. This exercises the same Rust code path that runs in the browser after `AudioContext.decodeAudioData`, with the only difference being the MP3 decoder (native vs browser — both produce equivalent PCM).
+
+Test fixtures live in `tests/data/audio/`:
+
+| File | Genre | Expected BPM | Status |
+|---|---|---|---|
+| `Cephalopod.mp3` | Jazz-funk | ~125 | ✅ passes |
+| `Scheming Weasel faster.mp3` | Fast comedy | ~167 | ✅ passes |
+| `Funkorama.mp3` | Funk | ~101 | `#[ignore]` — syncopated bass hard case |
+| `Killers.mp3` | Orchestral | ~105 | `#[ignore]` — no kick drum |
+
+All fixtures are CC BY 4.0 (Kevin MacLeod, incompetech.com). See `tests/data/audio/ATTRIBUTION.txt` and `bpm_ground_truth.json`. The two hard-case tests are retained as regression baselines for future algorithm improvements.
+
+#### Crate requirements
 
 ```toml
+# production
 rustfft = { version = "6", default-features = false }
-# Disable avx/sse features — irrelevant in WASM, reduce binary size
+
+# dev only (native integration tests)
+symphonia = { version = "0.5", features = ["mp3"], default-features = false }
 ```
 
-**Computational budget:** A 4-minute track at 44 100 Hz produces ~10 200 frames of size 1024. At ~10 μs per FFT in WASM, total cost ≈ 100–200 ms. Acceptable as a one-time on-load computation (runs while the UI shows a "Analyzing…" label on the deck).
+**Computational budget:** A 4-minute track at 44 100 Hz produces ~10 200 frames of size 1024. At ~10 μs per FFT in WASM, total cost ≈ 100–200 ms. Acceptable as a one-time on-load computation.
 
 ---
 
