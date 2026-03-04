@@ -101,3 +101,53 @@ Unlike `fill_style`/`stroke_style` (which needed `_str` suffix variants),
 `set_text_baseline`, `set_font`, `set_text_align`, and `set_line_cap` all
 already accept `&str` in web-sys 0.3 with no deprecated JsValue variant.
 Use them directly without the `_str` suffix.
+
+---
+
+## Lessons from M4 — BPM Detection & Sync
+
+### Autocorrelation double-period bias requires a sub-lag check
+
+For integer-lag autocorrelation on a flux impulse train, the lag corresponding
+to double the true period (half the true BPM) can score equally high or higher
+than the true period lag. This happens because of two effects:
+
+1. **Integer alignment**: the true beat period (e.g. 40.37 frames) is not an
+   integer. The lag `round(2*T)` = 81 frames can align more cleanly than
+   `round(T)` = 40 frames when the per-beat drift is small over many beats.
+
+2. **Fewer-but-cleaner pairs**: lag `2T` has half the pairs of lag `T`, but
+   each pair drifts half as much per beat, so the signal does not de-correlate
+   as quickly.
+
+**Fix**: After finding the best lag, check `half_lag = best_lag / 2`.  If
+`half_lag >= lag_min` and its correlation is ≥ 50% of the best lag's
+correlation, prefer `half_lag`. For a true-period lag (e.g. lag 40 for 128 BPM),
+`half_lag` = 20 falls below `lag_min` = 26, so the check never fires and the
+correct BPM is preserved. For a double-period lag (e.g. lag 81 for 64 BPM),
+`half_lag` = 40 is in range and has a strong correlation → BPM corrects to 128.
+
+### `DeckId` needs `Copy` to be used as a component prop and in closures
+
+`DeckId` is an enum used inside move closures for SYNC/MASTER handlers.
+Add `#[derive(Copy)]` so it can be captured by value without `.clone()` calls.
+
+### `MixerState` must be created once in `DeckView` and signals distributed
+
+`bpm_a`, `bpm_b`, and `sync_master` live on `MixerState` but each `Deck`
+only receives the signals it needs (own BPM, other BPM, master).
+Both decks share the same `sync_master: RwSignal<Option<DeckId>>` — a signal
+is `Copy` in Leptos so it can be passed to both components directly.
+
+### TAP BPM tap-time storage uses `Rc<RefCell<Vec<f64>>>`
+
+The TAP button handler needs mutable access to a `Vec<f64>` of tap timestamps.
+Because Leptos `on:click` closures require `Fn + 'static`, use
+`Rc<RefCell<Vec<f64>>>` and `.clone()` the Rc into the closure. The Vec is
+capped at 9 entries (8 intervals) by removing the oldest on overflow.
+
+### `window.performance().now()` requires the `"Performance"` web-sys feature
+
+`web_sys::Window::performance()` returns `Option<web_sys::Performance>`, and
+`Performance::now()` returns `f64` milliseconds. Both are already enabled via
+the `"Performance"` entry in `Cargo.toml`'s web-sys feature list.

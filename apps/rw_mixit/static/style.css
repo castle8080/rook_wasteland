@@ -420,3 +420,91 @@ html, body {
   min-width: 2.5rem;
   text-align: center;
 }
+
+/* ─── BPM Panel (M4) ──────────────────────────────────────────────── */
+.bpm-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.4rem 0.6rem;
+  border: var(--border-cartoon);
+  border-radius: var(--radius-button);
+  background-color: #0d1b2a;
+  box-shadow: var(--shadow-cartoon);
+}
+
+.bpm-display {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.bpm-label {
+  font-size: 0.75rem;
+  color: var(--color-text-dim);
+  letter-spacing: 0.08em;
+}
+
+.bpm-value {
+  font-size: 1.4rem;
+  color: var(--color-glow);
+  min-width: 4rem;
+  text-align: right;
+  text-shadow: 1px 1px 0 var(--color-border);
+}
+
+.btn-master {
+  font-family: 'Bangers', cursive;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  padding: 0.2rem 0.5rem;
+  border: var(--border-cartoon);
+  border-radius: var(--radius-button);
+  box-shadow: var(--shadow-cartoon);
+  cursor: pointer;
+  background-color: var(--color-panel);
+  color: var(--color-text-dim);
+  margin-left: auto;
+  transition: background-color 0.1s;
+}
+
+.btn-master.master-active {
+  background-color: var(--color-mixer);
+  color: #000;
+}
+
+.bpm-controls {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.btn-tap,
+.btn-sync {
+  font-family: 'Bangers', cursive;
+  font-size: 1rem;
+  letter-spacing: 0.05em;
+  flex: 1;
+  padding: 0.35rem 0;
+  border: var(--border-cartoon);
+  border-radius: var(--radius-button);
+  box-shadow: var(--shadow-cartoon);
+  cursor: pointer;
+  background-color: var(--color-panel);
+  color: var(--color-text);
+  transition: transform 0.08s ease;
+}
+
+.btn-tap:hover,
+.btn-sync:hover {
+  transform: translateY(-2px);
+}
+
+.btn-tap:active,
+.btn-sync:active {
+  box-shadow: 2px 2px 0 var(--color-shadow);
+  transform: translateY(1px);
+}
+
+.btn-sync {
+  color: var(--color-glow);
+}

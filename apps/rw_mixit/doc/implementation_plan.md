@@ -93,12 +93,12 @@ Tempo awareness: detect BPM on load, allow manual TAP override, and snap two dec
 
 | ID | Task | Success Criteria | Status |
 |---|---|---|---|
-| T4.1 | `src/audio/bpm.rs`: `compute_spectral_flux(samples: &[f32], sample_rate: f32) -> Vec<f32>` — frame signal with 1024-sample Hanning window, 512-sample hop; FFT each frame via `rustfft`; compute half-wave-rectified spectral flux per frame; smooth with 5-frame moving average | Flux vector has non-zero values on a track with beats; near-zero on silence | ⬜ Not Started |
-| T4.2 | `src/audio/bpm.rs`: `estimate_bpm(flux: &[f32], sample_rate: f32, hop: usize) -> f64` — autocorrelation of flux over lags for BPM 60–200; find `argmax`; octave correction; return BPM in [60.0, 200.0] | Returns ~128 BPM for a 128 BPM test signal; ~90 for a 90 BPM signal | ⬜ Not Started |
-| T4.3 | Wire BPM detection into `load_audio_file`: after `decodeAudioData`, extract channel 0 float data, run `compute_spectral_flux` + `estimate_bpm`, write result to `MixerState.bpm_a` or `bpm_b` | After loading a file, the BPM signal updates within ~200 ms | ⬜ Not Started |
-| T4.4 | BPM display component: shows `bpm_a` / `bpm_b` value on each deck formatted to one decimal place; shows "---" if None | BPM value appears after load; shows "---" before any file is loaded | ⬜ Not Started |
-| T4.5 | TAP BPM button: on each tap, record `performance.now()`; maintain a rolling window of last 8 tap intervals; compute average interval → BPM; write to `MixerState.bpm_a` / `bpm_b` | Tapping in tempo for ~4 taps produces a stable BPM reading | ⬜ Not Started |
-| T4.6 | SYNC button + MASTER indicator: pressing SYNC on Deck B computes `rate_adjustment = bpm_a / bpm_b` and multiplies Deck B's `playback_rate` by it; MASTER indicator shows which deck is the tempo reference; clicking MASTER transfers it | SYNC snaps the deck to matching BPM; MASTER marker is visible | ⬜ Not Started |
+| T4.1 | `src/audio/bpm.rs`: `compute_spectral_flux(samples: &[f32], sample_rate: f32) -> Vec<f32>` — frame signal with 1024-sample Hanning window, 512-sample hop; FFT each frame via `rustfft`; compute half-wave-rectified spectral flux per frame; smooth with 5-frame moving average | Flux vector has non-zero values on a track with beats; near-zero on silence | ✅ Done |
+| T4.2 | `src/audio/bpm.rs`: `estimate_bpm(flux: &[f32], sample_rate: f32, hop: usize) -> f64` — autocorrelation of flux over lags for BPM 60–200; find `argmax`; octave correction; return BPM in [60.0, 200.0] | Returns ~128 BPM for a 128 BPM test signal; ~90 for a 90 BPM signal | ✅ Done |
+| T4.3 | Wire BPM detection into `load_audio_file`: after `decodeAudioData`, extract channel 0 float data, run `compute_spectral_flux` + `estimate_bpm`, write result to `MixerState.bpm_a` or `bpm_b` | After loading a file, the BPM signal updates within ~200 ms | ✅ Done |
+| T4.4 | BPM display component: shows `bpm_a` / `bpm_b` value on each deck formatted to one decimal place; shows "---" if None | BPM value appears after load; shows "---" before any file is loaded | ✅ Done |
+| T4.5 | TAP BPM button: on each tap, record `performance.now()`; maintain a rolling window of last 8 tap intervals; compute average interval → BPM; write to `MixerState.bpm_a` / `bpm_b` | Tapping in tempo for ~4 taps produces a stable BPM reading | ✅ Done |
+| T4.6 | SYNC button + MASTER indicator: pressing SYNC on Deck B computes `rate_adjustment = bpm_a / bpm_b` and multiplies Deck B's `playback_rate` by it; MASTER indicator shows which deck is the tempo reference; clicking MASTER transfers it | SYNC snaps the deck to matching BPM; MASTER marker is visible | ✅ Done |
 
 ---
 

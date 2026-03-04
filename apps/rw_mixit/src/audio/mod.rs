@@ -1,3 +1,4 @@
+pub mod bpm;
 pub mod context;
 pub mod deck_audio;
 pub mod loader;

@@ -1,7 +1,7 @@
 use leptos::prelude::*;
 
 #[allow(dead_code)]
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum DeckId { A, B }
 
 #[allow(dead_code)]

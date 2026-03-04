@@ -13,7 +13,8 @@ use crate::canvas::platter_draw::PLATTER_SIZE;
 use crate::components::controls::Controls;
 use crate::components::mixer::Mixer;
 use crate::components::pitch_fader::PitchFader;
-use crate::state::DeckState;
+use crate::state::{DeckState, MixerState};
+use crate::state::mixer::DeckId;
 
 /// Waveform canvas dimensions (pixels).
 const WAVEFORM_WIDTH:  u32 = 600;
@@ -31,6 +32,9 @@ pub fn DeckView() -> impl IntoView {
     // Per-deck reactive state.
     let state_a = DeckState::new();
     let state_b = DeckState::new();
+
+    // Mixer state holds BPM signals and sync master (T4.3–T4.6).
+    let mixer_state = MixerState::new();
 
     // Per-deck audio graph holders (None until first file load).
     let audio_a: Rc<RefCell<Option<Rc<RefCell<AudioDeck>>>>> = Rc::new(RefCell::new(None));
@@ -60,20 +64,28 @@ pub fn DeckView() -> impl IntoView {
         <div class="deck-row">
             <Deck
                 side="A"
+                deck_id=DeckId::A
                 state=state_a
                 audio_ctx_holder=audio_ctx_holder.clone()
                 audio_deck_holder=audio_a
                 waveform_ref=waveform_a_ref
                 platter_ref=platter_a_ref
+                bpm_own=mixer_state.bpm_a
+                bpm_other=mixer_state.bpm_b
+                sync_master=mixer_state.sync_master
             />
             <Mixer/>
             <Deck
                 side="B"
+                deck_id=DeckId::B
                 state=state_b
                 audio_ctx_holder=audio_ctx_holder
                 audio_deck_holder=audio_b
                 waveform_ref=waveform_b_ref
                 platter_ref=platter_b_ref
+                bpm_own=mixer_state.bpm_b
+                bpm_other=mixer_state.bpm_a
+                sync_master=mixer_state.sync_master
             />
         </div>
     }
@@ -82,15 +94,19 @@ pub fn DeckView() -> impl IntoView {
 /// A single DJ deck column.
 ///
 /// Contains the track label, waveform canvas, platter canvas, transport
-/// controls, pitch fader, and the hidden file input triggered by "Load Track".
+/// controls, pitch fader, BPM panel, and the hidden file input triggered by "Load Track".
 #[component]
 pub fn Deck(
     side:              &'static str,
+    deck_id:           DeckId,
     state:             DeckState,
     audio_ctx_holder:  Rc<RefCell<Option<AudioContext>>>,
     audio_deck_holder: Rc<RefCell<Option<Rc<RefCell<AudioDeck>>>>>,
     waveform_ref:      NodeRef<leptos::html::Canvas>,
     platter_ref:       NodeRef<leptos::html::Canvas>,
+    bpm_own:           RwSignal<Option<f64>>,
+    bpm_other:         RwSignal<Option<f64>>,
+    sync_master:       RwSignal<Option<DeckId>>,
 ) -> impl IntoView {
     let file_input: NodeRef<leptos::html::Input> = NodeRef::new();
 
@@ -131,7 +147,7 @@ pub fn Deck(
 
             let state = state.clone();
             spawn_local(async move {
-                load_audio_file(file, deck_rc, state, ctx).await;
+                load_audio_file(file, deck_rc, state, ctx, bpm_own).await;
             });
         }
     };
@@ -220,6 +236,15 @@ pub fn Deck(
             // Pitch fader (T3.4)
             <PitchFader state=state.clone()/>
 
+            // BPM display, TAP, SYNC, MASTER (T4.4–T4.6)
+            <BpmPanel
+                deck_id=deck_id
+                bpm_own=bpm_own
+                bpm_other=bpm_other
+                playback_rate=state.playback_rate
+                sync_master=sync_master
+            />
+
             // Hidden file input
             <input
                 type="file"
@@ -284,6 +309,94 @@ pub fn TrackLabel(state: DeckState) -> impl IntoView {
         </div>
     }
 }
+
+/// BPM display, TAP BPM, SYNC, and MASTER controls for one deck (T4.4–T4.6).
+///
+/// - Shows `bpm_own` formatted to one decimal; "---" when None.
+/// - TAP BPM: records `performance.now()` timestamps, computes average from
+///   a rolling window of the last 8 intervals, writes the result to `bpm_own`.
+/// - SYNC: snaps this deck's playback rate so its BPM matches the other deck.
+///   Formula: `new_rate = current_rate × (bpm_other / bpm_own)`.
+/// - MASTER: clicking marks this deck as the tempo master in `sync_master`.
+#[component]
+pub fn BpmPanel(
+    deck_id:       DeckId,
+    bpm_own:       RwSignal<Option<f64>>,
+    bpm_other:     RwSignal<Option<f64>>,
+    playback_rate: RwSignal<f64>,
+    sync_master:   RwSignal<Option<DeckId>>,
+) -> impl IntoView {
+    // Timestamps (ms) of recent taps; capped at 9 (= 8 intervals).
+    let tap_times: Rc<RefCell<Vec<f64>>> = Rc::new(RefCell::new(Vec::new()));
+
+    let on_tap = {
+        let tap_times = tap_times.clone();
+        move |_: web_sys::MouseEvent| {
+            let now = web_sys::window()
+                .and_then(|w| w.performance())
+                .map(|p| p.now())
+                .unwrap_or(0.0);
+
+            let mut taps = tap_times.borrow_mut();
+            taps.push(now);
+            if taps.len() > 9 {
+                taps.remove(0);
+            }
+            if taps.len() >= 2 {
+                let intervals: Vec<f64> = taps.windows(2).map(|w| w[1] - w[0]).collect();
+                if let Some(bpm) = crate::audio::bpm::tap_bpm_from_intervals(&intervals) {
+                    bpm_own.set(Some(bpm));
+                }
+            }
+        }
+    };
+
+    let on_sync = {
+        move |_: web_sys::MouseEvent| {
+            let own = bpm_own.get_untracked();
+            let other = bpm_other.get_untracked();
+            if let (Some(own_bpm), Some(other_bpm)) = (own, other) {
+                if own_bpm > 0.0 {
+                    let new_rate = (playback_rate.get_untracked() * (other_bpm / own_bpm))
+                        .clamp(0.25, 4.0);
+                    playback_rate.set(new_rate);
+                    sync_master.set(Some(deck_id));
+                }
+            }
+        }
+    };
+
+    let on_set_master = {
+        move |_: web_sys::MouseEvent| {
+            sync_master.set(Some(deck_id));
+        }
+    };
+
+    view! {
+        <div class="bpm-panel">
+            <div class="bpm-display">
+                <span class="bpm-label">"BPM"</span>
+                <span class="bpm-value">
+                    {move || bpm_own.get()
+                        .map(|b| format!("{b:.1}"))
+                        .unwrap_or_else(|| "---".to_string())}
+                </span>
+                <button
+                    class="btn-master"
+                    class:master-active=move || sync_master.get() == Some(deck_id)
+                    on:click=on_set_master
+                >
+                    "MASTER"
+                </button>
+            </div>
+            <div class="bpm-controls">
+                <button class="btn-tap" on:click=on_tap>"TAP"</button>
+                <button class="btn-sync" on:click=on_sync>"SYNC"</button>
+            </div>
+        </div>
+    }
+}
+
 
 fn truncate_name(name: &str, max_len: usize) -> String {
     if name.len() <= max_len {

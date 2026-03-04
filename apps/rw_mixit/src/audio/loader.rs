@@ -5,8 +5,9 @@ use wasm_bindgen_futures::JsFuture;
 use web_sys::{AudioContext, AudioBuffer, FileReader};
 use std::rc::Rc;
 use std::cell::RefCell;
-use leptos::prelude::Set;
+use leptos::prelude::{RwSignal, Set};
 use crate::audio::deck_audio::AudioDeck;
+use crate::audio::bpm;
 use crate::state::DeckState;
 
 pub async fn load_audio_file(
@@ -14,6 +15,7 @@ pub async fn load_audio_file(
     deck: Rc<RefCell<AudioDeck>>,
     state: DeckState,
     ctx: AudioContext,
+    bpm_signal: RwSignal<Option<f64>>,
 ) {
     let file_name = file.name();
 
@@ -32,11 +34,18 @@ pub async fn load_audio_file(
     let duration = audio_buffer.duration();
     let peaks = extract_peaks(&audio_buffer, 1024);
 
-    // Step 4: Store buffer and update reactive state
+    // Step 4: BPM detection on channel 0 (T4.3).
+    let sample_rate = audio_buffer.sample_rate();
+    let channel0 = audio_buffer.get_channel_data(0).unwrap_or_default();
+    let flux = bpm::compute_spectral_flux(&channel0, sample_rate);
+    let detected_bpm = bpm::estimate_bpm(&flux, sample_rate, bpm::HOP_SIZE);
+
+    // Step 5: Store buffer and update reactive state
     deck.borrow_mut().buffer = Some(audio_buffer);
     state.track_name.set(Some(file_name));
     state.duration_secs.set(duration);
     state.waveform_peaks.set(Some(peaks));
+    bpm_signal.set(Some(detected_bpm));
 }
 
 async fn read_file_as_array_buffer(file: web_sys::File) -> ArrayBuffer {
