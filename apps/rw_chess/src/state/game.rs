@@ -141,7 +141,46 @@ impl GameState {
     pub fn apply_move(&self, mv: Move) {
         let board = self.board.get_untracked();
         let color = self.active_color.get_untracked();
+        let ep = self.en_passant.get_untracked();
         let castling = self.castling.get_untracked();
+
+        // Guard: reject any move that is not in the fully-legal move list.
+        // This catches bugs where search or the UI passes a move that is
+        // geometrically plausible but illegal (leaves king in check, wrong
+        // side to move, piece not on board, etc.).
+        let legal = legal_moves(&board, color, ep, castling);
+        if !legal.contains(&mv) {
+            // Emit full diagnostic to the browser console before panicking so
+            // the output is easy to copy into a bug report.
+            let ep_str = ep.map(|p| p.to_algebraic()).unwrap_or_else(|| "-".to_string());
+            let legal_list = legal.iter()
+                .map(|m| m.to_notation())
+                .collect::<Vec<_>>()
+                .join(", ");
+            let msg = format!(
+                "\n=== ILLEGAL MOVE DETECTED ===\
+                 \nColor:     {:?}\
+                 \nMove:      {}  (from={} to={} ep={} castle_ks={} castle_qs={} promo={:?})\
+                 \nEP target: {}\
+                 \nCastling:  wK={} wQ={} bK={} bQ={}\
+                 \nBoard before move:\n{}\
+                 \nLegal moves ({}):\n  {}\
+                 \n=============================",
+                color,
+                mv.to_notation(),
+                mv.from.to_algebraic(), mv.to.to_algebraic(),
+                mv.is_en_passant, mv.is_castling_kingside, mv.is_castling_queenside,
+                mv.promotion,
+                ep_str,
+                castling.white_kingside, castling.white_queenside,
+                castling.black_kingside, castling.black_queenside,
+                board.to_display_string(),
+                legal.len(),
+                legal_list,
+            );
+            leptos::logging::error!("{}", msg);
+            panic!("{}", msg);
+        }
 
         let captured = board.get(mv.to).or_else(|| {
             // En passant: captured pawn is on the mover's rank, target file
