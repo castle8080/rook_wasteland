@@ -197,4 +197,114 @@ mod tests {
         let moves = pseudo_legal_moves(&board, Color::White, None);
         assert_eq!(moves.len(), 4); // Q, R, B, N
     }
+
+    // ── Knight boundary tests ────────────────────────────────────────────────
+
+    #[test]
+    fn knight_corner_has_two_moves() {
+        // Knight on a1: only b3 and c2 are reachable.
+        let mut board = Board::empty();
+        board.set(Pos::new(0, 0), Some(Piece::new(PieceKind::Knight, Color::White)));
+        let moves = pseudo_legal_moves(&board, Color::White, None);
+        assert_eq!(moves.len(), 2);
+    }
+
+    #[test]
+    fn knight_edge_has_four_moves() {
+        // Knight on a4: b2, b6, c3, c5.
+        let mut board = Board::empty();
+        board.set(Pos::new(0, 3), Some(Piece::new(PieceKind::Knight, Color::White)));
+        let moves = pseudo_legal_moves(&board, Color::White, None);
+        assert_eq!(moves.len(), 4);
+    }
+
+    // ── Pawn edge cases ──────────────────────────────────────────────────────
+
+    #[test]
+    fn pawn_blocked_by_friendly_has_no_moves() {
+        // White pawn e2, friendly knight on e3 blocking both pushes.
+        let mut board = Board::empty();
+        board.set(Pos::new(4, 1), Some(Piece::new(PieceKind::Pawn, Color::White)));
+        board.set(Pos::new(4, 2), Some(Piece::new(PieceKind::Knight, Color::White)));
+        let moves = pseudo_legal_moves(&board, Color::White, None);
+        let pawn_moves: Vec<_> = moves.iter().filter(|m| m.from == Pos::new(4, 1)).collect();
+        assert_eq!(pawn_moves.len(), 0);
+    }
+
+    #[test]
+    fn pawn_blocked_straight_can_still_capture_diagonally() {
+        // White pawn e5, enemy pawn blocks e6, enemy knight on f6 is capturable.
+        let mut board = Board::empty();
+        board.set(Pos::new(4, 4), Some(Piece::new(PieceKind::Pawn, Color::White)));
+        board.set(Pos::new(4, 5), Some(Piece::new(PieceKind::Pawn, Color::Black)));   // blocks push
+        board.set(Pos::new(5, 5), Some(Piece::new(PieceKind::Knight, Color::Black))); // capturable
+        let moves = pseudo_legal_moves(&board, Color::White, None);
+        let pawn_moves: Vec<_> = moves.iter().filter(|m| m.from == Pos::new(4, 4)).collect();
+        assert_eq!(pawn_moves.len(), 1);
+        assert_eq!(pawn_moves[0].to, Pos::new(5, 5));
+    }
+
+    #[test]
+    fn black_pawn_on_starting_rank_has_two_pushes() {
+        // Black pawn moves toward rank 0.
+        let mut board = Board::empty();
+        board.set(Pos::new(4, 6), Some(Piece::new(PieceKind::Pawn, Color::Black)));
+        let moves = pseudo_legal_moves(&board, Color::Black, None);
+        assert_eq!(moves.len(), 2); // e6 and e5
+    }
+
+    #[test]
+    fn black_pawn_promotion_generates_four_moves() {
+        // Black pawn on e2 promotes on e1.
+        let mut board = Board::empty();
+        board.set(Pos::new(4, 1), Some(Piece::new(PieceKind::Pawn, Color::Black)));
+        let moves = pseudo_legal_moves(&board, Color::Black, None);
+        assert_eq!(moves.len(), 4);
+    }
+
+    #[test]
+    fn en_passant_target_generates_capture_move() {
+        // White pawn e5, black pawn d5, en passant target d6.
+        let mut board = Board::empty();
+        board.set(Pos::new(4, 4), Some(Piece::new(PieceKind::Pawn, Color::White)));
+        board.set(Pos::new(3, 4), Some(Piece::new(PieceKind::Pawn, Color::Black)));
+        let ep_target = Pos::new(3, 5); // d6
+        let moves = pseudo_legal_moves(&board, Color::White, Some(ep_target));
+        let ep_moves: Vec<_> = moves.iter().filter(|m| m.is_en_passant).collect();
+        assert_eq!(ep_moves.len(), 1);
+        assert_eq!(ep_moves[0].to, ep_target);
+    }
+
+    // ── Sliding piece blocking ───────────────────────────────────────────────
+
+    #[test]
+    fn rook_blocked_by_friendly_cannot_pass() {
+        // Rook a1, friendly pawn a4: rook gets a2, a3 along file + b1..h1 along rank = 9.
+        let mut board = Board::empty();
+        board.set(Pos::new(0, 0), Some(Piece::new(PieceKind::Rook, Color::White)));
+        board.set(Pos::new(0, 3), Some(Piece::new(PieceKind::Pawn, Color::White))); // a4 friendly
+        let moves = pseudo_legal_moves(&board, Color::White, None);
+        let rook_moves: Vec<_> = moves.iter().filter(|m| m.from == Pos::new(0, 0)).collect();
+        assert_eq!(rook_moves.len(), 9); // 2 up file + 7 along rank
+    }
+
+    #[test]
+    fn rook_can_capture_enemy_but_not_pass() {
+        // Rook a1, enemy pawn a4: rook gets a2, a3, a4(capture) along file + 7 along rank = 10.
+        let mut board = Board::empty();
+        board.set(Pos::new(0, 0), Some(Piece::new(PieceKind::Rook, Color::White)));
+        board.set(Pos::new(0, 3), Some(Piece::new(PieceKind::Pawn, Color::Black))); // a4 enemy
+        let moves = pseudo_legal_moves(&board, Color::White, None);
+        let rook_moves: Vec<_> = moves.iter().filter(|m| m.from == Pos::new(0, 0)).collect();
+        assert_eq!(rook_moves.len(), 10); // 3 up file + 7 along rank
+    }
+
+    #[test]
+    fn queen_center_open_board_has_twenty_seven_moves() {
+        // Queen on d4 with empty board: 7+7+7+6 = 27.
+        let mut board = Board::empty();
+        board.set(Pos::new(3, 3), Some(Piece::new(PieceKind::Queen, Color::White)));
+        let moves = pseudo_legal_moves(&board, Color::White, None);
+        assert_eq!(moves.len(), 27);
+    }
 }

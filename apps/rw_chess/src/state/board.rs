@@ -71,6 +71,26 @@ impl Board {
             .collect()
     }
 
+    /// Render the board as a human-readable string suitable for bug reports.
+    /// Ranks are printed 8→1 (top to bottom), files a→h left to right.
+    pub fn to_display_string(&self) -> String {
+        let mut s = String::from("  a b c d e f g h\n");
+        for rank in (0u8..8).rev() {
+            s.push_str(&format!("{} ", rank + 1));
+            for file in 0u8..8 {
+                let cell = match self.get(Pos::new(file, rank)) {
+                    None => ".".to_string(),
+                    Some(p) => p.glyph().to_string(),
+                };
+                s.push_str(&cell);
+                if file < 7 { s.push(' '); }
+            }
+            s.push('\n');
+        }
+        s.push_str("  a b c d e f g h");
+        s
+    }
+
     /// Count material for scoring (positive = white advantage).
     pub fn material_balance(&self) -> i32 {
         self.squares.iter().fold(0, |acc, sq| {
