@@ -1,0 +1,46 @@
+Audio Test Fixtures
+===================
+
+All tracks in this directory are by Kevin MacLeod and are used here
+solely for testing the BPM detection algorithm in rw_mixit.
+
+Artist:   Kevin MacLeod
+Website:  https://incompetech.com
+Source:   https://incompetech.com/music/royalty-free/
+
+License:  Creative Commons Attribution 4.0 International (CC BY 4.0)
+          https://creativecommons.org/licenses/by/4.0/
+
+Under this license you are free to share and adapt the material for
+any purpose, provided appropriate credit is given.
+
+Required attribution (per CC BY 4.0):
+  "Music by Kevin MacLeod (incompetech.com)
+   Licensed under Creative Commons: By Attribution 4.0 License
+   http://creativecommons.org/licenses/by/4.0/"
+
+Tracks
+------
+Funkorama.mp3
+  Genre:        Funk
+  Expected BPM: ~101
+  Direct URL:   https://incompetech.com/music/royalty-free/mp3-royaltyfree/Funkorama.mp3
+
+Cephalopod.mp3
+  Genre:        Jazz / Funk
+  Expected BPM: ~125
+  Direct URL:   https://incompetech.com/music/royalty-free/mp3-royaltyfree/Cephalopod.mp3
+
+Killers.mp3
+  Genre:        Action / Orchestral
+  Expected BPM: ~105
+  Direct URL:   https://incompetech.com/music/royalty-free/mp3-royaltyfree/Killers.mp3
+
+Scheming Weasel faster.mp3
+  Genre:        Comedy / Fast
+  Expected BPM: ~167
+  Direct URL:   https://incompetech.com/music/royalty-free/mp3-royaltyfree/Scheming%20Weasel%20faster.mp3
+
+BPM ground truth (bpm_ground_truth.json) was established using
+librosa 0.11 beat_track() analysed over the first 60 seconds of
+each track.

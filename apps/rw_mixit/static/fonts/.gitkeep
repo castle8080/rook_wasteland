@@ -1,0 +1,4 @@
+// Placeholder — no local font files yet.
+// The Bangers font is loaded via Google Fonts CDN in index.html.
+// Replace with a local @font-face rule and drop the CDN link once font files
+// are added here (e.g. Bangers-Regular.woff2).

@@ -1,0 +1,40 @@
+{
+  "_comment": "BPM ground truth for manual and automated testing of the BPM detector.",
+  "_methodology": "Reference BPMs established via librosa 0.11 beat_track() on the first 60 seconds of each track, then cross-checked against genre/stylistic expectations.",
+  "_license": "All tracks by Kevin MacLeod (incompetech.com), licensed under CC BY 4.0. Attribution: Kevin MacLeod (incompetech.com) / Licensed under Creative Commons: By Attribution 4.0 License / http://creativecommons.org/licenses/by/4.0/",
+  "_tolerance_note": "tolerance_bpm is the acceptable ±deviation for our autocorrelation detector. Set conservatively at ±10 BPM; tighten as the algorithm improves.",
+  "tracks": [
+    {
+      "file": "Funkorama.mp3",
+      "artist": "Kevin MacLeod",
+      "genre": "Funk",
+      "expected_bpm": 101.0,
+      "tolerance_bpm": 10,
+      "notes": "Steady funk groove in 4/4. Good baseline test for mid-tempo detection (~100 BPM range)."
+    },
+    {
+      "file": "Cephalopod.mp3",
+      "artist": "Kevin MacLeod",
+      "genre": "Jazz / Funk",
+      "expected_bpm": 125.0,
+      "tolerance_bpm": 10,
+      "notes": "Upbeat jazz-funk. Tests the 120-130 BPM range common in house and pop."
+    },
+    {
+      "file": "Killers.mp3",
+      "artist": "Kevin MacLeod",
+      "genre": "Action / Orchestral",
+      "expected_bpm": 105.0,
+      "tolerance_bpm": 10,
+      "notes": "Driving orchestral action track. Tests detection on mixed orchestral+percussion content."
+    },
+    {
+      "file": "Scheming Weasel faster.mp3",
+      "artist": "Kevin MacLeod",
+      "genre": "Comedy / Fast",
+      "expected_bpm": 167.0,
+      "tolerance_bpm": 10,
+      "notes": "Fast-paced staccato comedy track. Tests upper BPM range (~165-170). Watch for octave-down detection at ~83 BPM."
+    }
+  ]
+}

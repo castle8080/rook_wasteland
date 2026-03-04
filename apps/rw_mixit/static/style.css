@@ -1,0 +1,611 @@
+/* ═══════════════════════════════════════════════════════════════════
+   rw_mixit — Cartoon DJ Mixer
+   Design language: bold outlines, saturated primaries, puffy shapes,
+   hand-drawn-inspired typography (Bangers), subtle 3-D drop shadows.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ─── Custom Properties ───────────────────────────────────────────── */
+:root {
+  /* Palette */
+  --color-bg:          #1a1a2e;
+  --color-panel:       #16213e;
+  --color-border:      #111111;
+  --color-shadow:      #111111;
+  --color-text:        #f0f0f0;
+  --color-text-dim:    #888888;
+
+  /* Deck accents */
+  --color-deck-a:      #3b82f6;   /* cobalt blue  */
+  --color-deck-b:      #f97316;   /* fire orange  */
+  --color-mixer:       #22c55e;   /* lime green   */
+  --color-glow:        #facc15;   /* yellow       */
+
+  /* Hot-cue button colours */
+  --color-cue-red:     #ef4444;
+  --color-cue-blue:    #3b82f6;
+  --color-cue-green:   #22c55e;
+  --color-cue-yellow:  #facc15;
+
+  /* Cartoon border + shadow */
+  --border-cartoon:    3px solid var(--color-border);
+  --shadow-cartoon:    4px 4px 0 var(--color-shadow);
+
+  /* Border radii */
+  --radius-panel:      12px;
+  --radius-button:     8px;
+  --radius-knob:       50%;
+}
+
+/* ─── Reset ───────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: 'Bangers', cursive;
+  min-height: 100vh;
+  letter-spacing: 0.04em;
+}
+
+/* ─── Root container ──────────────────────────────────────────────── */
+#rw-mixit-root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* ─── Header ──────────────────────────────────────────────────────── */
+.rw-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.5rem;
+  background-color: var(--color-panel);
+  border-bottom: var(--border-cartoon);
+  box-shadow: var(--shadow-cartoon);
+}
+
+.rw-logo {
+  font-size: 2rem;
+  color: var(--color-glow);
+  text-decoration: none;
+  text-shadow: 2px 2px 0 var(--color-border);
+  letter-spacing: 0.08em;
+}
+
+.rw-logo:hover {
+  color: #ffffff;
+}
+
+.rw-nav {
+  display: flex;
+  gap: 1rem;
+}
+
+.rw-nav a {
+  color: var(--color-text);
+  text-decoration: none;
+  font-size: 1.1rem;
+  padding: 0.25rem 0.75rem;
+  border: var(--border-cartoon);
+  border-radius: var(--radius-button);
+  box-shadow: var(--shadow-cartoon);
+  background-color: var(--color-panel);
+  transition: transform 0.08s ease, background-color 0.1s;
+}
+
+.rw-nav a:hover {
+  transform: translateY(-2px);
+  background-color: #1e2f50;
+}
+
+.rw-nav a:active {
+  transform: translateY(2px);
+  box-shadow: 2px 2px 0 var(--color-shadow);
+}
+
+/* ─── 3-Column Deck Layout ────────────────────────────────────────── */
+.deck-row {
+  display: flex;
+  flex: 1;
+  gap: 1rem;
+  padding: 1rem;
+  align-items: stretch;
+  min-height: 0;
+}
+
+/* ─── Deck Panels ─────────────────────────────────────────────────── */
+.deck {
+  flex: 1;
+  min-width: 0;
+  background-color: var(--color-panel);
+  border: var(--border-cartoon);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-cartoon);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.deck-a { border-top: 5px solid var(--color-deck-a); }
+.deck-b { border-top: 5px solid var(--color-deck-b); }
+
+.deck-label {
+  font-size: 1.8rem;
+  margin: 0;
+  text-align: center;
+  letter-spacing: 0.1em;
+}
+
+.deck-a .deck-label {
+  color: var(--color-deck-a);
+  text-shadow: 2px 2px 0 var(--color-border);
+}
+
+.deck-b .deck-label {
+  color: var(--color-deck-b);
+  text-shadow: 2px 2px 0 var(--color-border);
+}
+
+/* ─── Mixer Panel ─────────────────────────────────────────────────── */
+.mixer {
+  width: 280px;
+  flex-shrink: 0;
+  background-color: var(--color-panel);
+  border: var(--border-cartoon);
+  border-top: 5px solid var(--color-mixer);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-cartoon);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.mixer-label {
+  font-size: 1.8rem;
+  margin: 0;
+  text-align: center;
+  color: var(--color-mixer);
+  text-shadow: 2px 2px 0 var(--color-border);
+  letter-spacing: 0.1em;
+}
+
+/* ─── Placeholder views (Settings, About until M11) ──────────────── */
+.placeholder-view {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  color: var(--color-text-dim);
+  padding: 2rem;
+}
+
+/* ─── Button base (shared across all milestone components) ───────── */
+.btn {
+  font-family: 'Bangers', cursive;
+  font-size: 1rem;
+  letter-spacing: 0.05em;
+  padding: 0.4rem 0.8rem;
+  border: var(--border-cartoon);
+  border-radius: var(--radius-button);
+  box-shadow: var(--shadow-cartoon);
+  cursor: pointer;
+  background-color: var(--color-panel);
+  color: var(--color-text);
+  transition: transform 0.08s ease;
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+}
+
+/* Physical "press" feel on click — applied via JS class toggle or :active */
+@keyframes pop {
+  0%   { scale: 1; }
+  50%  { scale: 0.92; }
+  100% { scale: 1; }
+}
+
+.btn:active,
+.btn.active {
+  animation: pop 80ms ease-out;
+  box-shadow: 2px 2px 0 var(--color-shadow);
+}
+
+/* ─── Knob (rotary input) ─────────────────────────────────────────── */
+.knob {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-knob);
+  border: var(--border-cartoon);
+  box-shadow: var(--shadow-cartoon);
+  background-color: var(--color-panel);
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+/* ─── Responsive: keep usable at 1024 px wide ────────────────────── */
+@media (max-width: 1200px) {
+  .mixer {
+    width: 220px;
+  }
+}
+
+@media (max-width: 900px) {
+  .deck-row {
+    flex-direction: column;
+  }
+
+  .mixer {
+    width: 100%;
+  }
+}
+
+/* ─── Platter Canvas ──────────────────────────────────────────────── */
+.platter-canvas {
+  display: block;
+  width: 100%;
+  max-width: 240px;
+  height: auto;
+  margin: 0 auto;
+  border-radius: 50%;
+  border: var(--border-cartoon);
+  box-shadow: var(--shadow-cartoon);
+}
+
+/* ─── Pitch Fader ─────────────────────────────────────────────────── */
+.pitch-fader-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.pitch-fader-label {
+  font-size: 0.8rem;
+  color: var(--color-text-dim);
+  text-align: center;
+  letter-spacing: 0.08em;
+}
+
+.pitch-fader-track {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.pitch-fader-limit {
+  font-size: 0.7rem;
+  color: var(--color-text-dim);
+  white-space: nowrap;
+}
+
+.pitch-fader {
+  flex: 1;
+  accent-color: var(--color-glow);
+  cursor: pointer;
+  height: 6px;
+}
+
+.pitch-fader-readout {
+  font-size: 0.85rem;
+  color: var(--color-glow);
+  text-align: center;
+  min-height: 1.2em;
+}
+
+/* ─── Transport controls ──────────────────────────────────────────── */
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: center;
+}
+
+.btn-transport,
+.btn-nudge {
+  font-family: 'Bangers', cursive;
+  font-size: 1rem;
+  letter-spacing: 0.05em;
+  padding: 0.4rem 0.75rem;
+  border: var(--border-cartoon);
+  border-radius: var(--radius-button);
+  box-shadow: var(--shadow-cartoon);
+  cursor: pointer;
+  background-color: var(--color-panel);
+  color: var(--color-text);
+  transition: transform 0.08s ease;
+}
+
+.btn-transport:hover,
+.btn-nudge:hover {
+  transform: translateY(-2px);
+}
+
+.btn-transport:active,
+.btn-nudge:active {
+  box-shadow: 2px 2px 0 var(--color-shadow);
+  transform: translateY(1px);
+}
+
+.btn-load {
+  font-family: 'Bangers', cursive;
+  font-size: 1.1rem;
+  letter-spacing: 0.06em;
+  width: 100%;
+  padding: 0.5rem;
+  border: var(--border-cartoon);
+  border-radius: var(--radius-button);
+  box-shadow: var(--shadow-cartoon);
+  cursor: pointer;
+  background-color: var(--color-panel);
+  color: var(--color-glow);
+  transition: transform 0.08s ease;
+  margin-top: auto;
+}
+
+.btn-load:hover {
+  transform: translateY(-2px);
+  background-color: #1e2f50;
+}
+
+/* ─── Track label ─────────────────────────────────────────────────── */
+.track-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--color-text-dim);
+  overflow: hidden;
+}
+
+.track-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.track-duration {
+  white-space: nowrap;
+  flex-shrink: 0;
+  color: var(--color-text);
+}
+
+/* ─── Waveform canvas ─────────────────────────────────────────────── */
+.waveform-canvas {
+  display: block;
+  width: 100%;
+  border: var(--border-cartoon);
+  border-radius: 4px;
+  box-shadow: var(--shadow-cartoon);
+  cursor: crosshair;
+}
+
+/* ─── Zoom controls ───────────────────────────────────────────────── */
+.zoom-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.btn-zoom {
+  font-family: 'Bangers', cursive;
+  font-size: 1rem;
+  padding: 0.2rem 0.6rem;
+  border: var(--border-cartoon);
+  border-radius: var(--radius-button);
+  box-shadow: var(--shadow-cartoon);
+  cursor: pointer;
+  background-color: var(--color-panel);
+  color: var(--color-text);
+}
+
+.btn-zoom:hover {
+  transform: translateY(-1px);
+}
+
+.zoom-label {
+  font-size: 0.8rem;
+  color: var(--color-text-dim);
+  min-width: 2.5rem;
+  text-align: center;
+}
+
+/* ─── BPM Panel (M4) ──────────────────────────────────────────────── */
+.bpm-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.4rem 0.6rem;
+  border: var(--border-cartoon);
+  border-radius: var(--radius-button);
+  background-color: #0d1b2a;
+  box-shadow: var(--shadow-cartoon);
+}
+
+.bpm-display {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.bpm-label {
+  font-size: 0.75rem;
+  color: var(--color-text-dim);
+  letter-spacing: 0.08em;
+}
+
+.bpm-value {
+  font-size: 1.4rem;
+  color: var(--color-glow);
+  min-width: 4rem;
+  text-align: right;
+  text-shadow: 1px 1px 0 var(--color-border);
+}
+
+.btn-master {
+  font-family: 'Bangers', cursive;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  padding: 0.2rem 0.5rem;
+  border: var(--border-cartoon);
+  border-radius: var(--radius-button);
+  box-shadow: var(--shadow-cartoon);
+  cursor: pointer;
+  background-color: var(--color-panel);
+  color: var(--color-text-dim);
+  margin-left: auto;
+  transition: background-color 0.1s;
+}
+
+.btn-master.master-active {
+  background-color: var(--color-mixer);
+  color: #000;
+}
+
+.bpm-controls {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.btn-tap,
+.btn-sync {
+  font-family: 'Bangers', cursive;
+  font-size: 1rem;
+  letter-spacing: 0.05em;
+  flex: 1;
+  padding: 0.35rem 0;
+  border: var(--border-cartoon);
+  border-radius: var(--radius-button);
+  box-shadow: var(--shadow-cartoon);
+  cursor: pointer;
+  background-color: var(--color-panel);
+  color: var(--color-text);
+  transition: transform 0.08s ease;
+}
+
+.btn-tap:hover,
+.btn-sync:hover {
+  transform: translateY(-2px);
+}
+
+.btn-tap:active,
+.btn-sync:active {
+  box-shadow: 2px 2px 0 var(--color-shadow);
+  transform: translateY(1px);
+}
+
+.btn-sync {
+  color: var(--color-glow);
+}
+
+/* ─── Mixer Channel Faders (M5) ───────────────────────────────────── */
+.mixer-channel-faders {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  padding: 0.5rem 0;
+}
+
+.channel-fader-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  flex: 1;
+}
+
+.fader-deck-label {
+  font-size: 1.1rem;
+  letter-spacing: 0.08em;
+  text-shadow: 1px 1px 0 var(--color-border);
+}
+
+.fader-deck-a { color: var(--color-deck-a); }
+.fader-deck-b { color: var(--color-deck-b); }
+
+/* Vertical channel fader — orient the range input vertically */
+.channel-fader {
+  writing-mode: vertical-lr;
+  direction: rtl;
+  height: 100px;
+  width: 28px;
+  accent-color: var(--color-mixer);
+  cursor: pointer;
+}
+
+.fader-value {
+  font-size: 0.7rem;
+  color: var(--color-text-dim);
+  min-height: 1em;
+  text-align: center;
+}
+
+/* ─── Mixer Sections (crossfader, master vol) ─────────────────────── */
+.mixer-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.5rem 0.25rem;
+  border-top: 1px solid rgba(255,255,255,0.07);
+}
+
+.mixer-section-label {
+  font-size: 0.7rem;
+  color: var(--color-text-dim);
+  letter-spacing: 0.1em;
+  text-align: center;
+}
+
+/* ─── Crossfader (M5) ─────────────────────────────────────────────── */
+.crossfader-track {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.crossfader-end {
+  font-size: 0.85rem;
+  color: var(--color-text-dim);
+  flex-shrink: 0;
+  width: 1rem;
+  text-align: center;
+}
+
+.crossfader {
+  flex: 1;
+  accent-color: var(--color-glow);
+  cursor: pointer;
+  height: 8px;
+}
+
+/* ─── Master Volume (M5) ──────────────────────────────────────────── */
+.master-vol-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.master-vol {
+  flex: 1;
+  accent-color: var(--color-mixer);
+  cursor: pointer;
+  height: 8px;
+}
+
+.master-vol-value {
+  font-size: 0.75rem;
+  color: var(--color-mixer);
+  min-width: 2.5rem;
+  text-align: right;
+}
