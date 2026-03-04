@@ -29,6 +29,7 @@ rook_wasteland/
 │   ├── rw_index/                ← (planned) top-level landing page / app navigator
 │   ├── rw_chess/                ← chess vs. quirky AI personas
 │   ├── rw_defender/             ← arcade vertical shooter
+│   ├── rw_mixit/                ← browser-based dual-deck DJ mixer
 │   └── rw_poetry/               ← poetry reader + voice journal
 └── rw_serve/                    ← (planned) build/assembly tooling
 ```
@@ -88,9 +89,10 @@ The final deployed site is a single flat directory tree:
 
 ```
 /                    ← served from rw_index's dist/
-/chess/              ← rw_chess dist/ contents
-/defender/           ← rw_defender dist/ contents
-/poetry/             ← rw_poetry dist/ contents
+/rw_chess/           ← rw_chess dist/ contents
+/rw_defender/        ← rw_defender dist/ contents
+/rw_mixit/           ← rw_mixit dist/ contents
+/rw_poetry/          ← rw_poetry dist/ contents
 ```
 
 Each app is copied into a named subdirectory, with the exception of `rw_index`, whose contents are copied directly to the root of the combined output. Because Trunk-built apps use relative asset paths, apps must be configured (via `Trunk.toml` `public_url`) to match their deployment subpath.
@@ -154,6 +156,18 @@ The index app is the front door to the collection. It has not been built yet but
 **Tech:** Rust, Leptos 0.8, WASM, Trunk. IndexedDB for local recording storage, browser Media APIs for audio capture. Static JSON poem corpus under `public/poems/`.
 
 **Deployment subpath:** `/poetry/`
+
+---
+
+### 🎚️ rw_mixit
+
+**What it is:** A browser-based dual-deck DJ mixer — load tracks, mix them, and ride the crossfader without leaving your tab.
+
+**Why it's fun:** Animated vinyl platters, glowing VU meters, and a BPM detector that makes you look like you know what you're doing. Old-school hip-hop turntablism aesthetic rendered as a chunky cartoon.
+
+**Tech:** Rust, Leptos 0.8, WASM, Trunk. Web Audio API via `web-sys` for all audio routing, crossfading, and pitch nudging. Canvas 2D for platter and waveform animation. Spectral flux + autocorrelation BPM detection via `rustfft`.
+
+**Deployment subpath:** `/rw_mixit/`
 
 ---
 

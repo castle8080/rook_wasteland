@@ -25,5 +25,14 @@
     "tagline": "Read poems. Record yourself. Cringe later.",
     "description": "Browse public-domain poetry, record yourself reading aloud, save it locally, and replay it. Surprisingly calming, occasionally mortifying.",
     "status": "live"
+  },
+  {
+    "name": "Mixit",
+    "slug": "rw_mixit",
+    "path": "/rw_mixit/index.html",
+    "icon": "🎚️",
+    "tagline": "Spin records. Mix decks. Pretend you're a DJ.",
+    "description": "Dual-deck audio mixer running entirely in your browser. Load tracks, nudge the pitch, ride the crossfader, and let the BPM detector do the math while you take the credit.",
+    "status": "live"
   }
 ]
