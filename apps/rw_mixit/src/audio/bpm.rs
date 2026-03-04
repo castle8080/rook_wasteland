@@ -120,9 +120,17 @@ pub fn estimate_bpm(flux: &[f32], sample_rate: f32, hop: usize) -> f64 {
     }
 
     // Sub-lag check: prefer the half-lag (double the BPM) when it has
-    // similar autocorrelation energy to the best lag. This corrects the
-    // common case where the algorithm finds a double-period (half-tempo)
-    // lag due to integer-alignment artefacts.
+    // nearly identical autocorrelation energy to the best lag.
+    //
+    // This corrects the case where the algorithm finds a double-period lag
+    // due to integer-alignment artefacts (non-integer period T causes lag≈2T
+    // to score marginally higher than lag≈T for synthetic signals).
+    //
+    // Threshold is 0.90 (not lower) to avoid false-triggering on real music:
+    // sub-harmonic rhythmic content (8th-note hi-hats etc.) can produce
+    // half-lag correlations of 0.50–0.75 for correctly-detected tempos,
+    // which would incorrectly double the BPM.  Only a ratio ≥ 0.90 reliably
+    // indicates that the half-lag is a genuine equal-strength period.
     let half = best_lag / 2;
     if half >= lag_min {
         let half_corr: f64 = flux[..n - half]
@@ -130,7 +138,7 @@ pub fn estimate_bpm(flux: &[f32], sample_rate: f32, hop: usize) -> f64 {
             .zip(&flux[half..])
             .map(|(&a, &b)| a as f64 * b as f64)
             .sum();
-        if half_corr >= 0.5 * best_corr {
+        if half_corr >= 0.90 * best_corr {
             best_lag = half;
             best_corr = half_corr;
         }
@@ -249,6 +257,20 @@ mod tests {
         assert!(
             (bpm - 90.0).abs() < 5.0,
             "expected ~90 BPM, got {bpm:.1}"
+        );
+    }
+
+    #[test]
+    fn estimate_bpm_90_not_doubled_to_180() {
+        // A 90 BPM signal must not be doubled to ~180 BPM by the sub-lag check.
+        // Real music at 90 BPM has sub-harmonic rhythmic content that can reach
+        // 50–75% of the beat correlation; the 0.90 threshold must stay below it.
+        let samples = impulse_train(90.0, 20.0, SR);
+        let flux = compute_spectral_flux(&samples, SR);
+        let bpm = estimate_bpm(&flux, SR, HOP_SIZE);
+        assert!(
+            bpm < 150.0,
+            "90 BPM track should not be doubled to {bpm:.1}"
         );
     }
 
