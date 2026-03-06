@@ -1,0 +1,30 @@
+# Generated files
+/target/
+/dist/
+/pkg/
+
+# Trunk
+/.trunk/
+
+# wasm-pack / cargo
+/node_modules/
+/.cargo/
+
+# Shader cache (if any editor tooling generates these)
+*.spv
+
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
