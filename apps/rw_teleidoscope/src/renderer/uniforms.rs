@@ -31,6 +31,17 @@ pub struct UniformLocations {
     pub u_radial_fold: Option<glow::UniformLocation>,
     /// `int u_mobius` — Möbius segment flip (0=off, 1=on).
     pub u_mobius:      Option<glow::UniformLocation>,
+    // M6 color transforms
+    /// `float u_hue_shift` — hue rotation in degrees (0–360).
+    pub u_hue_shift:  Option<glow::UniformLocation>,
+    /// `float u_saturation` — saturation multiplier (0–2; 1=unchanged).
+    pub u_saturation: Option<glow::UniformLocation>,
+    /// `float u_brightness` — brightness multiplier (0–2; 1=unchanged).
+    pub u_brightness: Option<glow::UniformLocation>,
+    /// `int u_posterize` — posterize levels (0=off, 2–16=active).
+    pub u_posterize:  Option<glow::UniformLocation>,
+    /// `int u_invert` — colour inversion (0=off, 1=on).
+    pub u_invert:     Option<glow::UniformLocation>,
 }
 
 impl UniformLocations {
@@ -51,6 +62,11 @@ impl UniformLocations {
                 u_lens:        gl.get_uniform_location(program, "u_lens"),
                 u_radial_fold: gl.get_uniform_location(program, "u_radial_fold"),
                 u_mobius:      gl.get_uniform_location(program, "u_mobius"),
+                u_hue_shift:   gl.get_uniform_location(program, "u_hue_shift"),
+                u_saturation:  gl.get_uniform_location(program, "u_saturation"),
+                u_brightness:  gl.get_uniform_location(program, "u_brightness"),
+                u_posterize:   gl.get_uniform_location(program, "u_posterize"),
+                u_invert:      gl.get_uniform_location(program, "u_invert"),
             }
         }
     }
@@ -89,6 +105,21 @@ impl UniformLocations {
             }
             if let Some(loc) = &self.u_mobius {
                 gl.uniform_1_i32(Some(loc), i32::from(params.mobius));
+            }
+            if let Some(loc) = &self.u_hue_shift {
+                gl.uniform_1_f32(Some(loc), params.hue_shift);
+            }
+            if let Some(loc) = &self.u_saturation {
+                gl.uniform_1_f32(Some(loc), params.saturation);
+            }
+            if let Some(loc) = &self.u_brightness {
+                gl.uniform_1_f32(Some(loc), params.brightness);
+            }
+            if let Some(loc) = &self.u_posterize {
+                gl.uniform_1_i32(Some(loc), params.posterize as i32);
+            }
+            if let Some(loc) = &self.u_invert {
+                gl.uniform_1_i32(Some(loc), i32::from(params.invert));
             }
         }
     }

@@ -1,6 +1,6 @@
 # M6 — Color Transforms
 
-**Status:** ⬜ Pending  
+**Status:** ✅ Complete  
 **Depends on:** [M4 — Mirror Symmetry Core](m4-mirror-symmetry.md)  
 **Unlocks:** [M10 — Steampunk Polish](m10-steampunk-polish.md) (after M9)
 
@@ -18,20 +18,20 @@ All transforms are stackable and fully independent.
 
 | # | Task | Status |
 |---|---|---|
-| 1 | **Hue rotation** — implement `hue_rotate(colour, degrees)` GLSL function using RGB→HSV→RGB conversion; add `u_hue_shift` uniform (0.0–360.0) | ⬜ |
-| 2 | **Saturation** — implement `saturate_rgb(colour, amount)` GLSL function (interpolate between luminance and full colour); add `u_saturation` uniform (0.0–2.0) | ⬜ |
-| 3 | **Brightness** — multiply `colour.rgb *= u_brightness`; add `u_brightness` uniform (0.0–2.0) | ⬜ |
-| 4 | **Posterize** — implement `posterize(colour, levels)` GLSL function: `floor(colour * levels) / levels`; add `u_posterize` int uniform (0 = off, 2–16 levels) | ⬜ |
-| 5 | **Invert** — `if (u_invert) colour.rgb = 1.0 - colour.rgb`; add `u_invert` bool uniform | ⬜ |
-| 6 | Add all five uniforms to `UniformLocations` and `upload()` in `uniforms.rs` | ⬜ |
-| 7 | Add all five fields to `KaleidoscopeParams` and `ParamsSnapshot` | ⬜ |
-| 8 | Add hue slider (0–360) to the color section of the controls panel | ⬜ |
-| 9 | Add saturation slider (0–200%) to panel | ⬜ |
-| 10 | Add brightness slider (0–200%) to panel | ⬜ |
-| 11 | Add posterize control to panel — a slider from 0 (off) to 16; display "Off" when 0 | ⬜ |
-| 12 | Add invert toggle to panel | ⬜ |
-| 13 | Write `#[test]` native unit tests for hue rotate and posterize math (pure Rust equivalents in `utils.rs`) | ⬜ |
-| 14 | Verify `python make.py build`, `python make.py lint`, and `python make.py test` all pass | ⬜ |
+| 1 | **Hue rotation** — implement `hue_rotate(colour, degrees)` GLSL function using RGB→HSV→RGB conversion; add `u_hue_shift` uniform (0.0–360.0) | ✅ |
+| 2 | **Saturation** — implement `saturate_rgb(colour, amount)` GLSL function (interpolate between luminance and full colour); add `u_saturation` uniform (0.0–2.0) | ✅ |
+| 3 | **Brightness** — multiply `colour.rgb *= u_brightness`; add `u_brightness` uniform (0.0–2.0) | ✅ |
+| 4 | **Posterize** — implement `posterize(colour, levels)` GLSL function: `floor(colour * levels) / levels`; add `u_posterize` int uniform (0 = off, 2–16 levels) | ✅ |
+| 5 | **Invert** — `if (u_invert) colour.rgb = 1.0 - colour.rgb`; add `u_invert` bool uniform | ✅ |
+| 6 | Add all five uniforms to `UniformLocations` and `upload()` in `uniforms.rs` | ✅ |
+| 7 | Add all five fields to `KaleidoscopeParams` and `ParamsSnapshot` | ✅ |
+| 8 | Add hue slider (0–360) to the color section of the controls panel | ✅ |
+| 9 | Add saturation slider (0–200%) to panel | ✅ |
+| 10 | Add brightness slider (0–200%) to panel | ✅ |
+| 11 | Add posterize control to panel — a slider from 0 (off) to 16; display "Off" when 0 | ✅ |
+| 12 | Add invert toggle to panel | ✅ |
+| 13 | Write `#[test]` native unit tests for hue rotate and posterize math (pure Rust equivalents in `utils.rs`) | ✅ |
+| 14 | Verify `python make.py build`, `python make.py lint`, and `python make.py test` all pass | ✅ |
 
 ---
 

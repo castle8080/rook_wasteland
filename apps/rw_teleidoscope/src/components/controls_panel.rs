@@ -62,6 +62,13 @@ macro_rules! float_slider {
 /// - **Möbius** — checkbox; alternate-segment inversion.
 /// - **Recursion** — integer step-slider (0–3); recursive reflection passes.
 ///
+/// **Color transforms** (M6):
+/// - **Hue** — float slider (0–360°); rotates hue around the colour wheel.
+/// - **Saturation** — float slider (0–200%); 100% = unchanged.
+/// - **Brightness** — float slider (0–200%); 100% = unchanged.
+/// - **Posterize** — integer slider (0=Off, 2–16); quantises to N colour bands.
+/// - **Invert** — checkbox; complements all colour channels.
+///
 /// Each control writes directly to the corresponding [`KaleidoscopeParams`]
 /// signal, which triggers a reactive redraw in `CanvasView`.
 #[component]
@@ -245,6 +252,115 @@ pub fn ControlsPanel() -> impl IntoView {
                 <span class="control-value">
                     {move || params.recursive_depth.get().to_string()}
                 </span>
+            </div>
+
+            // ================================================================
+            // Color transforms (M6)
+            // ================================================================
+
+            // --- Hue -----------------------------------------------------------
+            {float_slider!(
+                label  = "Hue",
+                signal = params.hue_shift,
+                min    = 0.0_f32,
+                max    = 360.0_f32,
+                step   = 1.0_f32,
+                fmt    = "{:.0}°"
+            )}
+
+            // --- Saturation -------------------------------------------------
+            <div class="control-row">
+                <label class="control-label">"Saturation"</label>
+                <input
+                    type="range"
+                    min="0.0"
+                    max="2.0"
+                    step="0.01"
+                    prop:value=move || params.saturation.get().to_string()
+                    on:input=move |ev: web_sys::Event| {
+                        let val: f32 = ev
+                            .target()
+                            .expect("input event has a target")
+                            .unchecked_into::<web_sys::HtmlInputElement>()
+                            .value()
+                            .parse()
+                            .unwrap_or(1.0);
+                        params.saturation.set(val.clamp(0.0, 2.0));
+                    }
+                />
+                <span class="control-value">
+                    {move || format!("{:.0}%", params.saturation.get() * 100.0)}
+                </span>
+            </div>
+
+            // --- Brightness -------------------------------------------------
+            <div class="control-row">
+                <label class="control-label">"Brightness"</label>
+                <input
+                    type="range"
+                    min="0.0"
+                    max="2.0"
+                    step="0.01"
+                    prop:value=move || params.brightness.get().to_string()
+                    on:input=move |ev: web_sys::Event| {
+                        let val: f32 = ev
+                            .target()
+                            .expect("input event has a target")
+                            .unchecked_into::<web_sys::HtmlInputElement>()
+                            .value()
+                            .parse()
+                            .unwrap_or(1.0);
+                        params.brightness.set(val.clamp(0.0, 2.0));
+                    }
+                />
+                <span class="control-value">
+                    {move || format!("{:.0}%", params.brightness.get() * 100.0)}
+                </span>
+            </div>
+
+            // --- Posterize (0 = Off, 2–16 = levels) -------------------------
+            <div class="control-row">
+                <label class="control-label">"Posterize"</label>
+                <input
+                    type="range"
+                    min="0"
+                    max="16"
+                    step="1"
+                    prop:value=move || params.posterize.get().to_string()
+                    on:input=move |ev: web_sys::Event| {
+                        let val: u32 = ev
+                            .target()
+                            .expect("input event has a target")
+                            .unchecked_into::<web_sys::HtmlInputElement>()
+                            .value()
+                            .parse()
+                            .unwrap_or(0);
+                        params.posterize.set(val.clamp(0, 16));
+                    }
+                />
+                <span class="control-value">
+                    {move || {
+                        let v = params.posterize.get();
+                        if v == 0 { "Off".to_string() } else { v.to_string() }
+                    }}
+                </span>
+            </div>
+
+            // --- Invert (toggle) --------------------------------------------
+            <div class="control-row">
+                <label class="control-label">"Invert"</label>
+                <input
+                    type="checkbox"
+                    prop:checked=move || params.invert.get()
+                    on:change=move |ev: web_sys::Event| {
+                        let checked = ev
+                            .target()
+                            .expect("change event has a target")
+                            .unchecked_into::<web_sys::HtmlInputElement>()
+                            .checked();
+                        params.invert.set(checked);
+                    }
+                />
             </div>
         </div>
     }

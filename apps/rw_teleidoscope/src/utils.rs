@@ -54,6 +54,69 @@ pub fn mirror_fold(a: f32, segments: u32) -> f32 {
     }
 }
 
+/// Pure Rust equivalent of the GLSL RGB→HSV→RGB hue-rotation used in `frag.glsl`.
+///
+/// Converts the input RGB colour to HSV, adds `degrees` to the hue (mod 360),
+/// then converts back.  Returns the result as an `(r, g, b)` tuple with all
+/// channels in [0, 1].
+///
+/// At `degrees == 0.0` the output equals the input.
+pub fn hue_rotate_rgb(r: f32, g: f32, b: f32, degrees: f32) -> (f32, f32, f32) {
+    // RGB → HSV
+    let cmax = r.max(g).max(b);
+    let cmin = r.min(g).min(b);
+    let delta = cmax - cmin;
+
+    let h = if delta < f32::EPSILON {
+        0.0_f32
+    } else if (cmax - r).abs() < f32::EPSILON {
+        60.0 * ((g - b) / delta).rem_euclid(6.0)
+    } else if (cmax - g).abs() < f32::EPSILON {
+        60.0 * ((b - r) / delta + 2.0)
+    } else {
+        60.0 * ((r - g) / delta + 4.0)
+    };
+
+    let s = if cmax > f32::EPSILON { delta / cmax } else { 0.0 };
+    let v = cmax;
+
+    // Rotate hue
+    let h = (h + degrees).rem_euclid(360.0);
+
+    // HSV → RGB
+    let f = (h / 60.0).rem_euclid(6.0);
+    let i = f.floor();
+    let ff = f - i;
+    let p = v * (1.0 - s);
+    let q = v * (1.0 - s * ff);
+    let t = v * (1.0 - s * (1.0 - ff));
+
+    let (ro, go, bo) = match i as u32 {
+        0 => (v, t, p),
+        1 => (q, v, p),
+        2 => (p, v, t),
+        3 => (p, q, v),
+        4 => (t, p, v),
+        _ => (v, p, q), // i == 5
+    };
+    (ro, go, bo)
+}
+
+/// Pure Rust equivalent of the GLSL `posterize` formula used in `frag.glsl`.
+///
+/// Clamps `v` to [0, 1] then quantises it to `levels` discrete steps:
+/// `floor(clamp(v, 0, 1) * levels) / levels`.
+///
+/// `levels == 0` is safe (returns 0.0); callers should gate on `levels > 1`
+/// to match the `if (u_posterize > 1)` shader guard.
+pub fn posterize_channel(v: f32, levels: u32) -> f32 {
+    if levels == 0 {
+        return 0.0;
+    }
+    let lev = levels as f32;
+    (v.clamp(0.0, 1.0) * lev).floor() / lev
+}
+
 const RESIZE_TARGET: u32 = 800;
 
 /// Compute the `(dx, dy, draw_w, draw_h)` parametersthat cover-scale an image
@@ -113,7 +176,7 @@ pub fn resize_to_800(image: &web_sys::HtmlImageElement) -> Result<web_sys::Image
 
 #[cfg(test)]
 mod tests {
-    use super::{cover_rect, is_accepted_image_type, lens_warp, mirror_fold, radial_fold_r};
+    use super::{cover_rect, hue_rotate_rgb, is_accepted_image_type, lens_warp, mirror_fold, posterize_channel, radial_fold_r};
 
     #[test]
     fn cover_rect_square_image_is_identity() {
@@ -299,6 +362,92 @@ mod tests {
                 );
             }
         }
+    }
+
+    // -- hue_rotate_rgb tests (pure math, no browser needed) -----------------
+
+    #[test]
+    fn hue_rotate_rgb_zero_degrees_is_identity() {
+        let (r, g, b) = hue_rotate_rgb(0.8, 0.4, 0.2, 0.0);
+        assert!((r - 0.8).abs() < 1e-5, "r: {r}");
+        assert!((g - 0.4).abs() < 1e-5, "g: {g}");
+        assert!((b - 0.2).abs() < 1e-5, "b: {b}");
+    }
+
+    #[test]
+    fn hue_rotate_rgb_360_degrees_wraps_to_identity() {
+        let (r0, g0, b0) = hue_rotate_rgb(0.6, 0.3, 0.9, 0.0);
+        let (r1, g1, b1) = hue_rotate_rgb(0.6, 0.3, 0.9, 360.0);
+        assert!((r0 - r1).abs() < 1e-5, "r: {r0} vs {r1}");
+        assert!((g0 - g1).abs() < 1e-5, "g: {g0} vs {g1}");
+        assert!((b0 - b1).abs() < 1e-5, "b: {b0} vs {b1}");
+    }
+
+    #[test]
+    fn hue_rotate_rgb_180_shifts_hue_by_half_spectrum() {
+        // Pure red (1,0,0) rotated 180° should become cyan (0,1,1).
+        let (r, g, b) = hue_rotate_rgb(1.0, 0.0, 0.0, 180.0);
+        assert!((r - 0.0).abs() < 1e-4, "r should be ~0, got {r}");
+        assert!((g - 1.0).abs() < 1e-4, "g should be ~1, got {g}");
+        assert!((b - 1.0).abs() < 1e-4, "b should be ~1, got {b}");
+    }
+
+    #[test]
+    fn hue_rotate_rgb_120_red_becomes_green() {
+        // Pure red (1,0,0) rotated 120° should become pure green (0,1,0).
+        let (r, g, b) = hue_rotate_rgb(1.0, 0.0, 0.0, 120.0);
+        assert!((r - 0.0).abs() < 1e-4, "r should be ~0, got {r}");
+        assert!((g - 1.0).abs() < 1e-4, "g should be ~1, got {g}");
+        assert!((b - 0.0).abs() < 1e-4, "b should be ~0, got {b}");
+    }
+
+    #[test]
+    fn hue_rotate_rgb_grey_is_unchanged() {
+        // Grey (0.5, 0.5, 0.5) has zero saturation; hue rotation should be a no-op.
+        let (r, g, b) = hue_rotate_rgb(0.5, 0.5, 0.5, 90.0);
+        assert!((r - 0.5).abs() < 1e-5, "r: {r}");
+        assert!((g - 0.5).abs() < 1e-5, "g: {g}");
+        assert!((b - 0.5).abs() < 1e-5, "b: {b}");
+    }
+
+    // -- posterize_channel tests (pure math, no browser needed) --------------
+
+    #[test]
+    fn posterize_channel_2_levels_quantises_correctly() {
+        // levels=2 → steps at 0.0 and 0.5
+        assert!((posterize_channel(0.0, 2) - 0.0).abs() < 1e-6);
+        assert!((posterize_channel(0.4, 2) - 0.0).abs() < 1e-6, "0.4 → 0.0");
+        assert!((posterize_channel(0.5, 2) - 0.5).abs() < 1e-6, "0.5 → 0.5");
+        assert!((posterize_channel(0.9, 2) - 0.5).abs() < 1e-6, "0.9 → 0.5");
+        assert!((posterize_channel(1.0, 2) - 1.0).abs() < 1e-6, "1.0 → 1.0");
+    }
+
+    #[test]
+    fn posterize_channel_4_levels() {
+        // levels=4 → steps at 0.0, 0.25, 0.5, 0.75
+        assert!((posterize_channel(0.1, 4) - 0.0).abs() < 1e-6, "0.1");
+        assert!((posterize_channel(0.3, 4) - 0.25).abs() < 1e-6, "0.3");
+        assert!((posterize_channel(0.6, 4) - 0.5).abs() < 1e-6, "0.6");
+        assert!((posterize_channel(0.8, 4) - 0.75).abs() < 1e-6, "0.8");
+    }
+
+    #[test]
+    fn posterize_channel_clamps_above_1() {
+        // Values > 1.0 (HDR overshoot) should be clamped before quantising.
+        let result = posterize_channel(1.5, 4);
+        assert!((result - 1.0).abs() < 1e-6, "expected 1.0, got {result}");
+    }
+
+    #[test]
+    fn posterize_channel_clamps_below_0() {
+        let result = posterize_channel(-0.5, 4);
+        assert!((result - 0.0).abs() < 1e-6, "expected 0.0, got {result}");
+    }
+
+    #[test]
+    fn posterize_channel_zero_levels_returns_zero() {
+        // levels=0 guard — should not divide by zero.
+        assert!((posterize_channel(0.7, 0) - 0.0).abs() < 1e-6);
     }
 }
 
