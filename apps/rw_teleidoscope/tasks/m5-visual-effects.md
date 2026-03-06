@@ -1,7 +1,7 @@
 # Task M5: Visual Effects
 
 **Milestone:** M5 — Visual Effects  
-**Status:** 🔄 In Progress
+**Status:** ✅ Done
 
 ## Restatement
 
@@ -100,10 +100,23 @@ pub struct Renderer {
 
 ## Test Results
 
-(filled after running `python make.py test`)
+`python make.py test` — all 23 native unit tests + 14 browser WASM tests pass.
+`cargo clippy --target wasm32-unknown-unknown --tests -- -D warnings` — clean.
+`python make.py build` — WASM build succeeds.
 
 ## Review Notes
 
-(filled after self-review)
+No issues found in code review. Recursive depth ping-pong logic confirmed correct
+(depth=N issues N+1 draw calls: N passes to FBO, 1 final to canvas). Möbius
+`r = -r` with downstream `fract()` produces the alternating-flip visual as
+intended. Radial fold gate (`if (u_radial_fold > 0.0)`) is required because the
+formula is non-identity at fold=0.
 
 ## Callouts / Gotchas
+
+- `uniform int u_mobius` preferred over `uniform bool` for cross-driver
+  compatibility; uploaded via `uniform_1_i32`.
+- FBO uses two ping-pong textures; WebGL forbids reading and writing the same
+  texture in a single draw call.
+- `radial_fold_r` is not an identity at fold=0 — always gate with > 0 check in
+  the shader.
