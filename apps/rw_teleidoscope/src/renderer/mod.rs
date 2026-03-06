@@ -94,12 +94,12 @@ pub struct Renderer {
 impl Renderer {
     /// Initialise the renderer for `canvas`.
     ///
-    /// Obtains the WebGL 2 context, fetches and compiles the GLSL shaders,
+    /// Obtains the WebGL 2 context, compiles the embedded GLSL shaders,
     /// uploads the static quad geometry, and caches uniform locations.
     /// Any error is returned as a human-readable string.
-    pub async fn new(canvas: &web_sys::HtmlCanvasElement) -> Result<Self, String> {
+    pub fn new(canvas: &web_sys::HtmlCanvasElement) -> Result<Self, String> {
         let gl = context::get_context(canvas)?;
-        let program = shader::create_program(&gl).await?;
+        let program = shader::create_program(&gl)?;
         let uniform_locs = UniformLocations::new(&gl, program);
         let (vao, vbo) = unsafe { draw::create_quad(&gl)? };
         Ok(Self {

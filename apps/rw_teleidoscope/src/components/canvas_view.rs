@@ -4,7 +4,6 @@ use std::rc::Rc;
 use gloo_events::EventListener;
 use leptos::prelude::*;
 use wasm_bindgen::JsCast;
-use wasm_bindgen_futures::spawn_local;
 
 use crate::components::header::load_file;
 use crate::state::AppState;
@@ -15,7 +14,8 @@ use crate::renderer;
 /// Renders an 800 × 800 `<canvas>` that hosts the WebGL 2 context.  On first
 /// mount the component:
 /// - attaches `dragover` / `drop` event listeners (kept alive indefinitely)
-/// - initialises the [`renderer`] singleton asynchronously
+/// - initialises the [`renderer`] singleton synchronously (shaders are
+///   embedded in the binary; no network round-trip is required)
 ///
 /// A separate reactive `Effect` watches `AppState.image_loaded` and calls
 /// [`renderer::draw`] whenever it changes, so the canvas repaints as soon as a
@@ -70,20 +70,18 @@ pub fn CanvasView() -> impl IntoView {
                 }
                 // `canvas_el` borrow released here — canvas can now be moved below.
 
-                // Initialise the renderer asynchronously (shader fetch).
-                spawn_local(async move {
-                    match renderer::Renderer::new(&canvas).await {
-                        Ok(r) => {
-                            renderer::set_renderer(r);
-                            renderer::draw();
-                        }
-                        Err(e) => {
-                            web_sys::console::error_1(
-                                &format!("Renderer init failed: {e}").into(),
-                            );
-                        }
+                // Initialise the renderer synchronously (shaders are embedded).
+                match renderer::Renderer::new(&canvas) {
+                    Ok(r) => {
+                        renderer::set_renderer(r);
+                        renderer::draw();
                     }
-                });
+                    Err(e) => {
+                        web_sys::console::error_1(
+                            &format!("Renderer init failed: {e}").into(),
+                        );
+                    }
+                }
             }
         }
     });

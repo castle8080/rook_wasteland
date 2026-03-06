@@ -20,9 +20,9 @@ pub mod utils;
 // wasm32.  Gating them here allows `cargo test` (native target) to compile
 // and run the pure-Rust unit tests in `utils` and `state` without errors.
 #[cfg(target_arch = "wasm32")]
-mod app;
+pub mod app;
 #[cfg(target_arch = "wasm32")]
-mod components;
+pub mod components;
 #[cfg(target_arch = "wasm32")]
 pub mod renderer;
 

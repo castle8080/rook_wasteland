@@ -15,7 +15,7 @@ web-sys            = { version = "0.3", features = [
   # DOM / Canvas
   "Window", "Document", "HtmlCanvasElement", "HtmlVideoElement",
   "HtmlInputElement", "HtmlImageElement", "CanvasRenderingContext2d",
-  "Element", "ImageData",
+  "Element", "NodeList", "ImageData",
   # File / Camera
   "File", "FileList", "FileReader", "Blob", "Url", "DataTransfer",
   "MediaDevices", "MediaStream", "MediaStreamConstraints",
@@ -25,8 +25,6 @@ web-sys            = { version = "0.3", features = [
   "ProgressEvent", "EventTarget",
   # WebGL (used only to obtain the raw context for glow)
   "WebGl2RenderingContext",
-  # Fetch API (shader source loading)
-  "Response",
   # Console (error reporting)
   "console",
   # Misc

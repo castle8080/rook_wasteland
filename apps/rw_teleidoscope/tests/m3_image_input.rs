@@ -61,7 +61,7 @@ fn offscreen_canvas_produces_image_data() {
     assert_eq!(image_data.width(), 8);
     assert_eq!(image_data.height(), 8);
     // Each pixel is 4 bytes (RGBA) → 8×8×4 = 256 bytes total.
-    assert_eq!(image_data.data().length(), 256);
+    assert_eq!(image_data.data().len(), 256);
 }
 
 /// `utils::resize_to_800` returns an `ImageData` of exactly 800×800 pixels.
@@ -114,7 +114,7 @@ async fn resize_to_800_returns_correct_dimensions() {
     assert_eq!(image_data.width(), 800, "output width must be 800");
     assert_eq!(image_data.height(), 800, "output height must be 800");
     assert_eq!(
-        image_data.data().length(),
+        image_data.data().len(),
         800 * 800 * 4,
         "RGBA byte count must be 800*800*4"
     );
