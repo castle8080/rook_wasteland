@@ -6,12 +6,17 @@
 # Trunk
 /.trunk/
 
-# wasm-pack / cargo
+# wasm / cargo
 /node_modules/
 /.cargo/
 
 # Shader cache (if any editor tooling generates these)
 *.spv
+
+# Ad-hoc scratch / borrow-test files dropped in the project root
+test_borrow*.rs
+test_borrow*.exe
+test_borrow*.pdb
 
 # Environment and secrets
 .env
