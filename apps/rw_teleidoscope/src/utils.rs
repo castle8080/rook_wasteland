@@ -13,7 +13,30 @@ pub fn is_accepted_image_type(mime: &str) -> bool {
     ACCEPTED_IMAGE_TYPES.contains(&mime)
 }
 
-/// Mirror-fold angle `a` (radians) into the fundamental domain `[0, π/segments]`.
+/// Pure Rust equivalent of the GLSL barrel-warp (lens distortion) formula.
+///
+/// Matches the shader expression `r = r / max(1.0 - lens * r * r, 0.001)`.
+/// Extracted here so the formula can be unit-tested on the native target without
+/// a WebGL context.
+///
+/// At `lens == 0.0` this is the identity (`r / 1.0 == r`).
+pub fn lens_warp(r: f32, lens: f32) -> f32 {
+    let denom = (1.0 - lens * r * r).max(0.001);
+    r / denom
+}
+
+/// Pure Rust equivalent of the GLSL radial-fold formula.
+///
+/// Matches the shader expression
+/// `r = abs(mod(r * (1.0 + fold * 4.0), 2.0) - 1.0)`.
+/// Extracted here so the formula can be unit-tested on the native target.
+///
+/// Note: this formula is **not** an identity at `fold == 0.0`
+/// (`abs(mod(r, 2.0) - 1.0)` is not `r` for all r).  The shader therefore
+/// gates application behind `if (u_radial_fold > 0.0)`.
+pub fn radial_fold_r(r: f32, fold: f32) -> f32 {
+    ((r * (1.0 + fold * 4.0)).rem_euclid(2.0) - 1.0).abs()
+}
 ///
 /// Replicates the GLSL fold in the fragment shader so the algorithm can be
 /// unit-tested on the native target without a WebGL context.
@@ -90,7 +113,7 @@ pub fn resize_to_800(image: &web_sys::HtmlImageElement) -> Result<web_sys::Image
 
 #[cfg(test)]
 mod tests {
-    use super::{cover_rect, is_accepted_image_type, mirror_fold};
+    use super::{cover_rect, is_accepted_image_type, lens_warp, mirror_fold, radial_fold_r};
 
     #[test]
     fn cover_rect_square_image_is_identity() {
@@ -212,6 +235,70 @@ mod tests {
         assert!(!is_accepted_image_type("image/svg+xml"));
         assert!(!is_accepted_image_type("text/plain"));
         assert!(!is_accepted_image_type(""));
+    }
+
+    // -- lens_warp tests (pure math, no browser needed) ----------------------
+
+    #[test]
+    fn lens_warp_zero_r_is_always_zero() {
+        assert!((lens_warp(0.0, 0.0) - 0.0).abs() < 1e-6);
+        assert!((lens_warp(0.0, 0.5) - 0.0).abs() < 1e-6);
+        assert!((lens_warp(0.0, 1.0) - 0.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn lens_warp_zero_lens_is_identity() {
+        // lens=0 → denom = max(1-0, 0.001) = 1.0 → r unchanged
+        assert!((lens_warp(0.5, 0.0) - 0.5).abs() < 1e-6);
+        assert!((lens_warp(1.0, 0.0) - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn lens_warp_mid_values() {
+        // r=0.5, lens=0.8 → denom = max(1 - 0.8*0.25, 0.001) = 0.8
+        // r_new = 0.5 / 0.8 = 0.625
+        let result = lens_warp(0.5, 0.8);
+        assert!((result - 0.625).abs() < 1e-5, "got {result}");
+    }
+
+    #[test]
+    fn lens_warp_denominator_clamped() {
+        // r=1.0, lens=1.0 → denom = max(1 - 1*1, 0.001) = 0.001
+        // r_new = 1.0 / 0.001 = 1000.0
+        let result = lens_warp(1.0, 1.0);
+        assert!((result - 1000.0).abs() < 0.1, "got {result}");
+    }
+
+    // -- radial_fold_r tests (pure math, no browser needed) ------------------
+
+    #[test]
+    fn radial_fold_r_fold_1_mid_radius() {
+        // r=0.5, fold=1 → r_new = abs(mod(0.5*(1+4), 2) - 1)
+        //                       = abs(mod(2.5, 2) - 1) = abs(0.5 - 1) = 0.5
+        let result = radial_fold_r(0.5, 1.0);
+        assert!((result - 0.5).abs() < 1e-5, "got {result}");
+    }
+
+    #[test]
+    fn radial_fold_r_fold_half_small_radius() {
+        // r=0.1, fold=0.5 → r_new = abs(mod(0.1*(1+2), 2) - 1)
+        //                          = abs(mod(0.3, 2) - 1) = abs(0.3 - 1) = 0.7
+        let result = radial_fold_r(0.1, 0.5);
+        assert!((result - 0.7).abs() < 1e-5, "got {result}");
+    }
+
+    #[test]
+    fn radial_fold_r_result_is_always_in_zero_one_range() {
+        // abs(mod(x, 2) - 1) is always in [0, 1]
+        for &r in &[0.0_f32, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0] {
+            for &fold in &[0.0_f32, 0.25, 0.5, 0.75, 1.0] {
+                let result = radial_fold_r(r, fold);
+                assert!(
+                    (0.0..=1.0 + 1e-5_f32).contains(&result),
+                    "radial_fold_r({r}, {fold}) = {result} is out of [0,1]"
+                );
+            }
+        }
     }
 }
 

@@ -60,7 +60,11 @@ async fn controls_panel_renders_sliders() {
 
     let el = container.unchecked_ref::<web_sys::Element>();
     let sliders = el.query_selector_all("input[type='range']").unwrap();
-    assert_eq!(sliders.length(), 3, "expected 3 range sliders (segments, rotation, zoom)");
+    assert_eq!(
+        sliders.length(),
+        8,
+        "expected 8 range sliders: segments, rotation, zoom + spiral, ripple, lens, radial_fold, recursion"
+    );
 
     let value_spans = el.query_selector_all(".control-value").unwrap();
     assert!(

@@ -73,6 +73,71 @@ pub fn draw(params: &ParamsSnapshot) {
 }
 
 // ---------------------------------------------------------------------------
+// FBO helper
+// ---------------------------------------------------------------------------
+
+/// Allocate a framebuffer and two 800×800 RGBA8 ping-pong textures for
+/// recursive-reflection multi-pass rendering.
+///
+/// # Safety
+///
+/// Caller must hold a valid, current `glow::Context`.
+unsafe fn create_fbo(
+    gl: &glow::Context,
+) -> Result<(glow::Framebuffer, [glow::Texture; 2]), String> {
+    const FBO_SIZE: i32 = 800;
+
+    let fbo = gl
+        .create_framebuffer()
+        .map_err(|e| format!("create_framebuffer: {e}"))?;
+
+    let tex0 = gl
+        .create_texture()
+        .map_err(|e| format!("create_texture fbo0: {e}"))?;
+    let tex1 = gl
+        .create_texture()
+        .map_err(|e| format!("create_texture fbo1: {e}"))?;
+
+    for tex in [tex0, tex1] {
+        gl.bind_texture(glow::TEXTURE_2D, Some(tex));
+        gl.tex_image_2d(
+            glow::TEXTURE_2D,
+            0,
+            glow::RGBA8 as i32,
+            FBO_SIZE,
+            FBO_SIZE,
+            0,
+            glow::RGBA,
+            glow::UNSIGNED_BYTE,
+            None,
+        );
+        gl.tex_parameter_i32(
+            glow::TEXTURE_2D,
+            glow::TEXTURE_MIN_FILTER,
+            glow::LINEAR as i32,
+        );
+        gl.tex_parameter_i32(
+            glow::TEXTURE_2D,
+            glow::TEXTURE_MAG_FILTER,
+            glow::LINEAR as i32,
+        );
+        gl.tex_parameter_i32(
+            glow::TEXTURE_2D,
+            glow::TEXTURE_WRAP_S,
+            glow::CLAMP_TO_EDGE as i32,
+        );
+        gl.tex_parameter_i32(
+            glow::TEXTURE_2D,
+            glow::TEXTURE_WRAP_T,
+            glow::CLAMP_TO_EDGE as i32,
+        );
+    }
+
+    gl.bind_texture(glow::TEXTURE_2D, None);
+    Ok((fbo, [tex0, tex1]))
+}
+
+// ---------------------------------------------------------------------------
 // Renderer struct
 // ---------------------------------------------------------------------------
 
@@ -91,19 +156,26 @@ pub struct Renderer {
     source_texture: Option<glow::Texture>,
     /// Cached uniform location handles (populated at program-link time).
     uniform_locs: UniformLocations,
+    /// Single framebuffer used for recursive-reflection multi-pass rendering.
+    fbo: glow::Framebuffer,
+    /// Two ping-pong textures (800×800 RGBA8) attached to `fbo` alternately.
+    /// Index 0 receives the first off-screen pass; subsequent passes alternate.
+    fbo_textures: [glow::Texture; 2],
 }
 
 impl Renderer {
     /// Initialise the renderer for `canvas`.
     ///
     /// Obtains the WebGL 2 context, compiles the embedded GLSL shaders,
-    /// uploads the static quad geometry, and caches uniform locations.
+    /// uploads the static quad geometry, caches uniform locations, and
+    /// allocates the FBO ping-pong textures for recursive reflection.
     /// Any error is returned as a human-readable string.
     pub fn new(canvas: &web_sys::HtmlCanvasElement) -> Result<Self, String> {
         let gl = context::get_context(canvas)?;
         let program = shader::create_program(&gl)?;
         let uniform_locs = UniformLocations::new(&gl, program);
         let (vao, vbo) = unsafe { draw::create_quad(&gl)? };
+        let (fbo, fbo_textures) = unsafe { create_fbo(&gl)? };
         Ok(Self {
             gl,
             program,
@@ -111,6 +183,8 @@ impl Renderer {
             vbo,
             source_texture: None,
             uniform_locs,
+            fbo,
+            fbo_textures,
         })
     }
 
@@ -135,17 +209,81 @@ impl Renderer {
     }
 
     /// Draw one frame using the current source texture and uniforms.
+    ///
+    /// When `params.recursive_depth == 0` a single pass renders directly to the
+    /// canvas default framebuffer.  For depth ≥ 1, the first pass renders to an
+    /// off-screen FBO texture; subsequent passes ping-pong between two FBO
+    /// textures until the requested depth is reached; the final pass renders to
+    /// the canvas.
     pub fn draw(&self, params: &ParamsSnapshot) {
         unsafe {
-            draw::draw_frame(
-                &self.gl,
-                self.program,
-                self.vao,
-                self.source_texture,
-                &self.uniform_locs,
-                params,
-            );
+            if params.recursive_depth == 0 {
+                // Normal single-pass render to the canvas.
+                self.gl.bind_framebuffer(glow::FRAMEBUFFER, None);
+                draw::draw_frame(
+                    &self.gl,
+                    self.program,
+                    self.vao,
+                    self.source_texture,
+                    &self.uniform_locs,
+                    params,
+                );
+            } else {
+                // Multi-pass recursive reflection.
+                // Pass 0: source_texture → fbo_textures[0]
+                self.bind_fbo_texture(0);
+                draw::draw_frame(
+                    &self.gl,
+                    self.program,
+                    self.vao,
+                    self.source_texture,
+                    &self.uniform_locs,
+                    params,
+                );
+
+                // Passes 1..depth-1: fbo_textures[src] → fbo_textures[dst]
+                for i in 1..params.recursive_depth {
+                    let src = ((i - 1) % 2) as usize;
+                    let dst = (i % 2) as usize;
+                    self.bind_fbo_texture(dst);
+                    draw::draw_frame(
+                        &self.gl,
+                        self.program,
+                        self.vao,
+                        Some(self.fbo_textures[src]),
+                        &self.uniform_locs,
+                        params,
+                    );
+                }
+
+                // Final pass: last fbo texture → canvas default framebuffer.
+                let last = ((params.recursive_depth - 1) % 2) as usize;
+                self.gl.bind_framebuffer(glow::FRAMEBUFFER, None);
+                draw::draw_frame(
+                    &self.gl,
+                    self.program,
+                    self.vao,
+                    Some(self.fbo_textures[last]),
+                    &self.uniform_locs,
+                    params,
+                );
+            }
         }
+    }
+
+    /// Bind the FBO and attach `fbo_textures[idx]` as the colour attachment.
+    ///
+    /// # Safety
+    /// Caller must hold a valid `glow::Context` (guaranteed by `&self`).
+    unsafe fn bind_fbo_texture(&self, idx: usize) {
+        self.gl.bind_framebuffer(glow::FRAMEBUFFER, Some(self.fbo));
+        self.gl.framebuffer_texture_2d(
+            glow::FRAMEBUFFER,
+            glow::COLOR_ATTACHMENT0,
+            glow::TEXTURE_2D,
+            Some(self.fbo_textures[idx]),
+            0,
+        );
     }
 }
 
@@ -155,6 +293,10 @@ impl Drop for Renderer {
             if let Some(tex) = self.source_texture {
                 self.gl.delete_texture(tex);
             }
+            for tex in self.fbo_textures {
+                self.gl.delete_texture(tex);
+            }
+            self.gl.delete_framebuffer(self.fbo);
             self.gl.delete_buffer(self.vbo);
             self.gl.delete_vertex_array(self.vao);
             self.gl.delete_program(self.program);
