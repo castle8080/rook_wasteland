@@ -26,11 +26,13 @@ pub mod components;
 #[cfg(target_arch = "wasm32")]
 pub mod renderer;
 
-// These imports are only used by the #[wasm_bindgen(start)] entry point,
-// which is excluded during `wasm-pack test` to avoid a duplicate start symbol.
-#[cfg(all(target_arch = "wasm32", not(test)))]
+// These imports are only used by the #[wasm_bindgen(start)] entry point.
+// Excluded during `wasm-pack test` (feature "wasm-test") and during
+// `cargo test` (cfg(test)) to avoid a duplicate `main` symbol conflict with
+// the test harness entry point.
+#[cfg(all(target_arch = "wasm32", not(test), not(feature = "wasm-test")))]
 use app::App;
-#[cfg(all(target_arch = "wasm32", not(test)))]
+#[cfg(all(target_arch = "wasm32", not(test), not(feature = "wasm-test")))]
 use wasm_bindgen::prelude::wasm_bindgen;
 
 // Configure all #[wasm_bindgen_test] tests in this crate to run in a real browser.
@@ -39,9 +41,10 @@ wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
 
 /// WASM entry point — called when the module is instantiated by the browser.
 ///
-/// Excluded during `wasm-pack test` (`cfg(test)`) because the test harness
-/// injects its own start symbol; two start symbols cause a linker error.
-#[cfg(all(target_arch = "wasm32", not(test)))]
+/// Excluded when `feature = "wasm-test"` is active (browser integration tests)
+/// because the test harness injects its own `main` entry point; two `main`
+/// exports cause wasm-ld to discard both, making the test binary unrunnable.
+#[cfg(all(target_arch = "wasm32", not(test), not(feature = "wasm-test")))]
 #[wasm_bindgen(start)]
 fn main() {
     console_error_panic_hook::set_once();

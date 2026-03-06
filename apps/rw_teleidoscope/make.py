@@ -30,7 +30,10 @@ def build():
 
 def test():
     _run("cargo", "test")
-    _run("wasm-pack", "test", "--headless", "--firefox")
+    # Pass --features wasm-test so the library's #[wasm_bindgen(start)] fn
+    # is excluded; otherwise its `main` export conflicts with the test
+    # harness's own `main` and wasm-ld discards both (see doc/lessons.md L11).
+    _run("wasm-pack", "test", "--headless", "--firefox", "--", "--features", "wasm-test")
 
 
 def dist():

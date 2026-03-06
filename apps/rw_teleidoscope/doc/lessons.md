@@ -236,25 +236,30 @@ binary size overhead is negligible (shaders are a few hundred bytes each).
 
 ---
 
-## L11: wasm-pack test runner "main symbol missing" with wasm-bindgen 0.2.114
+## L11: `main` symbol missing in wasm-pack test — duplicate start symbols
 
 **Milestone:** M4  
 **Area:** Build / Testing  
-**Symptom:** All `wasm-pack test --headless --firefox` runs fail with
-`Error: executing wasm-bindgen over the Wasm file — main symbol is missing, may be because
-there are multiple exports with the same name but different signatures, and discarded by
-wasm-ld`.  This happens for ALL test targets even with no code changes.  
-**Cause:** The wasm-pack-cached `wasm-bindgen-test-runner` binary is
-version-mismatched with the project's `wasm-bindgen 0.2.114`.  Each version of
-`wasm-bindgen` must be paired with exactly the same version of
-`wasm-bindgen-test-runner`; `wasm-pack` caches the runner and does not always
-update it correctly.  
-**Fix / Workaround:** Delete the cached runner at
-`%LOCALAPPDATA%\.wasm-pack\wasm-bindgen-<hash>\` and re-run — `wasm-pack` will
-download a compatible version.  Alternatively, install `wasm-bindgen-cli` at
-exactly version `0.2.114` with `cargo install wasm-bindgen-cli --version 0.2.114`
-and run tests via `cargo test --target wasm32-unknown-unknown` directly.  
-**Watch out for:** Any time `wasm-bindgen` is bumped in `Cargo.toml`, the cached
-runner must also be updated.  Check `%LOCALAPPDATA%\.wasm-pack\` for stale runners.
+**Symptom:** `wasm-pack test --headless --firefox` fails with:
+`Error: main symbol is missing, may be because there are multiple exports with the
+same name but different signatures, and discarded by wasm-ld`.
+Affects every test binary that imports from `rw_teleidoscope`.
+`tests/scaffold.rs` (which does NOT import the library) passes fine.  
+**Cause:** `src/lib.rs` has `#[wasm_bindgen(start)] fn main()` guarded by
+`#[cfg(all(target_arch = "wasm32", not(test)))]`.  When an integration test binary
+(e.g. `tests/integration.rs`) imports the library, the library is compiled as a
+*dependency*, and `cfg(test)` is `false` in the library — only `true` in the
+integration test crate itself.  So the library's `main` export IS included.
+The wasm-bindgen-test harness also generates a `main` export.
+wasm-ld sees two `main` symbols and discards both → no `main` → runner fails.  
+**Fix / Workaround:** Add a `wasm-test = []` feature to `Cargo.toml`.  Gate the
+`#[wasm_bindgen(start)]` function (and its imports) with
+`not(feature = "wasm-test")` in addition to `not(test)`.  Update `make.py` to
+pass `-- --features wasm-test` when invoking `wasm-pack test`, so the library's
+start function is compiled out when building browser test binaries.  
+**Watch out for:** `cfg(test)` in a library is only `true` when testing that
+specific library (`cargo test --lib`), NOT when the library is compiled as a
+dependency of an integration test.  Use a Cargo feature — not `cfg(test)` — to
+control symbols that must be excluded from integration test binaries.
 
 ---

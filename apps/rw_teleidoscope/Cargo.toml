@@ -6,6 +6,13 @@ edition = "2021"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[features]
+# When set, suppresses the #[wasm_bindgen(start)] entry point so the
+# wasm-bindgen-test harness can inject its own `main` without conflict.
+# Pass `--features wasm-test` to wasm-pack / cargo test when running
+# browser integration tests.
+wasm-test = []
+
 [dependencies]
 leptos             = { version = "0.8", features = ["csr"] }
 glow               = { version = "0.13", default-features = false }
