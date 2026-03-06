@@ -9,7 +9,7 @@ use wasm_bindgen::JsCast;
 use leptos::task::spawn_local;
 use leptos::html;
 use leptos::prelude::*;
-use crate::audio::deck_audio::AudioDeck;
+use crate::audio::deck_audio::{AudioDeck, read_vu_level};
 use crate::state::DeckState;
 use crate::canvas::waveform_draw::{draw_waveform, WaveformCache};
 use crate::canvas::platter_draw::draw_platter;
@@ -48,15 +48,19 @@ pub fn start_raf_loop(
             check_loop(&audio_a, &state_a);
             check_loop(&audio_b, &state_b);
 
-            // ── 3. Draw waveforms ─────────────────────────────────────────────
+            // ── 3. Update VU meter levels ─────────────────────────────────────
+            update_vu_level(&audio_a, &state_a);
+            update_vu_level(&audio_b, &state_b);
+
+            // ── 4. Draw waveforms ─────────────────────────────────────────────
             draw_waveform(&waveform_a, &state_a, &cache_a, "a");
             draw_waveform(&waveform_b, &state_b, &cache_b, "b");
 
-            // ── 4. Draw platters ──────────────────────────────────────────────
+            // ── 5. Draw platters ──────────────────────────────────────────────
             draw_platter(&platter_a, &state_a, "a");
             draw_platter(&platter_b, &state_b, "b");
 
-            // ── 5. Schedule the next frame ────────────────────────────────────
+            // ── 6. Schedule the next frame ────────────────────────────────────
             web_sys::window()
                 .expect("raf_loop — window is always present in a browser WASM context")
                 .request_animation_frame(
@@ -96,7 +100,16 @@ fn update_current_time(
     }
 }
 
-/// Trigger a loop restart when the playhead reaches the loop-out point.
+/// Write RMS VU level from the AnalyserNode into `DeckState.vu_level` (0.0–1.0).
+fn update_vu_level(
+    audio_holder: &Rc<RefCell<Option<Rc<RefCell<AudioDeck>>>>>,
+    state:        &DeckState,
+) {
+    if let Some(ref deck_rc) = *audio_holder.borrow() {
+        let level = read_vu_level(&deck_rc.borrow().analyser);
+        state.vu_level.set(level);
+    }
+}
 fn check_loop(
     audio_holder: &Rc<RefCell<Option<Rc<RefCell<AudioDeck>>>>>,
     state:        &DeckState,

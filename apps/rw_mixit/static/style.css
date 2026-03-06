@@ -674,14 +674,12 @@ html, body {
   flex: 1;
 }
 
-/* Active loop toggle — glows green when loop is running */
 .btn-loop-toggle.loop-active {
   background-color: var(--color-mixer);
   color: #000;
   box-shadow: 0 0 8px var(--color-mixer), var(--shadow-cartoon);
 }
 
-/* Quick bar-length buttons */
 .btn-loop-bar {
   flex: 1;
   padding: 0.25rem 0.2rem;
@@ -689,10 +687,146 @@ html, body {
   min-width: 0;
 }
 
-/* Disabled state when no BPM is available */
 .btn-loop-bar.loop-bar-disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+/* ─── EQ / Filter / VU Meter (M8) ────────────────────────────────── */
+
+/* Row that groups EQ panel, filter panel, and VU meter side by side */
+.eq-filter-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+/* Panel container shared by EQ and Filter sections */
+.eq-panel,
+.filter-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.4rem 0.5rem;
+  border: var(--border-cartoon);
+  border-radius: var(--radius-button);
+  background-color: #0d1b2a;
+  box-shadow: var(--shadow-cartoon);
+  flex: 1;
+  min-width: 0;
+}
+
+.eq-panel-label {
+  font-size: 0.7rem;
+  color: var(--color-text-dim);
+  letter-spacing: 0.1em;
+  text-align: center;
+}
+
+/* Three knobs in a row */
+.eq-knobs {
+  display: flex;
+  gap: 0.4rem;
+  justify-content: center;
+}
+
+.eq-knob-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  flex: 1;
+}
+
+.eq-knob-label {
+  font-size: 0.65rem;
+  color: var(--color-text-dim);
+  letter-spacing: 0.06em;
+  text-align: center;
+}
+
+/* Rotary knob — circular range input */
+.eq-knob {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: var(--border-cartoon);
+  box-shadow: var(--shadow-cartoon);
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  accent-color: var(--color-glow);
+  /* Rotate range input 270° so 12 o'clock = center, left = min, right = max */
+  writing-mode: vertical-lr;
+  direction: rtl;
+  width: 28px;
+  height: 64px;
+  border-radius: 4px;
+}
+
+.eq-knob-readout {
+  font-size: 0.6rem;
+  color: var(--color-glow);
+  min-height: 1em;
+  text-align: center;
+}
+
+/* Filter sweep slider — horizontal, full width of its panel */
+.filter-knob {
+  width: 100%;
+  accent-color: var(--color-mixer);
+  cursor: pointer;
+  height: 6px;
+}
+
+/* ─── VU Meter (M8) ───────────────────────────────────────────────── */
+.vu-meter-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.4rem 0.5rem;
+  border: var(--border-cartoon);
+  border-radius: var(--radius-button);
+  background-color: #0d1b2a;
+  box-shadow: var(--shadow-cartoon);
+  min-width: 28px;
+}
+
+.vu-meter-bar-container {
+  width: 16px;
+  height: 80px;
+  background-color: #0a0f1a;
+  border: 1px solid #333;
+  border-radius: 3px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+}
+
+/* Bar grows upward from the bottom; gradient: green → yellow → red */
+.vu-meter-bar {
+  width: 100%;
+  background: linear-gradient(
+    to top,
+    #22c55e 0%,
+    #22c55e 60%,
+    #facc15 60%,
+    #facc15 85%,
+    #ef4444 85%,
+    #ef4444 100%
+  );
+  transition: height 0.05s linear;
+  border-radius: 2px 2px 0 0;
+}
+
+.vu-meter-label {
+  font-size: 0.6rem;
+  color: var(--color-text-dim);
+  letter-spacing: 0.1em;
+  text-align: center;
 }
 
 /* ─── Hot Cues (M7) ───────────────────────────────────────────────── */
@@ -721,7 +855,6 @@ html, body {
   color: var(--color-text-dim);
   opacity: 0.45;
   transition: transform 0.08s ease, opacity 0.12s ease;
-  /* --hc-color is set per-button via inline style */
   outline-color: var(--hc-color, #888);
 }
 

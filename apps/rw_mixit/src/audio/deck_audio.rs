@@ -119,6 +119,8 @@ impl AudioDeck {
         let analyser = ctx.create_analyser()
             .expect("create_analyser: AudioContext node creation is infallible on a live context");
         analyser.set_fft_size(256);
+        // 0.8 = smooth bounce, not jumpy (per tech spec §8.13)
+        analyser.set_smoothing_time_constant(0.8);
 
         // Wire: pre_gain → eq_high → eq_mid → eq_low → sweep_filter
         pre_gain.connect_with_audio_node(&eq_high)
@@ -351,6 +353,51 @@ impl AudioDeck {
 const NUDGE_FACTOR: f32 = 0.05;
 /// Time in seconds to ramp back to normal rate after releasing the nudge button.
 const NUDGE_RAMP_SECS: f64 = 0.1;
+
+// ── EQ / Filter helpers (T8.2, T8.3) ─────────────────────────────────────────
+
+/// Apply the sweep-filter logic to `node` based on `filter_val` ∈ [−1.0, +1.0].
+///
+/// | `filter_val` | Effect |
+/// |---|---|
+/// | ≈ 0 (abs < 0.02) | Flat — peaking at 0 dB gain |
+/// | negative | Low-pass: sweeps from 20 kHz (open) down to 200 Hz (closed) |
+/// | positive | High-pass: sweeps from 20 Hz (open) up to 2 000 Hz (closed) |
+pub fn apply_sweep_filter(node: &BiquadFilterNode, filter_val: f32) {
+    const BYPASS_THRESHOLD: f32 = 0.02;
+    if filter_val.abs() < BYPASS_THRESHOLD {
+        node.set_type(BiquadFilterType::Peaking);
+        node.gain().set_value(0.0);
+    } else if filter_val < 0.0 {
+        // Remap [−1, 0] → [0, 1] — 0 = open (20 kHz), 1 = closed (200 Hz)
+        let t = 1.0 + filter_val;
+        let freq = 200.0_f32 + t * (20_000.0 - 200.0);
+        node.set_type(BiquadFilterType::Lowpass);
+        node.frequency().set_value(freq);
+        node.q().set_value(0.5);
+    } else {
+        // [0, 1] → 20 Hz (open) to 2 000 Hz (closed)
+        let freq = 20.0_f32 + filter_val * (2_000.0 - 20.0);
+        node.set_type(BiquadFilterType::Highpass);
+        node.frequency().set_value(freq);
+        node.q().set_value(0.5);
+    }
+}
+
+/// Compute the RMS level of the most recent audio frame from an `AnalyserNode`.
+///
+/// Returns a value in [0.0, 1.0] suitable for driving a VU meter bar height:
+/// dBFS range −60..0 is mapped linearly to 0.0..1.0.
+pub fn read_vu_level(analyser: &AnalyserNode) -> f32 {
+    let n = analyser.fft_size() as usize; // 256 at 44.1 kHz ≈ 5.8 ms
+    let mut buf = vec![0.0f32; n];
+    analyser.get_float_time_domain_data(&mut buf);
+
+    let rms = (buf.iter().map(|&s| s * s).sum::<f32>() / n as f32).sqrt();
+    // Map dBFS [−60, 0] → [0.0, 1.0]
+    let db = (20.0 * rms.max(1e-6_f32).log10()).max(-60.0);
+    (db + 60.0) / 60.0
+}
 
 #[cfg(test)]
 mod tests {

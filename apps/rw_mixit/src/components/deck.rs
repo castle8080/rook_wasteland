@@ -7,12 +7,14 @@ use wasm_bindgen::JsCast;
 use web_sys::AudioContext;
 
 use crate::audio::{ensure_audio_context, deck_audio::AudioDeck};
+use crate::audio::deck_audio::{apply_sweep_filter};
 use crate::audio::loader::load_audio_file;
 use crate::audio::bpm::sync_rate;
 use crate::audio::mixer_audio::MixerAudio;
 use crate::canvas::raf_loop::start_raf_loop;
 use crate::canvas::platter_draw::PLATTER_SIZE;
 use crate::components::controls::Controls;
+use crate::components::eq::{EqKnobs, FilterKnob, VuMeter};
 use crate::components::hot_cues::HotCues;
 use crate::components::loop_controls::LoopControls;
 use crate::components::mixer::Mixer;
@@ -273,6 +275,50 @@ pub fn Deck(
         });
     }
 
+    // T8.2 — Propagate EQ signal changes to the BiquadFilterNode gains.
+    {
+        let state_eff = state.clone();
+        let holder_eff = audio_deck_holder.clone();
+        Effect::new(move |_| {
+            let db = state_eff.eq_high.get();
+            if let Some(ref deck_rc) = *holder_eff.borrow() {
+                deck_rc.borrow().eq_high.gain().set_value(db);
+            }
+        });
+    }
+    {
+        let state_eff = state.clone();
+        let holder_eff = audio_deck_holder.clone();
+        Effect::new(move |_| {
+            let db = state_eff.eq_mid.get();
+            if let Some(ref deck_rc) = *holder_eff.borrow() {
+                deck_rc.borrow().eq_mid.gain().set_value(db);
+            }
+        });
+    }
+    {
+        let state_eff = state.clone();
+        let holder_eff = audio_deck_holder.clone();
+        Effect::new(move |_| {
+            let db = state_eff.eq_low.get();
+            if let Some(ref deck_rc) = *holder_eff.borrow() {
+                deck_rc.borrow().eq_low.gain().set_value(db);
+            }
+        });
+    }
+
+    // T8.3 — Propagate filter_val signal to the sweep BiquadFilterNode.
+    {
+        let state_eff = state.clone();
+        let holder_eff = audio_deck_holder.clone();
+        Effect::new(move |_| {
+            let val = state_eff.filter_val.get();
+            if let Some(ref deck_rc) = *holder_eff.borrow() {
+                apply_sweep_filter(&deck_rc.borrow().sweep_filter, val);
+            }
+        });
+    }
+
     view! {
         <div class=deck_class>
             <h2 class="deck-label">{format!("DECK {side}")}</h2>
@@ -311,6 +357,13 @@ pub fn Deck(
 
             // Hot cue buttons (T7.1–T7.4)
             <HotCues state=state.clone() audio_deck_holder=audio_deck_holder.clone()/>
+
+            // EQ knobs (T8.1–T8.2) + Filter knob (T8.3) + VU meter (T8.5)
+            <div class="eq-filter-row">
+                <EqKnobs state=state.clone()/>
+                <FilterKnob state=state.clone()/>
+                <VuMeter state=state.clone()/>
+            </div>
 
             // Pitch fader (T3.4)
             <PitchFader state=state.clone()/>

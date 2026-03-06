@@ -165,11 +165,11 @@ Shape the sound per-deck and see it metered.
 
 | ID | Task | Success Criteria | Status |
 |---|---|---|---|
-| T8.1 | `src/components/eq.rs`: rotary knob component — `<input type="range">` styled as a circle; range −12 to +12 dB; `on_input` updates the corresponding signal | Knob updates signal value on drag | ⬜ Not Started |
-| T8.2 | EQ Effects: `Effect::new` for each band that calls `node.gain().set_value(db)` on the corresponding `BiquadFilterNode`; configure node types and frequencies on construction (highshelf/8kHz, peaking/1kHz/Q=0.7, lowshelf/200Hz) | Turning Low EQ to −12 dB audibly removes bass; +12 boosts it | ⬜ Not Started |
-| T8.3 | Filter knob component and `apply_sweep_filter()` Effect: knob range −1.0 to +1.0; Effect calls `apply_sweep_filter` from tech spec §8.7 on `sweep_filter` node | Center position is flat; left sweeps low-pass closed; right sweeps high-pass closed | ⬜ Not Started |
-| T8.4 | `src/canvas/raf_loop.rs`: call `read_vu_level(analyser)` each frame → `state.vu_level.set(level)` for each deck | `vu_level` signal updates 60 times/second during playback | ⬜ Not Started |
-| T8.5 | VU meter UI component: `<div>` whose CSS `height` is set reactively from `vu_level` signal (as a percentage); styled as animated green/yellow/red bars | Meter bar height tracks audio level visually in real time | ⬜ Not Started |
+| T8.1 | `src/components/eq.rs`: rotary knob component — `<input type="range">` styled as a circle; range −12 to +12 dB; `on_input` updates the corresponding signal | Knob updates signal value on drag | ✅ Done |
+| T8.2 | EQ Effects: `Effect::new` for each band that calls `node.gain().set_value(db)` on the corresponding `BiquadFilterNode`; configure node types and frequencies on construction (highshelf/8kHz, peaking/1kHz/Q=0.7, lowshelf/200Hz) | Turning Low EQ to −12 dB audibly removes bass; +12 boosts it | ✅ Done |
+| T8.3 | Filter knob component and `apply_sweep_filter()` Effect: knob range −1.0 to +1.0; Effect calls `apply_sweep_filter` from tech spec §8.7 on `sweep_filter` node | Center position is flat; left sweeps low-pass closed; right sweeps high-pass closed | ✅ Done |
+| T8.4 | `src/canvas/raf_loop.rs`: call `read_vu_level(analyser)` each frame → `state.vu_level.set(level)` for each deck | `vu_level` signal updates 60 times/second during playback | ✅ Done |
+| T8.5 | VU meter UI component: `<div>` whose CSS `height` is set reactively from `vu_level` signal (as a percentage); styled as animated green/yellow/red bars | Meter bar height tracks audio level visually in real time | ✅ Done |
 
 ---
 
@@ -239,7 +239,7 @@ Complete the UI: secondary views, cartoon aesthetic fully applied, animations al
 | M5 — Mixer Panel | T5.1 – T5.5 (5 tasks) | ⬜ Not Started |
 | M6 — Loop Controls | T6.1 – T6.6 (6 tasks) | ⬜ Not Started |
 | M7 — Hot Cues | T7.1 – T7.5 (5 tasks) | ⬜ Not Started |
-| M8 — EQ, Filter & VU Meter | T8.1 – T8.5 (5 tasks) | ⬜ Not Started |
+| M8 — EQ, Filter & VU Meter | T8.1 – T8.5 (5 tasks) | ✅ Done |
 | M9 — Effects Panel | T9.1 – T9.6 (6 tasks) | ⬜ Not Started |
 | M10 — Keyboard Shortcuts | T10.1 – T10.4 (4 tasks) | ⬜ Not Started |
 | M11 — Settings, About & Visual Polish | T11.1 – T11.11 (11 tasks) | ⬜ Not Started |
@@ -248,3 +248,4 @@ Complete the UI: secondary views, cartoon aesthetic fully applied, animations al
 ---
 
 *Task order within milestones reflects implementation dependency. Milestones M0–M2 are strictly sequential. M3–M5 can begin in parallel once M2 is done. M6–M11 depend on M5 being complete.*
+
