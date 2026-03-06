@@ -250,10 +250,11 @@ Two `on:` handlers on the same element cannot share a single Rust closure. Wrap 
 ## Testing
 
 - **Pure functions** (math, routing logic, state transitions) → `#[cfg(test)]` module in the same file, run with `cargo test`. No browser needed.
-- **Browser-dependent code** (Web Audio nodes, canvas) → `#[wasm_bindgen_test]` in `tests/`, run with `wasm-pack test --headless --firefox`.
+- **Browser-dependent code** (Web Audio nodes, canvas, WebGL) → `#[wasm_bindgen_test]` in `tests/`, run with `wasm-pack test --headless --firefox`.
+- **Component-level integration** (signal → DOM reactive wiring, multi-component pipelines) → `#[wasm_bindgen_test]` in `tests/integration.rs`, mounting real components in a headless browser.
 - Extract math helpers as standalone pure functions specifically so they can be unit-tested natively.
 - `.unwrap()` is fine inside `#[test]` functions — a panic is a test failure.
-- Place `wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);` at the crate root under `#[cfg(test)]` to cover all test modules.
+- "At least one test" is a floor. After implementing, explicitly audit coverage: list every meaningful behaviour (happy path, edge cases, error paths, reactive wiring) and confirm each is tested or document why it is waived.
 
 ---
 
@@ -265,9 +266,10 @@ Before writing code for any non-trivial task:
 2. Write a design sketch (data flow, function signatures, edge cases, integration points)
 3. Critique the design (correctness, simplicity, coupling, performance, testability)
 4. Implement + tests
-5. `cargo test` + `cargo clippy --target wasm32-unknown-unknown -- -D warnings` + `trunk build` — all must pass
-6. Self-review: every public `fn`/`struct`/`trait` needs a `///` doc comment; magic numbers need named constants
-7. Commit, then mark task doc ✅ Done
+5. **Coverage audit:** for every public function or component added/modified, list each meaningful behaviour and confirm it is tested or document why it is waived. Undocumented gaps are bugs in the test suite.
+6. `cargo test` + `cargo clippy --target wasm32-unknown-unknown --tests -- -D warnings` + `trunk build` — all must pass
+7. Self-review: every public `fn`/`struct`/`trait` needs a `///` doc comment; magic numbers need named constants
+8. Commit, then mark task doc ✅ Done
 
 ### Commit message format
 

@@ -30,6 +30,10 @@ Create `tasks/<milestone>-<id>-<slug>.md`. Use this template:
 | Performance | | |
 | Testability | | |
 ## Implementation Notes
+## Coverage Audit
+| Behaviour | Tier | Tested? | Notes |
+|---|---|---|---|
+| | | | |
 ## Test Results
 ## Review Notes
 ## Callouts / Gotchas
@@ -82,6 +86,36 @@ tick().await;
 // Query within the container, not the whole document.
 container.query_selector(".foo").unwrap()
 ```
+
+## Phase 5.5 — Coverage Audit
+
+**This step is mandatory. Do not skip it.**
+
+Before moving to Phase 6, explicitly enumerate every meaningful behaviour in the
+code you just wrote and verify each is tested. Fill in the `## Coverage Audit`
+table in the task doc:
+
+```markdown
+| Behaviour | Tier | Tested? | Notes |
+|---|---|---|---|
+| happy path of function X | 1 | ✅ | |
+| edge case: X with empty input | 1 | ✅ | |
+| error path: X returns Err | 1 | ❌ waived | requires real File object |
+| signal Y → overlay hidden | 3 | ✅ | integration.rs |
+```
+
+For each public function or component added or modified, ask:
+1. **Happy path** — is there a test?
+2. **Each edge case from Phase 3** — is each one covered?
+3. **Error / `None` / empty-input paths** — tested, or explicitly waived with reason?
+4. **Signal → DOM reactive wiring** — is there an integration test (Tier 3)?
+
+A gap is acceptable only when documented with a concrete reason such as:
+- "requires a real `File` object not constructible synthetically"
+- "covered by manual test checklist item MT-X"
+- "deferred to MN integration test task"
+
+An undocumented gap is a bug in the test suite. Fill it or document it — never silently skip it.
 
 ## Phase 6 — Run Tests + Clippy
 

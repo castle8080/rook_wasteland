@@ -146,7 +146,7 @@ Recursive reflection (depth 1–3): render main pass to an FBO, re-bind output
 as `u_image`, repeat. Final pass renders to the default framebuffer.
 
 GLSL shaders live in `assets/shaders/vert.glsl` and `assets/shaders/frag.glsl`.
-Fetched at startup via `fetch()` (not `include_str!`).
+Embedded at compile time via `include_str!()` — **not** fetched at runtime.
 
 ---
 
@@ -264,13 +264,23 @@ Without `#[wasm_bindgen(start)]` the module starts silently — no error, no app
 
 ## Testing
 
-- **Pure functions** (math, fold algorithm, color transforms) → `#[cfg(test)]`
-  module in the same file, run with `cargo test`.
-- **Browser-dependent** (WebGL init, texture upload, camera) → `#[wasm_bindgen_test]`
-  in `tests/`, run with `wasm-pack test --headless --firefox`.
-- Implement shader math as pure Rust functions in `utils.rs` first, test them
-  natively, then port verbatim to GLSL. Never test math only in the shader.
-- `.unwrap()` is acceptable inside `#[test]` functions.
+The project uses three tiers. Every non-trivial task must include tests from the
+appropriate tier(s) — "at least one test" is a floor, not a goal.
+
+- **Tier 1 — native `#[test]`:** pure math, routing logic, string validation. No
+  browser needed. Run with `cargo test`. Extract any formula into a free function
+  in `utils.rs` so it can be tested here before porting to GLSL.
+- **Tier 2 — `#[wasm_bindgen_test]` (low-level):** isolated WebGL / web-sys API
+  calls. File per milestone: `tests/mN_*.rs`. Run with
+  `wasm-pack test --headless --firefox`.
+- **Tier 3 — `#[wasm_bindgen_test]` (integration):** full component trees mounted
+  in headless Firefox; tests signal → DOM reactive wiring and multi-component
+  pipelines. File: `tests/integration.rs`.
+
+Add a Tier 3 test whenever a signal gates DOM visibility, a new data pipeline
+crosses component boundaries, or an error path must show UI feedback.
+
+`.unwrap()` is fine inside any `#[test]` function.
 
 ---
 
@@ -278,15 +288,18 @@ Without `#[wasm_bindgen(start)]` the module starts silently — no error, no app
 
 Before writing code for any non-trivial task:
 
-1. Check `doc/lessons.md` for any recorded lessons relevant to the area being worked on.
-2. Read the relevant milestone doc (`doc/milestones/mN-*.md`) and note the task number.
-2. Read the relevant sections of `doc/tech_spec.md`.
+1. Check `doc/lessons.md` for relevant lessons before starting.
+2. Read the milestone doc (`doc/milestones/mN-*.md`) and the relevant sections of `doc/tech_spec.md`.
 3. Write a design sketch (data flow, function signatures, edge cases).
-4. Implement + write tests.
-5. Run `python make.py lint` and `python make.py test` — both must pass.
-6. Every public `fn`/`struct`/`trait` needs a `///` doc comment; magic numbers need named constants.
-7. Mark the task `✅` in the milestone doc.
-8. Commit.
+4. Implement + write tests (see Testing section above for tier guidance).
+5. **Coverage audit:** for every public function or component added or modified,
+   list each meaningful behaviour (happy path, edge cases, error paths, reactive
+   wiring) and confirm it is tested or explicitly document why it is waived.
+   Undocumented gaps are bugs in the test suite.
+6. Run `python make.py lint` and `python make.py test` — both must pass.
+7. Every public `fn`/`struct`/`trait` needs a `///` doc comment; magic numbers need named constants.
+8. Mark the task `✅` in the milestone doc.
+9. Commit.
 
 ### Commit message format
 
