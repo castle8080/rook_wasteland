@@ -298,8 +298,9 @@ Before writing code for any non-trivial task:
    Undocumented gaps are bugs in the test suite.
 6. Run `python make.py lint` and `python make.py test` — both must pass.
 7. Every public `fn`/`struct`/`trait` needs a `///` doc comment; magic numbers need named constants.
-8. Mark the task `✅` in the milestone doc.
-9. Commit.
+8. Stage changes and run the `code-review` agent — fix every flagged bug/logic error; waive findings that don't apply by noting the reason in the task doc.
+9. Mark the task `✅` in the milestone doc.
+10. Commit.
 
 ### Commit message format
 

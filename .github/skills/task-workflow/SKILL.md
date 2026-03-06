@@ -145,6 +145,19 @@ Record findings (even "No issues found") under `## Review Notes`.
 
 Apply Phase 7 fixes. Re-run the Phase 6 commands even for one-line changes.
 
+## Phase 8.5 — Code Review
+
+Stage all changed files (`git add -p`) and run the `code-review` agent against
+the staged diff. The agent surfaces genuine bugs, logic errors, and security
+issues — it does not comment on style.
+
+Treat every finding as either:
+- **Fix:** address in code before committing, then re-run Phase 6
+- **Waive:** write a one-sentence justification in `## Review Notes` explaining
+  why the finding does not apply
+
+Do not commit until all findings are resolved or waived.
+
 ## Phase 9 — Commit
 
 ```
