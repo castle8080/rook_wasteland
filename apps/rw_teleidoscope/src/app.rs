@@ -1,6 +1,7 @@
 use leptos::prelude::*;
 use gloo_events::EventListener;
 
+use crate::components::camera_overlay::CameraOverlay;
 use crate::components::canvas_view::CanvasView;
 use crate::components::controls_panel::ControlsPanel;
 use crate::components::header::Header;
@@ -42,6 +43,7 @@ pub fn App() -> impl IntoView {
                 <CanvasView/>
                 <ControlsPanel/>
             </div>
+            <CameraOverlay/>
         </div>
     }
 }

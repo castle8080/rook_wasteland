@@ -99,7 +99,10 @@ pub fn Header() -> impl IntoView {
                 >
                     "⚙ LOAD IMAGE"
                 </button>
-                <button class="header-btn header-btn--stub">
+                <button
+                    class="header-btn"
+                    on:click=move |_| app_state.camera_open.set(true)
+                >
                     "📷 USE CAMERA"
                 </button>
             </div>

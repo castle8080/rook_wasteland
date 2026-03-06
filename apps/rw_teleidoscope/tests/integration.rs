@@ -240,3 +240,129 @@ async fn image_pipeline_hides_overlay_end_to_end() {
         "placeholder must be hidden after full pipeline completes"
     );
 }
+
+// ---------------------------------------------------------------------------
+// M7 Camera overlay: signal → DOM visibility
+// ---------------------------------------------------------------------------
+
+/// The camera overlay is absent when `camera_open = false`.
+///
+/// Mounts `App` and verifies no `.camera-overlay` element exists in the DOM
+/// before the user opens the camera.
+#[wasm_bindgen_test]
+async fn camera_overlay_hidden_when_camera_closed() {
+    let container = fresh_container();
+    let _handle = mount_to(container.clone(), rw_teleidoscope::app::App);
+    tick().await;
+
+    assert!(
+        container
+            .query_selector(".camera-overlay")
+            .unwrap()
+            .is_none(),
+        "camera-overlay must be absent when camera_open = false"
+    );
+}
+
+/// Setting `camera_open = true` causes the overlay to appear in the DOM.
+///
+/// Mounts a `CameraOverlay` (not the full App) with a manually constructed
+/// `AppState` so we can control `camera_open` without triggering a real
+/// `getUserMedia` call.  The test verifies:
+/// 1. Overlay is absent when `camera_open = false`
+/// 2. Overlay appears after `camera_open.set(true)` and one reactive tick
+///
+/// Note: the Effect inside `CameraOverlay` will call `camera::request_camera()`
+/// in the background.  That call may fail in the headless test environment
+/// (no real camera), but we only check DOM structure here — not the video feed.
+#[wasm_bindgen_test]
+async fn camera_overlay_shows_when_camera_open_signal_set() {
+    use leptos::prelude::*;
+    use rw_teleidoscope::{
+        components::camera_overlay::CameraOverlay,
+        state::AppState,
+    };
+
+    let camera_open: RwSignal<bool> = RwSignal::new(false);
+    let state = AppState {
+        image_loaded: RwSignal::new(false),
+        camera_open,
+        camera_error: RwSignal::new(None),
+    };
+
+    let container = fresh_container();
+    let _handle = mount_to(container.clone(), move || {
+        provide_context(state);
+        view! { <CameraOverlay/> }
+    });
+    tick().await;
+
+    // Before: overlay must be absent.
+    assert!(
+        container
+            .query_selector(".camera-overlay")
+            .unwrap()
+            .is_none(),
+        "overlay must be absent when camera_open = false"
+    );
+
+    // Open the overlay.
+    camera_open.set(true);
+    tick().await;
+
+    // After: overlay must be present.
+    assert!(
+        container
+            .query_selector(".camera-overlay")
+            .unwrap()
+            .is_some(),
+        "overlay must appear when camera_open = true"
+    );
+}
+
+/// Setting `camera_error` shows the inline error message inside the overlay.
+#[wasm_bindgen_test]
+async fn camera_overlay_shows_error_message() {
+    use leptos::prelude::*;
+    use rw_teleidoscope::{
+        components::camera_overlay::CameraOverlay,
+        state::AppState,
+    };
+
+    let camera_open: RwSignal<bool> = RwSignal::new(true);
+    let camera_error: RwSignal<Option<String>> = RwSignal::new(None);
+    let state = AppState {
+        image_loaded: RwSignal::new(false),
+        camera_open,
+        camera_error,
+    };
+
+    let container = fresh_container();
+    let _handle = mount_to(container.clone(), move || {
+        provide_context(state);
+        view! { <CameraOverlay/> }
+    });
+    tick().await;
+
+    // Before: no error element.
+    assert!(
+        container.query_selector(".camera-error").unwrap().is_none(),
+        "no .camera-error should exist before an error is set"
+    );
+
+    // Inject an error.
+    camera_error.set(Some("Permission denied".to_string()));
+    tick().await;
+
+    // After: error message must be visible.
+    let error_el = container
+        .query_selector(".camera-error")
+        .unwrap()
+        .expect(".camera-error must appear after camera_error signal is set");
+
+    assert_eq!(
+        error_el.text_content().unwrap_or_default(),
+        "Permission denied",
+        "error text must match the signal value"
+    );
+}
