@@ -1,0 +1,9 @@
+[build]
+target     = "index.html"
+dist       = "dist"
+# IMPORTANT: must match the deployment subdirectory exactly so Trunk injects
+# correct absolute paths for the WASM binary, JS glue, CSS, and shaders.
+public_url = "/rw_teleidoscope/"
+
+[watch]
+ignore = ["dist", "doc"]

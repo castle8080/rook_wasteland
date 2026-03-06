@@ -1,0 +1,28 @@
+:root {
+  --color-brass:        #8B6914;
+  --color-brass-bright: #D4A017;
+  --color-copper:       #4A7C59;
+  --color-soot:         #1A1A1A;
+  --color-parchment:    #C4A35A;
+  --color-ivory:        #F5F0E0;
+
+  --font-heading: 'Cinzel', serif;          /* Victorian / mechanical */
+  --font-mono:    'Courier Prime', monospace; /* instrument readouts */
+
+  --panel-width:  260px;
+  --canvas-size:  800px;
+  --border-width: 2px;
+}
+
+/* Base reset */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--color-soot);
+  color: var(--color-ivory);
+  font-family: var(--font-mono);
+}

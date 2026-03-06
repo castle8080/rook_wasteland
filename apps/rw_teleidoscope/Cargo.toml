@@ -1,0 +1,40 @@
+[package]
+name = "rw_teleidoscope"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+leptos             = { version = "0.8", features = ["csr"] }
+glow               = { version = "0.13", default-features = false }
+wasm-bindgen       = "0.2"
+wasm-bindgen-futures = "0.4"
+web-sys            = { version = "0.3", features = [
+  # DOM / Canvas
+  "Window", "Document", "HtmlCanvasElement", "HtmlVideoElement",
+  "HtmlInputElement", "CanvasRenderingContext2d", "Element",
+  # File / Camera
+  "File", "FileList", "FileReader", "Blob", "Url",
+  "MediaDevices", "MediaStream", "MediaStreamConstraints",
+  "MediaStreamTrack",
+  # Events
+  "Event", "MouseEvent", "PointerEvent", "DragEvent",
+  "ProgressEvent", "EventTarget",
+  # WebGL (used only to obtain the raw context for glow)
+  "WebGl2RenderingContext",
+  # Misc
+  "Navigator", "Location", "Performance",
+] }
+js-sys             = "0.3"
+gloo-events        = "0.2"
+console_error_panic_hook = "0.1"
+
+[dev-dependencies]
+wasm-bindgen-test  = "0.3"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
