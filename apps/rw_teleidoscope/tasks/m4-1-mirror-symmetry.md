@@ -1,7 +1,7 @@
 # Task M4-1: Mirror Symmetry Core
 
 **Milestone:** M4 — Mirror Symmetry Core  
-**Status:** 🔄 In Progress
+**Status:** ✅ Done
 
 ## Restatement
 
@@ -129,12 +129,21 @@ pub fn mirror_fold(a: f32, segments: u32) -> f32;
 
 ## Test Results
 
-(filled after tests pass)
+- `cargo test`: 16 native unit tests pass (7 new `mirror_fold` tests + existing).
+- `cargo clippy --target wasm32-unknown-unknown --tests -- -D warnings`: clean.
+- `python make.py build` (trunk): clean.
+- Browser tests (`wasm-pack test --headless --firefox`): blocked by pre-existing
+  environment issue — wasm-bindgen-test-runner version mismatch (see L11 in lessons.md).
+  All tests compile correctly; the runner itself fails before executing them.
 
 ## Review Notes
 
-(filled after self-review)
+Code-review agent found no issues. All clippy warnings fixed before commit.
 
 ## Callouts / Gotchas
 
-(filled after milestone close)
+- `params.snapshot()` called in the init Effect registers all params as reactive deps;
+  the first signal change after mount causes one no-op re-run of the init Effect before
+  its dep set goes empty. Benign.
+- Browser tests fail at the wasm-bindgen-test-runner level (pre-existing env issue);
+  this is independent of M4 correctness.

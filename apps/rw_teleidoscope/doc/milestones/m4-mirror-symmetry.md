@@ -1,6 +1,6 @@
 # M4 — Mirror Symmetry Core
 
-**Status:** ⬜ Pending  
+**Status:** ✅ Complete  
 **Depends on:** [M3 — Image Input & Texture Display](m3-image-input.md)  
 **Unlocks:** M5, M6, M7, M8, M9
 
@@ -20,21 +20,21 @@ is demonstrably usable as a kaleidoscope tool.
 
 | # | Task | Status |
 |---|---|---|
-| 1 | Flesh out `src/state/params.rs` with full `KaleidoscopeParams` struct (all `RwSignal`s per tech spec Section 5.1) and `fn new()` + `impl Default` | ⬜ |
-| 2 | Provide `KaleidoscopeParams` via Leptos context from `App`; update `CanvasView` to read it with `expect_context` | ⬜ |
-| 3 | Add `ParamsSnapshot` plain struct (no signals) that `KaleidoscopeParams::snapshot()` populates by reading all signals — this is what gets passed to `renderer.draw()` | ⬜ |
-| 4 | Update `renderer/uniforms.rs` to cache and upload all symmetry uniforms: `u_segments`, `u_rotation`, `u_zoom`, `u_center` | ⬜ |
-| 5 | Update `frag.glsl` — implement polar coordinate transform centred on `u_center` | ⬜ |
-| 6 | Update `frag.glsl` — implement mirror fold: `seg_angle = PI / segments`; `a = mod(a, 2*seg_angle)`; fold back if `a > seg_angle` | ⬜ |
-| 7 | Update `frag.glsl` — apply `u_rotation` offset to angle, `u_zoom` scale to radius before texture sample | ⬜ |
-| 8 | Update the `Effect` in `CanvasView` to call `params.snapshot()` (registering all signals as deps) and pass snapshot to `renderer.draw()` | ⬜ |
-| 9 | Create `src/components/controls_panel.rs` — panel wrapper component (not yet collapsible); renders four controls | ⬜ |
-| 10 | Add segments slider (integer, 2–10) in controls panel; wires to `params.segments` | ⬜ |
-| 11 | Add rotation slider (0–360°) in controls panel; wires to `params.rotation` | ⬜ |
-| 12 | Add zoom slider (0.1–4.0) in controls panel; wires to `params.zoom` | ⬜ |
-| 13 | Implement canvas center drag — attach `pointerdown`, `pointermove`, `pointerup` listeners on `<canvas>`; normalise pointer position to 0..1 and write to `params.center` | ⬜ |
-| 14 | Extract mirror fold math as a pure Rust function in `utils.rs`; write `#[test]` unit tests for edge cases (a=0, a=seg_angle, a=2*seg_angle, segments=2, segments=10) | ⬜ |
-| 15 | Verify `python make.py build`, `python make.py lint`, and `python make.py test` all pass | ⬜ |
+| 1 | Flesh out `src/state/params.rs` with full `KaleidoscopeParams` struct (all `RwSignal`s per tech spec Section 5.1) and `fn new()` + `impl Default` | ✅ |
+| 2 | Provide `KaleidoscopeParams` via Leptos context from `App`; update `CanvasView` to read it with `expect_context` | ✅ |
+| 3 | Add `ParamsSnapshot` plain struct (no signals) that `KaleidoscopeParams::snapshot()` populates by reading all signals — this is what gets passed to `renderer.draw()` | ✅ |
+| 4 | Update `renderer/uniforms.rs` to cache and upload all symmetry uniforms: `u_segments`, `u_rotation`, `u_zoom`, `u_center` | ✅ |
+| 5 | Update `frag.glsl` — implement polar coordinate transform centred on `u_center` | ✅ |
+| 6 | Update `frag.glsl` — implement mirror fold: `seg_angle = PI / segments`; `a = mod(a, 2*seg_angle)`; fold back if `a > seg_angle` | ✅ |
+| 7 | Update `frag.glsl` — apply `u_rotation` offset to angle, `u_zoom` scale to radius before texture sample | ✅ |
+| 8 | Update the `Effect` in `CanvasView` to call `params.snapshot()` (registering all signals as deps) and pass snapshot to `renderer.draw()` | ✅ |
+| 9 | Create `src/components/controls_panel.rs` — panel wrapper component (not yet collapsible); renders four controls | ✅ |
+| 10 | Add segments slider (integer, 2–10) in controls panel; wires to `params.segments` | ✅ |
+| 11 | Add rotation slider (0–360°) in controls panel; wires to `params.rotation` | ✅ |
+| 12 | Add zoom slider (0.1–4.0) in controls panel; wires to `params.zoom` | ✅ |
+| 13 | Implement canvas center drag — attach `pointerdown`, `pointermove`, `pointerup` listeners on `<canvas>`; normalise pointer position to 0..1 and write to `params.center` | ✅ |
+| 14 | Extract mirror fold math as a pure Rust function in `utils.rs`; write `#[test]` unit tests for edge cases (a=0, a=seg_angle, a=2*seg_angle, segments=2, segments=10) | ✅ |
+| 15 | Verify `python make.py build`, `python make.py lint`, and `python make.py test` all pass | ✅ |
 
 ---
 

@@ -19,10 +19,10 @@ Implementation has not started. All milestones are pending.
 
 | # | Milestone | Description | Status |
 |---|---|---|---|
-| M1 | [Project Scaffold](milestones/m1-scaffold.md) | Cargo.toml, index.html, Trunk.toml, make.py, empty app shell. Trunk build succeeds and page loads. | ⬜ Pending |
-| M2 | [WebGL Canvas & Basic Renderer](milestones/m2-webgl-renderer.md) | glow context, full-screen quad, .glsl files via Trunk, solid colour output. WebGL works end-to-end. | ⬜ Pending |
-| M3 | [Image Input & Texture Display](milestones/m3-image-input.md) | File picker, drag-and-drop, 800×800 resize, texture upload, passthrough shader shows image on canvas. | ⬜ Pending |
-| M4 | [Mirror Symmetry Core](milestones/m4-mirror-symmetry.md) | Polar coords, mirror fold, segments/rotation/zoom controls, canvas drag for center. Real kaleidoscope visible. | ⬜ Pending |
+| M1 | [Project Scaffold](milestones/m1-scaffold.md) | Cargo.toml, index.html, Trunk.toml, make.py, empty app shell. Trunk build succeeds and page loads. | ✅ Complete |
+| M2 | [WebGL Canvas & Basic Renderer](milestones/m2-webgl-renderer.md) | glow context, full-screen quad, .glsl files via Trunk, solid colour output. WebGL works end-to-end. | ✅ Complete |
+| M3 | [Image Input & Texture Display](milestones/m3-image-input.md) | File picker, drag-and-drop, 800×800 resize, texture upload, passthrough shader shows image on canvas. | ✅ Complete |
+| M4 | [Mirror Symmetry Core](milestones/m4-mirror-symmetry.md) | Polar coords, mirror fold, segments/rotation/zoom controls, canvas drag for center. Real kaleidoscope visible. | ✅ Complete |
 | M5 | [Visual Effects](milestones/m5-visual-effects.md) | Spiral twist, radial fold, lens distortion, angular ripple, Möbius mirror, recursive reflection (FBO). | ⬜ Pending |
 | M6 | [Color Transforms](milestones/m6-color-transforms.md) | Hue rotation, saturation, brightness, posterize, invert — all wired to panel controls. | ⬜ Pending |
 | M7 | [Camera Input](milestones/m7-camera-input.md) | getUserMedia, live preview overlay, capture frame, permission-denied error state. | ⬜ Pending |

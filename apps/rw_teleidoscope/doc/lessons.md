@@ -235,3 +235,26 @@ binary size overhead is negligible (shaders are a few hundred bytes each).
    function, making it possible to mutate signals from outside the component tree.
 
 ---
+
+## L11: wasm-pack test runner "main symbol missing" with wasm-bindgen 0.2.114
+
+**Milestone:** M4  
+**Area:** Build / Testing  
+**Symptom:** All `wasm-pack test --headless --firefox` runs fail with
+`Error: executing wasm-bindgen over the Wasm file — main symbol is missing, may be because
+there are multiple exports with the same name but different signatures, and discarded by
+wasm-ld`.  This happens for ALL test targets even with no code changes.  
+**Cause:** The wasm-pack-cached `wasm-bindgen-test-runner` binary is
+version-mismatched with the project's `wasm-bindgen 0.2.114`.  Each version of
+`wasm-bindgen` must be paired with exactly the same version of
+`wasm-bindgen-test-runner`; `wasm-pack` caches the runner and does not always
+update it correctly.  
+**Fix / Workaround:** Delete the cached runner at
+`%LOCALAPPDATA%\.wasm-pack\wasm-bindgen-<hash>\` and re-run — `wasm-pack` will
+download a compatible version.  Alternatively, install `wasm-bindgen-cli` at
+exactly version `0.2.114` with `cargo install wasm-bindgen-cli --version 0.2.114`
+and run tests via `cargo test --target wasm32-unknown-unknown` directly.  
+**Watch out for:** Any time `wasm-bindgen` is bumped in `Cargo.toml`, the cached
+runner must also be updated.  Check `%LOCALAPPDATA%\.wasm-pack\` for stale runners.
+
+---
