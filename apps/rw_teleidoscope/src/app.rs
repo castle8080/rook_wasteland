@@ -2,6 +2,7 @@ use leptos::prelude::*;
 use gloo_events::EventListener;
 
 use crate::components::canvas_view::CanvasView;
+use crate::components::controls_panel::ControlsPanel;
 use crate::components::header::Header;
 use crate::routing::Route;
 use crate::state::{AppState, KaleidoscopeParams};
@@ -37,7 +38,10 @@ pub fn App() -> impl IntoView {
     view! {
         <div id="rw-teleidoscope-root">
             <Header/>
-            <CanvasView/>
+            <div class="main-layout">
+                <CanvasView/>
+                <ControlsPanel/>
+            </div>
         </div>
     }
 }

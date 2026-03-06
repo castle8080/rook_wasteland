@@ -6,20 +6,25 @@ use leptos::prelude::*;
 use wasm_bindgen::JsCast;
 
 use crate::components::header::load_file;
-use crate::state::AppState;
+use crate::state::{AppState, KaleidoscopeParams};
 use crate::renderer;
+
+/// Canvas side length in pixels (matches the `width`/`height` HTML attributes).
+const CANVAS_SIZE: f32 = 800.0;
 
 /// Canvas element and WebGL rendering surface.
 ///
 /// Renders an 800 × 800 `<canvas>` that hosts the WebGL 2 context.  On first
 /// mount the component:
-/// - attaches `dragover` / `drop` event listeners (kept alive indefinitely)
+/// - attaches `dragover` / `drop` / `pointerdown` / `pointermove` event
+///   listeners (kept alive indefinitely)
 /// - initialises the [`renderer`] singleton synchronously (shaders are
 ///   embedded in the binary; no network round-trip is required)
 ///
-/// A separate reactive `Effect` watches `AppState.image_loaded` and calls
-/// [`renderer::draw`] whenever it changes, so the canvas repaints as soon as a
-/// new image is uploaded.
+/// A reactive `Effect` reads `KaleidoscopeParams::snapshot()` (registering
+/// all params signals as dependencies) and `AppState.image_loaded`, then
+/// calls [`renderer::draw`] on every change so the canvas repaints
+/// immediately when any control moves or a new image is loaded.
 ///
 /// Before any image is loaded an instructional overlay is displayed on top of
 /// the canvas.
@@ -27,6 +32,7 @@ use crate::renderer;
 pub fn CanvasView() -> impl IntoView {
     let canvas_ref: NodeRef<leptos::html::Canvas> = NodeRef::new();
     let app_state = expect_context::<AppState>();
+    let params    = expect_context::<KaleidoscopeParams>();
 
     // Guard: ensure the one-time initialisation block runs only once even if
     // the Effect re-fires (Leptos fires Effects twice in development mode).
@@ -43,11 +49,12 @@ pub fn CanvasView() -> impl IntoView {
                 }
                 initialized.set(true);
 
-                // Attach drag-and-drop listeners permanently.
-                // The borrow of `canvas` (via &*canvas) ends after EventListener::new()
-                // returns because EventListener clones the EventTarget internally.
+                // Attach all permanent event listeners in one block so that
+                // the borrow of `canvas_el` is released before we move below.
                 {
                     let canvas_el: &web_sys::HtmlCanvasElement = &canvas;
+
+                    // Drag-and-drop
                     let over_listener = EventListener::new(canvas_el, "dragover", |ev| {
                         ev.prevent_default();
                     });
@@ -64,9 +71,41 @@ pub fn CanvasView() -> impl IntoView {
                                 }
                             }
                         });
-                    // Keep alive for the entire app lifetime.
+
+                    // Pointer drag → update centre of symmetry.
+                    // `params` is Copy so it is safely captured by each closure.
+                    let pparams = params;
+                    let pointerdown_listener =
+                        EventListener::new(canvas_el, "pointerdown", move |ev| {
+                            ev.prevent_default();
+                            let ptr: &web_sys::PointerEvent =
+                                ev.dyn_ref().expect("PointerEvent");
+                            let cx = (ptr.offset_x() as f32 / CANVAS_SIZE).clamp(0.0, 1.0);
+                            // Flip Y: HTML y=0 is the top; WebGL v_uv.y=1 is the top.
+                            let cy =
+                                (1.0 - ptr.offset_y() as f32 / CANVAS_SIZE).clamp(0.0, 1.0);
+                            pparams.center.set((cx, cy));
+                        });
+                    let pointermove_listener =
+                        EventListener::new(canvas_el, "pointermove", move |ev| {
+                            ev.prevent_default();
+                            let ptr: &web_sys::PointerEvent =
+                                ev.dyn_ref().expect("PointerEvent");
+                            // Only update while the primary button is held.
+                            if ptr.buttons() & 1 != 0 {
+                                let cx =
+                                    (ptr.offset_x() as f32 / CANVAS_SIZE).clamp(0.0, 1.0);
+                                let cy = (1.0 - ptr.offset_y() as f32 / CANVAS_SIZE)
+                                    .clamp(0.0, 1.0);
+                                pparams.center.set((cx, cy));
+                            }
+                        });
+
+                    // Keep all listeners alive for the entire app lifetime.
                     std::mem::forget(over_listener);
                     std::mem::forget(drop_listener);
+                    std::mem::forget(pointerdown_listener);
+                    std::mem::forget(pointermove_listener);
                 }
                 // `canvas_el` borrow released here — canvas can now be moved below.
 
@@ -74,7 +113,7 @@ pub fn CanvasView() -> impl IntoView {
                 match renderer::Renderer::new(&canvas) {
                     Ok(r) => {
                         renderer::set_renderer(r);
-                        renderer::draw();
+                        renderer::draw(&params.snapshot());
                     }
                     Err(e) => {
                         web_sys::console::error_1(
@@ -87,11 +126,12 @@ pub fn CanvasView() -> impl IntoView {
     });
 
     // --- Reactive draw Effect ------------------------------------------------
-    // Reads `image_loaded` as a reactive dependency so Leptos re-runs this
-    // Effect whenever an image is uploaded (or unloaded in future milestones).
+    // Reads `image_loaded` and all `KaleidoscopeParams` signals as reactive
+    // dependencies so Leptos re-runs this Effect whenever any of them changes.
     Effect::new(move |_| {
         let _image_loaded = app_state.image_loaded.get();
-        renderer::draw();
+        let snapshot = params.snapshot();
+        renderer::draw(&snapshot);
     });
 
     view! {
@@ -116,5 +156,3 @@ pub fn CanvasView() -> impl IntoView {
         </div>
     }
 }
-
-

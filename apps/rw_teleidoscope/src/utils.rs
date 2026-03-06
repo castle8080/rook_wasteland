@@ -13,7 +13,24 @@ pub fn is_accepted_image_type(mime: &str) -> bool {
     ACCEPTED_IMAGE_TYPES.contains(&mime)
 }
 
-/// Target side length (pixels) for the resized image texture.
+/// Mirror-fold angle `a` (radians) into the fundamental domain `[0, π/segments]`.
+///
+/// Replicates the GLSL fold in the fragment shader so the algorithm can be
+/// unit-tested on the native target without a WebGL context.
+///
+/// Uses `rem_euclid` (floor-based modulo) to match GLSL's `mod()` behaviour for
+/// negative angles.
+pub fn mirror_fold(a: f32, segments: u32) -> f32 {
+    let seg_angle = std::f32::consts::PI / segments as f32;
+    let two_seg = 2.0 * seg_angle;
+    let a = a.rem_euclid(two_seg);
+    if a > seg_angle {
+        two_seg - a
+    } else {
+        a
+    }
+}
+
 const RESIZE_TARGET: u32 = 800;
 
 /// Compute the `(dx, dy, draw_w, draw_h)` parametersthat cover-scale an image
@@ -73,7 +90,7 @@ pub fn resize_to_800(image: &web_sys::HtmlImageElement) -> Result<web_sys::Image
 
 #[cfg(test)]
 mod tests {
-    use super::{cover_rect, is_accepted_image_type};
+    use super::{cover_rect, is_accepted_image_type, mirror_fold};
 
     #[test]
     fn cover_rect_square_image_is_identity() {
@@ -128,7 +145,58 @@ mod tests {
         assert!((dx - (800.0 - 1200.0 * scale) / 2.0).abs() < 1e-9);
     }
 
-    // -- MIME type acceptance tests (pure string logic, no browser needed) --
+    // -- mirror_fold tests (pure math, no browser needed) --------------------
+
+    #[test]
+    fn mirror_fold_zero_stays_zero() {
+        assert!((mirror_fold(0.0, 6) - 0.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn mirror_fold_at_seg_angle_is_identity() {
+        let seg_angle = std::f32::consts::PI / 6.0;
+        assert!((mirror_fold(seg_angle, 6) - seg_angle).abs() < 1e-6);
+    }
+
+    #[test]
+    fn mirror_fold_at_two_seg_angle_wraps_to_zero() {
+        // rem_euclid(2*seg_angle, 2*seg_angle) = 0.0
+        let seg_angle = std::f32::consts::PI / 6.0;
+        let result = mirror_fold(2.0 * seg_angle, 6);
+        assert!(result < 1e-5, "expected ~0, got {result}");
+    }
+
+    #[test]
+    fn mirror_fold_above_seg_angle_folds_back() {
+        // a = 1.5 * seg_angle is in the second half → folds to 0.5 * seg_angle
+        let seg_angle = std::f32::consts::PI / 6.0;
+        let a = seg_angle * 1.5;
+        let expected = 2.0 * seg_angle - a; // = 0.5 * seg_angle
+        assert!((mirror_fold(a, 6) - expected).abs() < 1e-6);
+    }
+
+    #[test]
+    fn mirror_fold_negative_angle_wraps_and_folds() {
+        // rem_euclid(-0.1, 2*seg_angle) = 2*seg_angle - 0.1  (> seg_angle)
+        // fold: 2*seg_angle - (2*seg_angle - 0.1) = 0.1
+        let result = mirror_fold(-0.1, 6);
+        assert!((result - 0.1).abs() < 1e-5, "expected ~0.1, got {result}");
+    }
+
+    #[test]
+    fn mirror_fold_segments_2_boundary_values() {
+        let seg_angle = std::f32::consts::PI / 2.0;
+        assert!((mirror_fold(0.0, 2) - 0.0).abs() < 1e-6);
+        assert!((mirror_fold(seg_angle, 2) - seg_angle).abs() < 1e-6);
+    }
+
+    #[test]
+    fn mirror_fold_segments_10_boundary_values() {
+        let seg_angle = std::f32::consts::PI / 10.0;
+        assert!((mirror_fold(0.0, 10) - 0.0).abs() < 1e-6);
+        assert!((mirror_fold(seg_angle, 10) - seg_angle).abs() < 1e-6);
+    }
+
 
     #[test]
     fn accepted_mime_types_allow_png_jpeg_webp() {

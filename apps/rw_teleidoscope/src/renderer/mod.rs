@@ -21,6 +21,8 @@ use glow::HasContext;
 
 use uniforms::UniformLocations;
 
+use crate::state::ParamsSnapshot;
+
 // ---------------------------------------------------------------------------
 // Thread-local singleton
 // ---------------------------------------------------------------------------
@@ -65,9 +67,9 @@ where
 /// Issue a draw call on the global renderer.
 ///
 /// This is a no-op if the renderer has not yet been initialised, which can
-/// happen during the async shader-fetch startup window.
-pub fn draw() {
-    with_renderer(|r| r.draw());
+/// happen when the reactive effect fires before the canvas NodeRef resolves.
+pub fn draw(params: &ParamsSnapshot) {
+    with_renderer(|r| r.draw(params));
 }
 
 // ---------------------------------------------------------------------------
@@ -133,7 +135,7 @@ impl Renderer {
     }
 
     /// Draw one frame using the current source texture and uniforms.
-    pub fn draw(&self) {
+    pub fn draw(&self, params: &ParamsSnapshot) {
         unsafe {
             draw::draw_frame(
                 &self.gl,
@@ -141,6 +143,7 @@ impl Renderer {
                 self.vao,
                 self.source_texture,
                 &self.uniform_locs,
+                params,
             );
         }
     }

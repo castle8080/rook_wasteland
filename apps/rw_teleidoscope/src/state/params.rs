@@ -1,5 +1,32 @@
 use leptos::prelude::*;
 
+/// Plain-data snapshot of all [`KaleidoscopeParams`] signal values.
+///
+/// Created by [`KaleidoscopeParams::snapshot`].  Passed to the renderer each
+/// frame to avoid borrow-checker conflicts between the Leptos signal system
+/// and `glow::Context` (which is `!Send + !Sync`).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ParamsSnapshot {
+    // Symmetry
+    pub segments: u32,
+    pub rotation: f32,
+    pub zoom: f32,
+    pub center: (f32, f32),
+    // Effects
+    pub spiral: f32,
+    pub radial_fold: f32,
+    pub lens: f32,
+    pub ripple: f32,
+    pub mobius: bool,
+    pub recursive_depth: u32,
+    // Color transforms
+    pub hue_shift: f32,
+    pub saturation: f32,
+    pub brightness: f32,
+    pub posterize: u32,
+    pub invert: bool,
+}
+
 /// All parameters that drive the WebGL renderer.
 /// Provided via context; access with `expect_context::<KaleidoscopeParams>()`.
 #[derive(Clone, Copy)]
@@ -67,5 +94,31 @@ impl KaleidoscopeParams {
 impl Default for KaleidoscopeParams {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl KaleidoscopeParams {
+    /// Read every signal and return a plain-data snapshot.
+    ///
+    /// Calling this inside a Leptos `Effect` registers **all** signals as
+    /// reactive dependencies, so any parameter change triggers a redraw.
+    pub fn snapshot(&self) -> ParamsSnapshot {
+        ParamsSnapshot {
+            segments:        self.segments.get(),
+            rotation:        self.rotation.get(),
+            zoom:            self.zoom.get(),
+            center:          self.center.get(),
+            spiral:          self.spiral.get(),
+            radial_fold:     self.radial_fold.get(),
+            lens:            self.lens.get(),
+            ripple:          self.ripple.get(),
+            mobius:          self.mobius.get(),
+            recursive_depth: self.recursive_depth.get(),
+            hue_shift:       self.hue_shift.get(),
+            saturation:      self.saturation.get(),
+            brightness:      self.brightness.get(),
+            posterize:       self.posterize.get(),
+            invert:          self.invert.get(),
+        }
     }
 }

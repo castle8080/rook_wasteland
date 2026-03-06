@@ -2,6 +2,8 @@
 
 use glow::HasContext;
 
+use crate::state::ParamsSnapshot;
+
 use super::uniforms::UniformLocations;
 
 /// Clip-space positions for a full-screen quad (two triangles, 6 vertices).
@@ -70,6 +72,7 @@ pub unsafe fn draw_frame(
     vao: glow::VertexArray,
     source_texture: Option<glow::Texture>,
     uniform_locs: &UniformLocations,
+    params: &ParamsSnapshot,
 ) {
     gl.clear_color(0.0, 0.0, 0.0, 1.0);
     gl.clear(glow::COLOR_BUFFER_BIT);
@@ -79,7 +82,7 @@ pub unsafe fn draw_frame(
     gl.active_texture(glow::TEXTURE0);
     gl.bind_texture(glow::TEXTURE_2D, source_texture);
 
-    uniform_locs.upload(gl);
+    uniform_locs.upload(gl, params);
 
     gl.bind_vertex_array(Some(vao));
     gl.draw_arrays(glow::TRIANGLES, 0, 6);
