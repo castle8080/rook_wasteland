@@ -1,6 +1,6 @@
 # M1 — Project Scaffold
 
-**Status:** ⬜ Pending  
+**Status:** ✅ Complete  
 **Depends on:** nothing  
 **Unlocks:** [M2 — WebGL Canvas & Basic Renderer](m2-webgl-renderer.md)
 
@@ -18,29 +18,29 @@ No kaleidoscope logic — just a blank page with a title and a canvas placeholde
 
 | # | Task | Status |
 |---|---|---|
-| 1 | Create `Cargo.toml` with all crate dependencies from tech spec Section 2 | ⬜ |
-| 2 | Create `Trunk.toml` with `public_url = "/rw_teleidoscope/"` and `copy-dir` for `assets/shaders/` | ⬜ |
-| 3 | Create `index.html` with Trunk directives for WASM, CSS, and shader asset copy | ⬜ |
-| 4 | Create `make.py` from the template in tech spec Section 12 | ⬜ |
-| 5 | Create `src/lib.rs` — `#[wasm_bindgen(start)]`, panic hook init, mount Leptos `App` | ⬜ |
-| 6 | Create `src/app.rs` — root `App` component rendering a `<div>` placeholder | ⬜ |
-| 7 | Create `src/state/mod.rs`, `params.rs`, `app_state.rs` with all signals stubbed out | ⬜ |
-| 8 | Create `src/routing.rs` — `Route` enum with hash-based routing (no `leptos_router`) | ⬜ |
-| 9 | Create `style/main.css` with all CSS custom property tokens from tech spec Section 11 | ⬜ |
-| 10 | Create `assets/shaders/` directory with placeholder `vert.glsl` and `frag.glsl` | ⬜ |
-| 11 | Create empty module stubs: `src/renderer/mod.rs`, `src/camera.rs`, `src/utils.rs` | ⬜ |
-| 12 | Verify `python make.py build` exits 0 with no compiler errors | ⬜ |
-| 13 | Verify `python make.py lint` exits 0 with zero clippy warnings | ⬜ |
+| 1 | Create `Cargo.toml` with all crate dependencies from tech spec Section 2 | ✅ |
+| 2 | Create `Trunk.toml` with `public_url = "/rw_teleidoscope/"` and `copy-dir` for `assets/shaders/` | ✅ |
+| 3 | Create `index.html` with Trunk directives for WASM, CSS, and shader asset copy | ✅ |
+| 4 | Create `make.py` from the template in tech spec Section 12 | ✅ |
+| 5 | Create `src/lib.rs` — `#[wasm_bindgen(start)]`, panic hook init, mount Leptos `App` | ✅ |
+| 6 | Create `src/app.rs` — root `App` component rendering a `<div>` placeholder | ✅ |
+| 7 | Create `src/state/mod.rs`, `params.rs`, `app_state.rs` with all signals stubbed out | ✅ |
+| 8 | Create `src/routing.rs` — `Route` enum with hash-based routing (no `leptos_router`) | ✅ |
+| 9 | Create `style/main.css` with all CSS custom property tokens from tech spec Section 11 | ✅ |
+| 10 | Create `assets/shaders/` directory with placeholder `vert.glsl` and `frag.glsl` | ✅ |
+| 11 | Create empty module stubs: `src/renderer/mod.rs`, `src/camera.rs`, `src/utils.rs` | ✅ |
+| 12 | Verify `python make.py build` exits 0 with no compiler errors | ✅ |
+| 13 | Verify `python make.py lint` exits 0 with zero clippy warnings | ✅ |
 
 ---
 
 ## Manual Test Checklist
 
-- [ ] `trunk serve` starts without error
-- [ ] Browser opens `http://localhost:8080/rw_teleidoscope/` and shows a page (title visible)
-- [ ] No console errors in browser dev tools
-- [ ] `python make.py build` exits 0
-- [ ] `python make.py lint` exits 0
+- [x] `trunk serve` starts without error
+- [x] Browser opens `http://localhost:8080/rw_teleidoscope/` and shows a page (title visible)
+- [x] No console errors in browser dev tools
+- [x] `python make.py build` exits 0
+- [x] `python make.py lint` exits 0
 
 ---
 

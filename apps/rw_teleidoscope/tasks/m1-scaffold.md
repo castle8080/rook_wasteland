@@ -1,7 +1,7 @@
 # Task M1: Project Scaffold
 
 **Milestone:** M1 — Project Scaffold  
-**Status:** 🔄 In Progress
+**Status:** ✅ Done
 
 ## Restatement
 
@@ -52,6 +52,20 @@ All new files; no existing files modified.
 
 ## Test Results
 
+- `cargo test`: 2 tests pass (routing round-trip tests in `routing.rs`)
+- `cargo clippy --target wasm32-unknown-unknown -- -D warnings`: 0 warnings
+- `python make.py build` (trunk build): exits 0 ✅
+
 ## Review Notes
 
+No issues found. All public items have doc comments. `to_hash` carries an
+`#[allow(dead_code)]` because it is part of the routing API used by navigation
+code in later milestones.
+
 ## Callouts / Gotchas
+
+- Module-only stub files must use `//!` (inner doc comments) not `///` (outer doc
+  comments). Outer doc comments require an item to attach to; inner doc comments
+  annotate the enclosing module and compile fine in empty files.
+- `#[wasm_bindgen(start)]` must be gated with `#[cfg(not(test))]` to avoid a
+  duplicate-start-symbol linker error when running `wasm-pack test`.

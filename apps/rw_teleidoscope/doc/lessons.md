@@ -43,7 +43,17 @@ the same mistakes.
 
 ---
 
-## Lessons
+## L1: Module-only stub files require inner doc comments
 
-*No lessons recorded yet. The first lesson should be added during M1 or M2 when
-the first non-trivial build or runtime issue is encountered.*
+**Milestone:** M1  
+**Area:** Build  
+**Symptom:** Compiler error "expected item after doc comment" in stub `.rs` files
+that contained only `///` outer doc comments and no Rust items.  
+**Cause:** `///` outer doc comments must precede an item (fn, struct, etc.). A
+file with only outer doc comments has nothing for them to document.  
+**Fix / Workaround:** Use `//!` inner doc comments (module-level) instead of `///`
+in stub files that contain no items.  
+**Watch out for:** Any future stub module or placeholder file — always use `//!`
+until real items are added.
+
+---
