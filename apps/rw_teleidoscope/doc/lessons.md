@@ -263,3 +263,50 @@ dependency of an integration test.  Use a Cargo feature — not `cfg(test)` — 
 control symbols that must be excluded from integration test binaries.
 
 ---
+
+## L12: `attr:name="value"` syntax fails in Leptos 0.8 `view!` macro
+
+**Milestone:** M7  
+**Area:** Leptos / Build  
+**Symptom:** Compiler error `expected one of ( ) , . :: ? or an operator, found :`
+when using `attr:playsinline="true"` inside the `view!` macro.  
+**Cause:** The Leptos 0.8 `view!` macro parser does not support the `attr:` prefix
+syntax for setting arbitrary HTML attributes.  The `:` after `attr` is not valid in
+that position in the RSX parser.  
+**Fix / Workaround:** Use the attribute name directly as a boolean or string
+prop: `playsinline=true`, `muted=true`.  Leptos 0.8 accepts all standard HTML
+attribute names this way without needing a prefix.  
+**Watch out for:** Any documentation or example showing `attr:` prefix syntax —
+it may refer to an older Leptos version.  Always test unfamiliar view! attribute
+syntax with a quick `cargo clippy --target wasm32-unknown-unknown` before writing
+more code.
+
+---
+
+## L13: Check `camera_open` after `getUserMedia` resolves to prevent stream leaks
+
+**Milestone:** M7  
+**Area:** Camera / Async  
+**Symptom:** Opening the camera overlay then immediately clicking "Cancel" can
+leave an unreleased `MediaStream` holding the camera hardware open.  
+**Cause:** `getUserMedia` is async — it resolves after the browser permission
+prompt, which can take seconds.  If the user dismisses the overlay during that
+time, `release_camera()` runs (clearing `CAMERA_STREAM`) before the async task
+completes.  The task then calls `store_stream(new_stream)`, overwriting `None`
+with a live stream that has no path to release.  
+**Fix / Workaround:** After `await`-ing `request_camera()`, check
+`camera_open.get_untracked()` before calling `store_stream`.  If `false`, stop
+the stream's tracks immediately without storing:
+```rust
+if !app_state.camera_open.get_untracked() {
+    // User closed overlay while prompt was showing — discard stream.
+    for i in 0..stream.get_tracks().length() { ... }
+    return;
+}
+camera::store_stream(stream.clone());
+```  
+**Watch out for:** Any future async camera or media operation where the user
+might dismiss the UI before the operation completes.  The general pattern:
+always re-validate app state after every `await` that involves user interaction.
+
+---

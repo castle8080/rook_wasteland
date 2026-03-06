@@ -1,7 +1,7 @@
 # Task M7-T1: Camera Input
 
 **Milestone:** M7 — Camera Input  
-**Status:** 🔄 In Progress
+**Status:** ✅ Done
 
 ## Restatement
 
@@ -111,11 +111,24 @@ pub fn capture_frame(video: &web_sys::HtmlVideoElement) -> Result<web_sys::Image
 
 ## Test Results
 
-(to be filled in after Phase 6)
+- 34 native unit tests pass (`cargo test`)
+- Clippy clean (`cargo clippy --target wasm32-unknown-unknown --tests -- -D warnings`)
+- `trunk build` succeeds
+- 3 new browser integration tests pass (6 total in integration.rs)
 
 ## Review Notes
 
-(to be filled in after Phase 7)
+Code review found two findings — both fixed before commit:
+
+1. **Race condition / resource leak (High)**: If user cancelled the overlay before
+   the `getUserMedia` permission prompt resolved, the async task could complete
+   after `release_camera()` had already run, leaving a live stream with no release
+   path. **Fixed** by checking `camera_open.get_untracked()` after `await`; if
+   already closed, stop tracks immediately without storing.
+
+2. **Multiple concurrent requests (Medium)**: Rapid toggling could spawn multiple
+   `request_camera()` tasks; second stream could overwrite first without stopping
+   its tracks.  **Fixed** by having `store_stream()` stop any previous stream first.
 
 ## Callouts / Gotchas
 
@@ -124,3 +137,7 @@ pub fn capture_frame(video: &web_sys::HtmlVideoElement) -> Result<web_sys::Image
   `"HtmlMediaElement"` web-sys feature.
 - `autoplay`, `playsinline`, and `muted` attributes are required on `<video>` for
   cross-browser autoplay of camera streams.
+- `attr:name="value"` syntax in Leptos 0.8 view! macro fails to parse; use
+  `name=true` for boolean attributes directly.
+- Always check `camera_open.get_untracked()` after `await` in async camera tasks —
+  the user may have cancelled while the permission prompt was showing.

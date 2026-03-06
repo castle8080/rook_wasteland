@@ -1,6 +1,6 @@
 # M7 — Camera Input
 
-**Status:** ⬜ Pending  
+**Status:** ✅ Complete  
 **Depends on:** [M4 — Mirror Symmetry Core](m4-mirror-symmetry.md)  
 **Unlocks:** [M10 — Steampunk Polish](m10-steampunk-polish.md) (after M9)
 
@@ -20,17 +20,17 @@ resize → texture upload pipeline as M3 file input.
 
 | # | Task | Status |
 |---|---|---|
-| 1 | Implement `camera::request_camera()` — call `navigator.media_devices().get_user_media(constraints)`, bridge the JS Promise with `JsFuture`, return `Ok(MediaStream)` or `Err(human-readable String)` | ⬜ |
-| 2 | Implement `camera::release_camera(stream)` — iterate `stream.get_tracks()`, call `track.stop()` on each | ⬜ |
-| 3 | Implement `camera::capture_frame(video)` — create offscreen 800×800 `<canvas>`, draw video frame with `draw_image_with_html_video_element_and_dw_and_dh`, call `get_image_data`, return `ImageData` | ⬜ |
-| 4 | Create `src/components/camera_overlay.rs` — renders conditionally on `AppState.camera_open`; contains `<video autoplay>` element and Capture / Cancel buttons | ⬜ |
-| 5 | On `CameraOverlay` mount: call `spawn_local(request_camera())` → on `Ok`, set `video.set_src_object(Some(&stream))`; on `Err`, write to `AppState.camera_error` | ⬜ |
-| 6 | Implement error state display in `CameraOverlay` — show inline error message from `AppState.camera_error`; no browser `alert()` | ⬜ |
-| 7 | Implement "Capture" button handler — call `capture_frame(video)`, pass `ImageData` to `renderer.upload_image()`, call `release_camera(stream)`, set `AppState.camera_open.set(false)`, set `AppState.image_loaded.set(true)` | ⬜ |
-| 8 | Implement "Cancel" button handler — call `release_camera(stream)`, set `AppState.camera_open.set(false)` | ⬜ |
-| 9 | Add "Use Camera" button to `header.rs`; sets `AppState.camera_open.set(true)` | ⬜ |
-| 10 | Ensure `CameraOverlay` is mounted in `App` layout, overlaid on the canvas | ⬜ |
-| 11 | Verify `python make.py build` and `python make.py lint` pass | ⬜ |
+| 1 | Implement `camera::request_camera()` — call `navigator.media_devices().get_user_media(constraints)`, bridge the JS Promise with `JsFuture`, return `Ok(MediaStream)` or `Err(human-readable String)` | ✅ |
+| 2 | Implement `camera::release_camera(stream)` — iterate `stream.get_tracks()`, call `track.stop()` on each | ✅ |
+| 3 | Implement `camera::capture_frame(video)` — create offscreen 800×800 `<canvas>`, draw video frame with `draw_image_with_html_video_element_and_dw_and_dh`, call `get_image_data`, return `ImageData` | ✅ |
+| 4 | Create `src/components/camera_overlay.rs` — renders conditionally on `AppState.camera_open`; contains `<video autoplay>` element and Capture / Cancel buttons | ✅ |
+| 5 | On `CameraOverlay` mount: call `spawn_local(request_camera())` → on `Ok`, set `video.set_src_object(Some(&stream))`; on `Err`, write to `AppState.camera_error` | ✅ |
+| 6 | Implement error state display in `CameraOverlay` — show inline error message from `AppState.camera_error`; no browser `alert()` | ✅ |
+| 7 | Implement "Capture" button handler — call `capture_frame(video)`, pass `ImageData` to `renderer.upload_image()`, call `release_camera(stream)`, set `AppState.camera_open.set(false)`, set `AppState.image_loaded.set(true)` | ✅ |
+| 8 | Implement "Cancel" button handler — call `release_camera(stream)`, set `AppState.camera_open.set(false)` | ✅ |
+| 9 | Add "Use Camera" button to `header.rs`; sets `AppState.camera_open.set(true)` | ✅ |
+| 10 | Ensure `CameraOverlay` is mounted in `App` layout, overlaid on the canvas | ✅ |
+| 11 | Verify `python make.py build` and `python make.py lint` pass | ✅ |
 
 ---
 
