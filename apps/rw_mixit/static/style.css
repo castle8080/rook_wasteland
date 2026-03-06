@@ -609,3 +609,88 @@ html, body {
   min-width: 2.5rem;
   text-align: right;
 }
+
+/* ─── Loop Controls (M6) ──────────────────────────────────────────── */
+.loop-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.4rem 0.5rem;
+  border: var(--border-cartoon);
+  border-radius: var(--radius-button);
+  background-color: #0d1b2a;
+  box-shadow: var(--shadow-cartoon);
+}
+
+.loop-transport {
+  display: flex;
+  gap: 0.4rem;
+  justify-content: center;
+}
+
+.loop-bars {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+
+.loop-bars-label {
+  font-size: 0.7rem;
+  color: var(--color-text-dim);
+  letter-spacing: 0.08em;
+  flex-shrink: 0;
+}
+
+.btn-loop {
+  font-family: 'Bangers', cursive;
+  font-size: 0.9rem;
+  letter-spacing: 0.05em;
+  padding: 0.3rem 0.6rem;
+  border: var(--border-cartoon);
+  border-radius: var(--radius-button);
+  box-shadow: var(--shadow-cartoon);
+  cursor: pointer;
+  background-color: var(--color-panel);
+  color: var(--color-text);
+  transition: transform 0.08s ease;
+}
+
+.btn-loop:hover {
+  transform: translateY(-1px);
+}
+
+.btn-loop:active {
+  box-shadow: 2px 2px 0 var(--color-shadow);
+  transform: translateY(1px);
+}
+
+.btn-loop-in,
+.btn-loop-out {
+  color: var(--color-glow);
+}
+
+.btn-loop-toggle {
+  flex: 1;
+}
+
+/* Active loop toggle — glows green when loop is running */
+.btn-loop-toggle.loop-active {
+  background-color: var(--color-mixer);
+  color: #000;
+  box-shadow: 0 0 8px var(--color-mixer), var(--shadow-cartoon);
+}
+
+/* Quick bar-length buttons */
+.btn-loop-bar {
+  flex: 1;
+  padding: 0.25rem 0.2rem;
+  font-size: 0.8rem;
+  min-width: 0;
+}
+
+/* Disabled state when no BPM is available */
+.btn-loop-bar.loop-bar-disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
