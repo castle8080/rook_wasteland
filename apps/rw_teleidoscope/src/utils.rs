@@ -2,10 +2,21 @@
 
 use wasm_bindgen::JsCast;
 
+/// Accepted image MIME types for the file-loading pipeline.
+pub const ACCEPTED_IMAGE_TYPES: &[&str] = &["image/png", "image/jpeg", "image/webp"];
+
+/// Returns `true` if `mime` is one of the image types the app can process.
+///
+/// Extracted from the UI layer so the acceptance list can be tested without
+/// a browser or a real `File` object.
+pub fn is_accepted_image_type(mime: &str) -> bool {
+    ACCEPTED_IMAGE_TYPES.contains(&mime)
+}
+
 /// Target side length (pixels) for the resized image texture.
 const RESIZE_TARGET: u32 = 800;
 
-/// Compute the `(dx, dy, draw_w, draw_h)` parameters that cover-scale an image
+/// Compute the `(dx, dy, draw_w, draw_h)` parametersthat cover-scale an image
 /// of `(img_w × img_h)` pixels into a square canvas of `target` pixels.
 ///
 /// The image is scaled uniformly until it fills the entire target square, then
@@ -62,7 +73,7 @@ pub fn resize_to_800(image: &web_sys::HtmlImageElement) -> Result<web_sys::Image
 
 #[cfg(test)]
 mod tests {
-    use super::cover_rect;
+    use super::{cover_rect, is_accepted_image_type};
 
     #[test]
     fn cover_rect_square_image_is_identity() {
@@ -103,6 +114,36 @@ mod tests {
         assert!((dy - 0.0).abs() < 1e-9);
         assert!((draw_w - 800.0).abs() < 1e-9);
         assert!((draw_h - 800.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn cover_rect_4_3_photo_ratio() {
+        // 1200×900 (common 4:3 photo) → scale = max(800/1200, 800/900) ≈ max(0.666, 0.888) = 0.888…
+        // draw_h = 800, draw_w = 1200 * (800/900) ≈ 1066.66, dx ≈ -133.33, dy = 0
+        let (dx, dy, draw_w, draw_h) = cover_rect(1200.0, 900.0, 800.0);
+        let scale = 800.0_f64 / 900.0;
+        assert!((dy - 0.0).abs() < 1e-9, "dy should be 0, got {dy}");
+        assert!((draw_h - 800.0).abs() < 1e-9);
+        assert!((draw_w - 1200.0 * scale).abs() < 1e-9);
+        assert!((dx - (800.0 - 1200.0 * scale) / 2.0).abs() < 1e-9);
+    }
+
+    // -- MIME type acceptance tests (pure string logic, no browser needed) --
+
+    #[test]
+    fn accepted_mime_types_allow_png_jpeg_webp() {
+        assert!(is_accepted_image_type("image/png"));
+        assert!(is_accepted_image_type("image/jpeg"));
+        assert!(is_accepted_image_type("image/webp"));
+    }
+
+    #[test]
+    fn accepted_mime_types_reject_gif_and_others() {
+        assert!(!is_accepted_image_type("image/gif"));
+        assert!(!is_accepted_image_type("image/bmp"));
+        assert!(!is_accepted_image_type("image/svg+xml"));
+        assert!(!is_accepted_image_type("text/plain"));
+        assert!(!is_accepted_image_type(""));
     }
 }
 

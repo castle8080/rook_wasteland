@@ -64,7 +64,62 @@ fn offscreen_canvas_produces_image_data() {
     assert_eq!(image_data.data().length(), 256);
 }
 
-/// A blank (all-zero) `ImageData` can be uploaded as a WebGL 2 texture
+/// `utils::resize_to_800` returns an `ImageData` of exactly 800×800 pixels.
+///
+/// A 100×50 offscreen canvas (non-square) is used as the source image.  After
+/// `resize_to_800` processes it, the output must be 800×800 with 4 bytes per
+/// pixel (RGBA).  This test uses an async callback chain to wait for the
+/// `HtmlImageElement` `onload` event before calling the resize function.
+#[wasm_bindgen_test]
+async fn resize_to_800_returns_correct_dimensions() {
+    use wasm_bindgen::prelude::Closure;
+    use wasm_bindgen_futures::JsFuture;
+
+    let doc = web_sys::window()
+        .expect("window")
+        .document()
+        .expect("document");
+
+    // Build a 100×50 source canvas and export it as a PNG data URL.
+    let src_canvas: web_sys::HtmlCanvasElement = doc
+        .create_element("canvas")
+        .expect("create canvas")
+        .dyn_into()
+        .expect("HtmlCanvasElement");
+    src_canvas.set_width(100);
+    src_canvas.set_height(50);
+    let data_url = src_canvas.to_data_url().expect("to_data_url");
+
+    // Load the data URL into an HtmlImageElement and wait for `onload`.
+    let img = web_sys::HtmlImageElement::new().expect("HtmlImageElement::new");
+
+    // `Promise::new` runs its executor synchronously, so we can borrow `img`
+    // inside the closure and still use `img` after `Promise::new` returns.
+    let img_clone = img.clone();
+    let promise = js_sys::Promise::new(&mut |resolve, _reject| {
+        let cb = Closure::<dyn FnMut()>::new(move || {
+            resolve.call0(&wasm_bindgen::JsValue::NULL).unwrap();
+        });
+        img_clone.set_onload(Some(cb.as_ref().unchecked_ref()));
+        cb.forget();
+    });
+
+    img.set_src(&data_url);
+    JsFuture::from(promise).await.expect("image onload timed out");
+
+    // img now has naturalWidth=100, naturalHeight=50.
+    let image_data = rw_teleidoscope::utils::resize_to_800(&img)
+        .expect("resize_to_800 should succeed");
+
+    assert_eq!(image_data.width(), 800, "output width must be 800");
+    assert_eq!(image_data.height(), 800, "output height must be 800");
+    assert_eq!(
+        image_data.data().length(),
+        800 * 800 * 4,
+        "RGBA byte count must be 800*800*4"
+    );
+}
+
 /// without errors.
 ///
 /// This exercises `renderer::texture::upload_image_data` end-to-end using a

@@ -5,9 +5,6 @@ use wasm_bindgen::JsCast;
 use crate::state::AppState;
 use crate::{renderer, utils};
 
-// Accepted image MIME types.  Anything else is rejected before the pipeline runs.
-const ACCEPTED_TYPES: &[&str] = &["image/png", "image/jpeg", "image/webp"];
-
 /// Feed a `File` through the full decode → resize → texture-upload pipeline.
 ///
 /// The pipeline is asynchronous (two nested callbacks):
@@ -22,7 +19,7 @@ const ACCEPTED_TYPES: &[&str] = &["image/png", "image/jpeg", "image/webp"];
 /// drag-and-drop path without duplicating the pipeline.
 pub fn load_file(file: web_sys::File, app_state: AppState) {
     let mime = file.type_();
-    if !ACCEPTED_TYPES.contains(&mime.as_str()) {
+    if !utils::is_accepted_image_type(&mime) {
         web_sys::console::warn_1(
             &format!("Unsupported file type: \"{mime}\". Use PNG, JPEG, or WebP.").into(),
         );
