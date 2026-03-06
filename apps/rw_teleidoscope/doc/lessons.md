@@ -57,3 +57,19 @@ in stub files that contain no items.
 until real items are added.
 
 ---
+
+## L2: `wasm_bindgen_test_configure!` must be repeated in each integration test file
+
+**Milestone:** M1  
+**Area:** Build / Testing  
+**Symptom:** `wasm-pack test --headless --firefox` reports "no tests to run" and
+prints a message saying the suite is "only configured to run in node.js" — even
+though `wasm_bindgen_test_configure!(run_in_browser)` exists in `src/lib.rs`.  
+**Cause:** `tests/*.rs` integration tests are compiled as separate crates, so the
+configure call in `src/lib.rs` does not apply to them.  
+**Fix / Workaround:** Add `wasm_bindgen_test_configure!(run_in_browser);` at the
+top of every file under `tests/` that contains `#[wasm_bindgen_test]` tests.  
+**Watch out for:** Any new integration test file added to `tests/` — always add
+the configure line, otherwise tests silently do nothing in browser mode.
+
+---
