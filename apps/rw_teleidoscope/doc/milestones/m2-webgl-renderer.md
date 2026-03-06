@@ -38,7 +38,7 @@ the shader compilation/fetch pipeline works.
 - [ ] Page loads; canvas element is visible in the browser
 - [ ] Canvas displays the solid brass colour (no black square / no white)
 - [ ] No WebGL errors in the browser console (`gl.getError()` returns 0)
-- [ ] Shader fetch URL is correct (`/rw_teleidoscope/assets/shaders/vert.glsl` loads 200 OK in network tab)
+- [ ] Shader fetch URL is correct (`/rw_teleidoscope/shaders/vert.glsl` loads 200 OK in network tab)
 - [ ] `python make.py lint` exits 0
 
 ---

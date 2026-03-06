@@ -64,9 +64,9 @@ unsafe fn compile_shader(
 /// `Err` is returned.
 pub async fn create_program(gl: &glow::Context) -> Result<glow::Program, String> {
     let vert_src =
-        fetch_text("/rw_teleidoscope/assets/shaders/vert.glsl").await?;
+        fetch_text("/rw_teleidoscope/shaders/vert.glsl").await?;
     let frag_src =
-        fetch_text("/rw_teleidoscope/assets/shaders/frag.glsl").await?;
+        fetch_text("/rw_teleidoscope/shaders/frag.glsl").await?;
 
     unsafe {
         let vert = compile_shader(gl, glow::VERTEX_SHADER, &vert_src).inspect_err(|e| {

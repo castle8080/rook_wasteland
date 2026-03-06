@@ -104,3 +104,37 @@ returns the argument unchanged.
 `inspect_err` for zero-transformation side effects.
 
 ---
+
+## L5: Trunk `copy-dir` strips the parent path — only the terminal directory name is kept
+
+**Milestone:** M2 (bug fix)  
+**Area:** Build / Asset pipeline  
+**Symptom:** Shader fetch fails at runtime with `ERROR: 0:1: '<' : syntax error`
+— the GLSL compiler is receiving an HTML page instead of GLSL source.  
+**Cause:** `<link data-trunk rel="copy-dir" href="./assets/shaders"/>` copies
+only the terminal directory component (`shaders`) into `dist/`.  The parent
+`assets/` prefix is **not** reproduced.  Actual serve path is
+`/rw_teleidoscope/shaders/vert.glsl`, not
+`/rw_teleidoscope/assets/shaders/vert.glsl`.  
+**Fix / Workaround:** Verify actual `dist/` layout after `trunk build` and use
+the real path in fetch URLs.  When adding new `copy-dir` assets, inspect
+`dist/` first — do not assume the full `href` path is preserved.  
+**Watch out for:** Any future `copy-dir` asset (images, fonts, data files) —
+check the real `dist/` path before hardcoding fetch URLs.
+
+---
+
+## L6: `ERROR: 0:X: '<' : syntax error` in GLSL means the source is HTML
+
+**Milestone:** M2 (bug fix)  
+**Area:** WebGL / Shader  
+**Symptom:** `gl.compile_shader` fails with `'<' : syntax error` at line 1.  
+**Cause:** The fetched "GLSL source" is actually an HTML document.  SPA
+servers often return HTTP 200 with an HTML fallback page for any unmatched
+URL, so `resp.ok()` passes but the body is not GLSL.  
+**Fix / Workaround:** Check the network tab for the actual response body when
+this error appears.  The URL being fetched is wrong — fix the path.  
+**Watch out for:** Any new asset fetch URL — always cross-check against the
+actual `dist/` layout after a build.
+
+---
