@@ -25,6 +25,8 @@ const COLOR_PLAYHEAD: &str = "#ffffff";
 const COLOR_LOOP: &str = "rgba(255, 230, 0, 0.25)";
 /// Background color inside the waveform canvas.
 const COLOR_BG: &str = "#1a1a2e";
+/// Hot cue marker colors matching the button accent colors (indices 0–3).
+const HC_COLORS: [&str; 4] = ["#ef4444", "#3b82f6", "#22c55e", "#eab308"];
 
 /// Cached offscreen canvas state for one deck.
 pub struct WaveformCache {
@@ -140,7 +142,20 @@ pub fn draw_waveform(
         }
     }
 
-    // ── Step 5: playhead line ─────────────────────────────────────────────────
+    // ── Step 5: hot cue markers ───────────────────────────────────────────────
+    let hot_cues = state.hot_cues.get_untracked();
+    for (i, cue_opt) in hot_cues.iter().enumerate() {
+        let Some(cue_pos) = cue_opt else { continue };
+        let x = time_to_x(*cue_pos, duration, scroll_x, total_peak_width);
+        ctx2d.set_stroke_style_str(HC_COLORS[i]);
+        ctx2d.set_line_width(2.0);
+        ctx2d.begin_path();
+        ctx2d.move_to(x, 0.0);
+        ctx2d.line_to(x, height);
+        ctx2d.stroke();
+    }
+
+    // ── Step 6: playhead line ─────────────────────────────────────────────────
     ctx2d.set_stroke_style_str(COLOR_PLAYHEAD);
     ctx2d.set_line_width(2.0);
     ctx2d.begin_path();

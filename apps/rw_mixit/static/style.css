@@ -694,3 +694,51 @@ html, body {
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+/* ─── Hot Cues (M7) ───────────────────────────────────────────────── */
+.hot-cues {
+  display: flex;
+  gap: 0.4rem;
+  padding: 0.4rem 0.5rem;
+  border: var(--border-cartoon);
+  border-radius: var(--radius-button);
+  background-color: #0d1b2a;
+  box-shadow: var(--shadow-cartoon);
+  justify-content: center;
+}
+
+.btn-hc {
+  font-family: 'Bangers', cursive;
+  font-size: 1rem;
+  letter-spacing: 0.06em;
+  width: 2.6rem;
+  height: 2.6rem;
+  border: var(--border-cartoon);
+  border-radius: var(--radius-button);
+  box-shadow: var(--shadow-cartoon);
+  cursor: pointer;
+  background-color: var(--color-panel);
+  color: var(--color-text-dim);
+  opacity: 0.45;
+  transition: transform 0.08s ease, opacity 0.12s ease;
+  /* --hc-color is set per-button via inline style */
+  outline-color: var(--hc-color, #888);
+}
+
+.btn-hc:hover {
+  transform: translateY(-1px);
+  opacity: 0.7;
+}
+
+.btn-hc:active {
+  box-shadow: 2px 2px 0 var(--color-shadow);
+  transform: translateY(1px);
+}
+
+/* Lit state — full opacity, color background, dark text */
+.btn-hc.btn-hc-set {
+  opacity: 1;
+  color: #000;
+  border-color: #000;
+  box-shadow: 0 0 8px var(--hc-color, #888), var(--shadow-cartoon);
+}

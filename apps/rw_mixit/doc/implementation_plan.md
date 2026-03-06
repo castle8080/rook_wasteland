@@ -149,11 +149,11 @@ Instant jump points. The backbone of live performance on the app.
 
 | ID | Task | Success Criteria | Status |
 |---|---|---|---|
-| T7.1 | `src/components/hot_cues.rs`: 4 buttons in deck colors (red, blue, green, yellow); each button knows its index (0–3) and reads `state.hot_cues.get()[index]` to show set/unset state | Buttons render; unset buttons appear dim; set buttons appear lit | ⬜ Not Started |
-| T7.2 | Hold-to-set: `pointerdown` starts a timer; if still held after 300 ms, set `hot_cues[index] = Some(current_secs)` and give haptic/visual feedback | Holding 300 ms sets cue; quick tap does not set | ⬜ Not Started |
-| T7.3 | Tap-to-jump: `pointerdown` + `pointerup` within 300 ms on a cue that is `Some(_)` → `seek(cue_pos)` | Tapping a set cue button seeks to its saved position | ⬜ Not Started |
-| T7.4 | Double-tap-to-clear / right-click-to-clear: detect two tap events within 400 ms OR a `contextmenu` event → set `hot_cues[index] = None`; call `event.prevent_default()` on right-click to suppress browser menu | Double-tapping or right-clicking a set cue clears it; button dims | ⬜ Not Started |
-| T7.5 | Hot cue markers on waveform: in dynamic draw pass, iterate `hot_cues`; for each `Some(pos)`, draw a colored vertical line at the corresponding x position | Each set hot cue shows a colored line on the waveform | ⬜ Not Started |
+| T7.1 | `src/components/hot_cues.rs`: 4 buttons in deck colors (red, blue, green, yellow); each button knows its index (0–3) and reads `state.hot_cues.get()[index]` to show set/unset state | Buttons render; unset buttons appear dim; set buttons appear lit | ✅ Done |
+| T7.2 | Hold-to-set: `pointerdown` starts a timer; if still held after 300 ms, set `hot_cues[index] = Some(current_secs)` and give haptic/visual feedback | Holding 300 ms sets cue; quick tap does not set | ✅ Done |
+| T7.3 | Tap-to-jump: `pointerdown` + `pointerup` within 300 ms on a cue that is `Some(_)` → `seek(cue_pos)` | Tapping a set cue button seeks to its saved position | ✅ Done |
+| T7.4 | Double-tap-to-clear / right-click-to-clear: detect two tap events within 400 ms OR a `contextmenu` event → set `hot_cues[index] = None`; call `event.prevent_default()` on right-click to suppress browser menu | Double-tapping or right-clicking a set cue clears it; button dims | ✅ Done |
+| T7.5 | Hot cue markers on waveform: in dynamic draw pass, iterate `hot_cues`; for each `Some(pos)`, draw a colored vertical line at the corresponding x position | Each set hot cue shows a colored line on the waveform | ✅ Done |
 
 ---
 

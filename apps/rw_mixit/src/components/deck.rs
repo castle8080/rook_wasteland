@@ -13,6 +13,7 @@ use crate::audio::mixer_audio::MixerAudio;
 use crate::canvas::raf_loop::start_raf_loop;
 use crate::canvas::platter_draw::PLATTER_SIZE;
 use crate::components::controls::Controls;
+use crate::components::hot_cues::HotCues;
 use crate::components::loop_controls::LoopControls;
 use crate::components::mixer::Mixer;
 use crate::components::pitch_fader::PitchFader;
@@ -307,6 +308,9 @@ pub fn Deck(
 
             // Loop controls (T6.1–T6.3, T6.6)
             <LoopControls state=state.clone() bpm=bpm_own/>
+
+            // Hot cue buttons (T7.1–T7.4)
+            <HotCues state=state.clone() audio_deck_holder=audio_deck_holder.clone()/>
 
             // Pitch fader (T3.4)
             <PitchFader state=state.clone()/>
