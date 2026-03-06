@@ -11,19 +11,26 @@
 // real cdylib/WASM build.
 #![cfg_attr(any(not(target_arch = "wasm32"), test), allow(dead_code, unused_imports))]
 
-mod app;
 mod camera;
 mod routing;
 pub mod state;
-mod utils;
+pub mod utils;
+
+// These modules rely on browser / WebGL APIs that are only available on
+// wasm32.  Gating them here allows `cargo test` (native target) to compile
+// and run the pure-Rust unit tests in `utils` and `state` without errors.
+#[cfg(target_arch = "wasm32")]
+mod app;
+#[cfg(target_arch = "wasm32")]
 mod components;
-mod renderer;
+#[cfg(target_arch = "wasm32")]
+pub mod renderer;
 
 // These imports are only used by the #[wasm_bindgen(start)] entry point,
 // which is excluded during `wasm-pack test` to avoid a duplicate start symbol.
-#[cfg(not(test))]
+#[cfg(all(target_arch = "wasm32", not(test)))]
 use app::App;
-#[cfg(not(test))]
+#[cfg(all(target_arch = "wasm32", not(test)))]
 use wasm_bindgen::prelude::wasm_bindgen;
 
 // Configure all #[wasm_bindgen_test] tests in this crate to run in a real browser.
@@ -34,7 +41,7 @@ wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
 ///
 /// Excluded during `wasm-pack test` (`cfg(test)`) because the test harness
 /// injects its own start symbol; two start symbols cause a linker error.
-#[cfg(not(test))]
+#[cfg(all(target_arch = "wasm32", not(test)))]
 #[wasm_bindgen(start)]
 fn main() {
     console_error_panic_hook::set_once();

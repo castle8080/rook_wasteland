@@ -4,8 +4,10 @@ precision highp float;
 in vec2 v_uv;
 out vec4 fragColor;
 
+uniform sampler2D u_image;
+
 void main() {
-    // Solid steampunk-brass colour: visually confirms WebGL is working.
-    // Real kaleidoscope logic is added in M4.
-    fragColor = vec4(0.545, 0.412, 0.078, 1.0);
+    // Passthrough: sample the source image at the interpolated UV coordinate.
+    // Kaleidoscope transforms are added from M4 onwards.
+    fragColor = texture(u_image, v_uv);
 }

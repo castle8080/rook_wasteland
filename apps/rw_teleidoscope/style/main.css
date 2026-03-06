@@ -26,3 +26,95 @@ body {
   color: var(--color-ivory);
   font-family: var(--font-mono);
 }
+
+/* ── Header ────────────────────────────────────────────────────────────────── */
+
+#app-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 1rem;
+  background-color: #111;
+  border-bottom: var(--border-width) solid var(--color-brass);
+}
+
+.app-title {
+  font-family: var(--font-heading);
+  font-size: 1.1rem;
+  color: var(--color-brass-bright);
+  letter-spacing: 0.15em;
+  margin-right: auto;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.header-btn {
+  padding: 0.35rem 0.9rem;
+  background: transparent;
+  border: var(--border-width) solid var(--color-brass);
+  color: var(--color-parchment);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+}
+
+.header-btn:hover {
+  background-color: var(--color-brass);
+  color: var(--color-soot);
+}
+
+.header-btn--stub {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Canvas container + placeholder ────────────────────────────────────────── */
+
+.canvas-container {
+  position: relative;
+  width: var(--canvas-size);
+  height: var(--canvas-size);
+}
+
+#kaleidoscope-canvas {
+  display: block;
+  width: var(--canvas-size);
+  height: var(--canvas-size);
+}
+
+.canvas-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Allow drag events to pass through to the canvas beneath */
+  pointer-events: none;
+}
+
+.placeholder-inner {
+  text-align: center;
+  padding: 2rem 3rem;
+  border: 2px dashed var(--color-brass);
+  color: var(--color-parchment);
+  background-color: rgba(26, 26, 26, 0.75);
+}
+
+.placeholder-icon {
+  display: block;
+  font-size: 2.5rem;
+  margin-bottom: 0.75rem;
+  color: var(--color-brass-bright);
+}
+
+.placeholder-formats {
+  margin-top: 0.75rem;
+  font-size: 0.8rem;
+  color: var(--color-brass);
+  letter-spacing: 0.1em;
+}
+

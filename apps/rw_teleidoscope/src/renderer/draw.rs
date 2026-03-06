@@ -2,6 +2,8 @@
 
 use glow::HasContext;
 
+use super::uniforms::UniformLocations;
+
 /// Clip-space positions for a full-screen quad (two triangles, 6 vertices).
 /// The vertex shader's `a_position` is fixed at `layout(location = 0)`.
 #[rustfmt::skip]
@@ -53,20 +55,32 @@ pub unsafe fn create_quad(
     Ok((vao, vbo))
 }
 
-/// Bind the program and VAO, then draw the full-screen quad.
+/// Bind the program, source texture, and uniforms, then draw the full-screen quad.
+///
+/// `source_texture` may be `None` before the first image is uploaded; in that
+/// case the sampler returns the default value (transparent black).
 ///
 /// # Safety
 ///
-/// Caller must hold a valid, current `glow::Context` and the handles must
+/// Caller must hold a valid, current `glow::Context` and all handles must
 /// still be live.
-pub unsafe fn draw_quad(
+pub unsafe fn draw_frame(
     gl: &glow::Context,
     program: glow::Program,
     vao: glow::VertexArray,
+    source_texture: Option<glow::Texture>,
+    uniform_locs: &UniformLocations,
 ) {
     gl.clear_color(0.0, 0.0, 0.0, 1.0);
     gl.clear(glow::COLOR_BUFFER_BIT);
     gl.use_program(Some(program));
+
+    // Bind source image to texture unit 0 (may be None before first upload).
+    gl.active_texture(glow::TEXTURE0);
+    gl.bind_texture(glow::TEXTURE_2D, source_texture);
+
+    uniform_locs.upload(gl);
+
     gl.bind_vertex_array(Some(vao));
     gl.draw_arrays(glow::TRIANGLES, 0, 6);
     gl.bind_vertex_array(None);

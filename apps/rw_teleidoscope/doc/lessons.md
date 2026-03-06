@@ -138,3 +138,38 @@ this error appears.  The URL being fetched is wrong — fix the path.
 actual `dist/` layout after a build.
 
 ---
+
+## L7: `glow::tex_image_2d` takes `Option<&[u8]>` on WASM, not `PixelUnpackData`
+
+**Milestone:** M3  
+**Area:** WebGL / Build  
+**Symptom:** Compiler error `expected Option<&[u8]>, found PixelUnpackData<'_>` when
+calling `gl.tex_image_2d(...)` with `glow::PixelUnpackData::Slice(Some(&bytes))`.  
+**Cause:** `glow 0.13` provides two different signatures for `tex_image_2d` depending
+on compile target.  The desktop OpenGL build takes `PixelUnpackData`; the WASM /
+WebGL build takes `Option<&[u8]>` directly.  
+**Fix / Workaround:** Pass `Some(bytes.as_slice())` as the last argument, not a
+`PixelUnpackData` variant.  
+**Watch out for:** Any other glow texture functions (e.g. `tex_sub_image_2d`) may
+have the same target-specific split — check the actual WASM signature before
+assuming the desktop API applies.
+
+---
+
+## L8: Gate wasm32-only modules in `lib.rs` to fix `cargo test` on native
+
+**Milestone:** M3  
+**Area:** Build / Testing  
+**Symptom:** `cargo test` (native target) fails with `from_webgl2_context not found`
+because `renderer/context.rs` calls a WASM-only glow API.  
+**Cause:** `glow::Context::from_webgl2_context` is only available when compiling to
+`wasm32`; it does not exist in the native OpenGL backend.  
+**Fix / Workaround:** Declare `renderer`, `components`, and `app` as
+`#[cfg(target_arch = "wasm32")] mod …` in `lib.rs`.  Native `cargo test` then only
+compiles `utils`, `state`, and `routing` (pure Rust, no WebGL), and the unit tests
+run cleanly.  Integration test files that use WebGL/glow must also start with
+`#![cfg(target_arch = "wasm32")]` to be excluded from native compilation.  
+**Watch out for:** Any new module that imports `glow` or browser-only `web_sys`
+types not available on native — add the cfg gate in `lib.rs` immediately.
+
+---
