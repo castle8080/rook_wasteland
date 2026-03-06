@@ -24,6 +24,10 @@ web-sys            = { version = "0.3", features = [
   "ProgressEvent", "EventTarget",
   # WebGL (used only to obtain the raw context for glow)
   "WebGl2RenderingContext",
+  # Fetch API (shader source loading)
+  "Response",
+  # Console (error reporting)
+  "console",
   # Misc
   "Navigator", "Location", "Performance",
 ] }

@@ -1,6 +1,7 @@
 use leptos::prelude::*;
 use gloo_events::EventListener;
 
+use crate::components::canvas_view::CanvasView;
 use crate::routing::Route;
 use crate::state::{AppState, KaleidoscopeParams};
 
@@ -34,8 +35,7 @@ pub fn App() -> impl IntoView {
 
     view! {
         <div id="rw-teleidoscope-root">
-            <h1>"Teleidoscope"</h1>
-            <p>"Canvas placeholder — rendering begins in M2."</p>
+            <CanvasView/>
         </div>
     }
 }
