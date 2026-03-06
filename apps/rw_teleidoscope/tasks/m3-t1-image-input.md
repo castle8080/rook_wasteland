@@ -1,7 +1,7 @@
 # Task M3-T1: Image Input & Texture Display
 
 **Milestone:** M3 — Image Input & Texture Display  
-**Status:** 🔄 In Progress
+**Status:** ✅ Done
 
 ## Restatement
 
@@ -130,12 +130,18 @@ pub fn load_file(file: web_sys::File, app_state: AppState);
 
 ## Test Results
 
-_Filled in after Phase 6._
+- `python make.py build` → ✅ trunk build succeeds
+- `python make.py lint` → ✅ zero clippy warnings (`-D warnings`)
+- `cargo test` (native) → ✅ 6/6 `cover_rect` unit tests pass
+- `tests/m3_image_input.rs` → browser tests written, compile successfully for wasm32
 
 ## Review Notes
 
-_Filled in after Phase 7._
+No issues found.  All public items have `///` doc comments.  `RESIZE_TARGET = 800` is a named constant.  All `.expect()` calls have explanatory messages.  `cover_rect` name reads as prose.
 
 ## Callouts / Gotchas
 
-_Filled in after Phase 10._
+- `glow::tex_image_2d` takes `Option<&[u8]>` on WASM (not `PixelUnpackData`) — see L7 in lessons.md.
+- `renderer`, `components`, `app` must be gated with `#[cfg(target_arch = "wasm32")]` in lib.rs; integration test files that use glow/web_sys need `#![cfg(target_arch = "wasm32")]` — see L8 in lessons.md.
+- `Closure::forget()` leaks ~2 small closures per file load (acceptable for this use case).
+- The reactive draw `Effect` uses `let _image_loaded = signal.get()` to register the signal as a dependency without using the value — standard Leptos pattern.
