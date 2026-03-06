@@ -1,6 +1,7 @@
 pub mod controls;
 pub mod deck;
 pub mod eq;
+pub mod fx_panel;
 pub mod header;
 pub mod hot_cues;
 pub mod loop_controls;

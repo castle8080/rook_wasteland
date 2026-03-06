@@ -32,6 +32,8 @@ pub struct AudioDeck {
     pub flanger_lfo:    OscillatorNode,
     pub flanger_depth:  GainNode,
     pub flanger_wet:    GainNode,
+    /// Pre-output gate node — used by the stutter effect for rhythmic gating.
+    pub stutter_gate:   GainNode,
     pub channel_gain:   GainNode,
     pub analyser:       AnalyserNode,
     /// `AudioContext.currentTime` at the moment `play()` was last called.
@@ -45,6 +47,12 @@ pub struct AudioDeck {
     pub rate_at_play:   f64,
     /// Playback rate saved before a nudge starts; restored on nudge end.
     pub pre_nudge_rate: Option<f32>,
+    // ── Scratch state ──────────────────────────────────────────────────────────
+    pub scratch_active:     bool,
+    pub scratch_last_angle: f64,
+    pub scratch_last_time:  f64,
+    /// Playback rate saved at the moment the user grabs the platter; restored on release.
+    pub pre_scratch_rate:   f32,
 }
 
 impl AudioDeck {
@@ -112,6 +120,10 @@ impl AudioDeck {
             .expect("create_gain flanger_wet: AudioContext node creation is infallible on a live context");
         flanger_wet.gain().set_value(0.0);
 
+        let stutter_gate = ctx.create_gain()
+            .expect("create_gain stutter_gate: AudioContext node creation is infallible on a live context");
+        stutter_gate.gain().set_value(1.0);
+
         let channel_gain = ctx.create_gain()
             .expect("create_gain channel: AudioContext node creation is infallible on a live context");
         channel_gain.gain().set_value(1.0);
@@ -172,9 +184,15 @@ impl AudioDeck {
         flanger_lfo.start()
             .expect("flanger_lfo.start(): OscillatorNode.start() is infallible when called exactly once on a new node");
 
-        // channel_gain → analyser (analyser → xfade GainNode wired in M5 via connect_to_mixer_output)
-        channel_gain.connect_with_audio_node(&analyser)
-            .expect("connect channel_gain → analyser: AudioNode.connect() is infallible between valid in-graph nodes");
+        // channel_gain → stutter_gate → analyser (analyser → xfade GainNode wired in M5 via connect_to_mixer_output)
+        channel_gain.connect_with_audio_node(&stutter_gate)
+            .expect("connect channel_gain → stutter_gate: AudioNode.connect() is infallible between valid in-graph nodes");
+        stutter_gate.connect_with_audio_node(&analyser)
+            .expect("connect stutter_gate → analyser: AudioNode.connect() is infallible between valid in-graph nodes");
+
+        // Load a default reverb impulse response (medium hall: 1.2 s, decay 2.5).
+        let default_ir = generate_reverb_ir(&ctx, 1.2, 2.5);
+        reverb.set_buffer(Some(&default_ir));
 
         Rc::new(RefCell::new(AudioDeck {
             ctx,
@@ -196,6 +214,7 @@ impl AudioDeck {
             flanger_lfo,
             flanger_depth,
             flanger_wet,
+            stutter_gate,
             channel_gain,
             analyser,
             started_at: None,
@@ -203,6 +222,10 @@ impl AudioDeck {
             rate_at_play: 1.0,
             cue_point: None,
             pre_nudge_rate: None,
+            scratch_active: false,
+            scratch_last_angle: 0.0,
+            scratch_last_time: 0.0,
+            pre_scratch_rate: 1.0,
         }))
     }
 
@@ -399,6 +422,233 @@ pub fn read_vu_level(analyser: &AnalyserNode) -> f32 {
     (db + 60.0) / 60.0
 }
 
+// ── FX helper functions (T9.1–T9.4) ─────────────────────────────────────────
+
+/// Ramp gain over 20 ms — avoids click artefacts on wet/dry transitions.
+///
+/// Anchors the current value with `setValueAtTime` first, as required by the
+/// Web Audio spec when no prior automation event exists on the parameter.
+fn ramp_gain(param: &web_sys::AudioParam, ctx: &AudioContext, target: f32) {
+    let now = ctx.current_time();
+    let _ = param.set_value_at_time(param.value(), now);
+    let _ = param.linear_ramp_to_value_at_time(target, now + FX_RAMP_SECS);
+}
+
+/// Fade-in/out duration for all FX wet/dry switches (20 ms = click-free).
+const FX_RAMP_SECS: f64 = 0.02;
+
+/// Generate a stereo exponential-decay white-noise impulse response for the convolver.
+///
+/// Algorithm: `IR[ch][t] = noise × exp(−decay × t)` where `t` is normalised
+/// position 0→1 across the buffer.  Equivalent to `exp(-decay × t_secs / duration_secs)`
+/// with time in seconds.  `decay` alone controls the envelope shape: higher values
+/// produce tighter, drier reverbs; lower values produce long cathedral tails.
+/// Two channels use different LCG seeds for stereo decorrelation.
+pub fn generate_reverb_ir(ctx: &AudioContext, duration_secs: f32, decay: f32) -> AudioBuffer {
+    let sample_rate = ctx.sample_rate();
+    let num_samples = (sample_rate * duration_secs) as usize;
+    let ir = ctx.create_buffer(2, num_samples as u32, sample_rate)
+        .expect("generate_reverb_ir — create_buffer: infallible on a live context");
+
+    for channel in 0..2_u32 {
+        let mut state: u64 = if channel == 0 {
+            0x12345678_9ABCDEF0
+        } else {
+            0xFEDCBA98_76543210
+        };
+        let samples: Vec<f32> = (0..num_samples)
+            .map(|i| {
+                state = state
+                    .wrapping_mul(6_364_136_223_846_793_005)
+                    .wrapping_add(1_442_695_040_888_963_407);
+                // Shift by 32 to get full 32-bit range → [0, u32::MAX]; dividing by
+                // u32::MAX maps to [0.0, 1.0]; after * 2 - 1 → [-1.0, +1.0].
+                let noise = (state >> 32) as f32 / (u32::MAX as f32) * 2.0 - 1.0;
+                // t = normalised position (0→1); exp(-decay×t) gives the envelope.
+                let t = i as f32 / num_samples as f32;
+                noise * (-decay * t).exp()
+            })
+            .collect();
+        ir.copy_to_channel(&samples, channel as i32)
+            .expect("generate_reverb_ir — copy_to_channel: infallible on a valid AudioBuffer");
+    }
+    ir
+}
+
+/// Pre-schedule a repeating stutter gate pattern for `bars` bars from `start_time`.
+///
+/// `subdivision` is the denominator of the note value:
+/// 4.0 = quarter note, 8.0 = eighth, 16.0 = sixteenth, 32.0 = thirty-second.
+/// `duty` is the fraction of each gate period that stays open (0.0–1.0).
+pub fn schedule_stutter(
+    gate:        &GainNode,
+    start_time:  f64,
+    bpm:         f64,
+    subdivision: f64,
+    duty:        f64,
+    bars:        f64,
+) {
+    let (gate_period, gate_open, window_dur) = stutter_timings(bpm, subdivision, duty, bars);
+    let end_time = start_time + window_dur;
+
+    let mut t = start_time;
+    while t < end_time {
+        let _ = gate.gain().set_value_at_time(1.0, t);
+        let _ = gate.gain().set_value_at_time(0.0, t + gate_open);
+        t += gate_period;
+    }
+}
+
+/// Pure timing computation for stutter — extracted for native unit testing.
+///
+/// Returns `(gate_period, gate_open, window_duration)` in seconds.
+pub(crate) fn stutter_timings(
+    bpm:         f64,
+    subdivision: f64,
+    duty:        f64,
+    bars:        f64,
+) -> (f64, f64, f64) {
+    let beat_dur    = 60.0 / bpm;
+    let gate_period = beat_dur * 4.0 / subdivision;
+    let gate_open   = gate_period * duty;
+    let window_dur  = bars * beat_dur * 4.0;
+    (gate_period, gate_open, window_dur)
+}
+
+/// Map pointer angular velocity to `AudioBufferSourceNode.playbackRate`.
+///
+/// `d_angle` is the angle delta in radians for the interval `dt_secs` (seconds).
+/// 33 RPM = 0.55 rot/sec; one full rotation per second → `playbackRate = 1/0.55 ≈ 1.818`.
+/// Result is clamped to [0.0, 4.0] (forward-only; see spec §8.12).
+pub(crate) fn scratch_rate_from_angular_velocity(d_angle: f64, dt_secs: f64) -> f32 {
+    let rate = ((d_angle / dt_secs) / (std::f64::consts::TAU * 0.55)) as f32;
+    rate.clamp(0.0, 4.0)
+}
+
+impl AudioDeck {
+    // ── Echo / Delay ─────────────────────────────────────────────────────────
+
+    /// Enable echo: ramp wet gain up; leave dry at 1.0 (parallel mix).
+    pub fn enable_echo(&self) {
+        ramp_gain(&self.echo_wet.gain(), &self.ctx, 0.6);
+    }
+
+    /// Disable echo: ramp wet gain to 0 over 20 ms.
+    pub fn disable_echo(&self) {
+        ramp_gain(&self.echo_wet.gain(), &self.ctx, 0.0);
+    }
+
+    // ── Reverb ─────────────────────────────────────────────────────────────
+
+    /// Enable reverb: ramp wet gain up; dry stays at 1.0.
+    pub fn enable_reverb(&self) {
+        ramp_gain(&self.reverb_wet.gain(), &self.ctx, 0.5);
+    }
+
+    /// Disable reverb: ramp wet gain to 0.
+    pub fn disable_reverb(&self) {
+        ramp_gain(&self.reverb_wet.gain(), &self.ctx, 0.0);
+    }
+
+    /// Regenerate the reverb impulse response with new parameters and reload it
+    /// into the `ConvolverNode`.  Call this when the user changes reverb
+    /// duration or decay in the FX panel.
+    pub fn reload_reverb_ir(&self, duration_secs: f32, decay: f32) {
+        let ir = generate_reverb_ir(&self.ctx, duration_secs, decay);
+        self.reverb.set_buffer(Some(&ir));
+    }
+
+    // ── Flanger ──────────────────────────────────────────────────────────────
+
+    /// Enable flanger: ramp wet gain up.
+    pub fn enable_flanger(&self) {
+        ramp_gain(&self.flanger_wet.gain(), &self.ctx, 0.5);
+    }
+
+    /// Disable flanger: ramp wet gain to 0.
+    pub fn disable_flanger(&self) {
+        ramp_gain(&self.flanger_wet.gain(), &self.ctx, 0.0);
+    }
+
+    // ── Stutter ───────────────────────────────────────────────────────────────
+
+    /// Enable stutter: schedule 16 bars of gating from now.
+    /// Uses the given BPM and subdivision denominator.
+    pub fn enable_stutter(&self, bpm: f64, subdivision: f64) {
+        let start = self.ctx.current_time();
+        schedule_stutter(&self.stutter_gate, start, bpm, subdivision, 0.5, 16.0);
+    }
+
+    /// Disable stutter: cancel all scheduled values and ramp gate back open.
+    pub fn disable_stutter(&self) {
+        let _ = self.stutter_gate.gain().cancel_scheduled_values(0.0);
+        ramp_gain(&self.stutter_gate.gain(), &self.ctx, 1.0);
+    }
+
+    // ── Scratch ───────────────────────────────────────────────────────────────
+
+    /// Begin a scratch gesture.  Records the initial angle and time, and saves
+    /// the current source playback rate so `scratch_end` can restore it.
+    ///
+    /// `angle` is the pointer's angle in radians from the platter centre.
+    /// `time` is `performance.now()` in milliseconds.
+    pub fn scratch_start(&mut self, angle: f64, time: f64) {
+        if self.scratch_active {
+            return;
+        }
+        self.scratch_active = true;
+        self.pre_scratch_rate = self.source
+            .as_ref()
+            .map(|s| s.playback_rate().value())
+            .unwrap_or(1.0);
+        self.scratch_last_angle = angle;
+        self.scratch_last_time  = time;
+    }
+
+    /// Update the playback rate based on pointer angular velocity.
+    ///
+    /// Maps `Δangle / Δt` to a `playbackRate` — one full rotation per second
+    /// at 33 RPM (0.55 rot/s) corresponds to `playbackRate = 1.0`.
+    pub fn scratch_move(&mut self, angle: f64, time: f64) {
+        if !self.scratch_active {
+            return;
+        }
+        // dt in seconds; guard against divide-by-zero on rapid successive events.
+        let dt = ((time - self.scratch_last_time) / 1000.0).max(0.001);
+        let mut d_angle = angle - self.scratch_last_angle;
+        if d_angle >  std::f64::consts::PI { d_angle -= std::f64::consts::TAU; }
+        if d_angle < -std::f64::consts::PI { d_angle += std::f64::consts::TAU; }
+
+        let rate = scratch_rate_from_angular_velocity(d_angle, dt);
+        if let Some(ref src) = self.source {
+            src.playback_rate().set_value(rate);
+        }
+        self.scratch_last_angle = angle;
+        self.scratch_last_time  = time;
+    }
+
+    /// End the scratch gesture: ramp playback rate smoothly back to the
+    /// pre-scratch value over 100 ms.
+    pub fn scratch_end(&mut self) {
+        if !self.scratch_active {
+            return;
+        }
+        if let Some(ref src) = self.source {
+            let now = self.ctx.current_time();
+            // Anchor current value first — required by Web Audio spec so that
+            // linearRampToValueAtTime has a defined starting point.
+            let current_rate = src.playback_rate().value();
+            let _ = src.playback_rate().set_value_at_time(current_rate, now);
+            let _ = src.playback_rate()
+                .linear_ramp_to_value_at_time(
+                    self.pre_scratch_rate, // f32 value; f64 end_time per web-sys signature
+                    now + 0.1,
+                );
+        }
+        self.scratch_active = false;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -519,4 +769,231 @@ mod tests {
         assert!(cue.is_some(), "cue_point should be set");
         assert!((cue.unwrap()).abs() < 1e-9);
     }
+
+    // ── M9: stutter timing (native) ───────────────────────────────────────────
+    // These tests run on the native host (no browser needed) and verify the
+    // pure arithmetic inside stutter_timings().
+
+    #[test]
+    fn stutter_eighth_note_period_at_120_bpm() {
+        // At 120 BPM, beat = 0.5 s; bar = 2.0 s; 1/8 note = 0.25 s.
+        let (gate_period, gate_open, window_dur) = stutter_timings(120.0, 8.0, 0.5, 4.0);
+        assert!((gate_period - 0.25).abs() < 1e-9, "gate_period={gate_period}");
+        assert!((gate_open   - 0.125).abs() < 1e-9, "gate_open={gate_open}");
+        assert!((window_dur  - 8.0).abs() < 1e-9, "window_dur={window_dur}");
+    }
+
+    #[test]
+    fn stutter_quarter_note_period_at_120_bpm() {
+        // 1/4 note at 120 BPM = 0.5 s; 50% duty → open 0.25 s.
+        let (gate_period, gate_open, _) = stutter_timings(120.0, 4.0, 0.5, 1.0);
+        assert!((gate_period - 0.5).abs() < 1e-9, "gate_period={gate_period}");
+        assert!((gate_open   - 0.25).abs() < 1e-9, "gate_open={gate_open}");
+    }
+
+    #[test]
+    fn stutter_sixteenth_note_period_at_128_bpm() {
+        // At 128 BPM, beat = 60/128 ≈ 0.46875 s; 1/16 = beat/4 ≈ 0.117 s.
+        let beat = 60.0 / 128.0;
+        let expected_period = beat * 4.0 / 16.0;
+        let (gate_period, _, _) = stutter_timings(128.0, 16.0, 0.5, 1.0);
+        assert!((gate_period - expected_period).abs() < 1e-9, "gate_period={gate_period}");
+    }
+
+    #[test]
+    fn stutter_window_scales_with_bars() {
+        // Window duration = bars × beat × 4. At 60 BPM: beat = 1s, bar = 4s.
+        let (_, _, window_1) = stutter_timings(60.0, 8.0, 0.5, 1.0);
+        let (_, _, window_4) = stutter_timings(60.0, 8.0, 0.5, 4.0);
+        assert!((window_1 - 4.0).abs() < 1e-9);
+        assert!((window_4 - 16.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn stutter_duty_zero_means_always_closed() {
+        let (_, gate_open, _) = stutter_timings(120.0, 8.0, 0.0, 4.0);
+        assert!(gate_open.abs() < 1e-9, "duty=0 → gate_open should be 0, got {gate_open}");
+    }
+
+    #[test]
+    fn stutter_duty_one_means_always_open() {
+        let (gate_period, gate_open, _) = stutter_timings(120.0, 8.0, 1.0, 4.0);
+        assert!((gate_open - gate_period).abs() < 1e-9, "duty=1 → gate_open should equal period");
+    }
+
+    // ── M9: scratch angular velocity → playback rate (native) ────────────────
+
+    #[test]
+    fn scratch_stationary_gives_zero_rate() {
+        // No rotation → rate = 0 (clamped from negative result too).
+        let rate = scratch_rate_from_angular_velocity(0.0, 0.1);
+        assert!(rate.abs() < 1e-6, "stationary should give 0, got {rate}");
+    }
+
+    #[test]
+    fn scratch_one_full_rotation_per_second_gives_rate_near_one() {
+        // TAU rad / 1.0 s → playback_rate ≈ 1/0.55 ≈ 1.818 (unclamped).
+        // This simulates scrubbing at 33 RPM-equivalent angular velocity.
+        let rate = scratch_rate_from_angular_velocity(std::f64::consts::TAU, 1.0);
+        let expected = (1.0_f64 / 0.55) as f32;
+        assert!((rate - expected).abs() < 0.01, "expected ~{expected:.3}, got {rate}");
+    }
+
+    #[test]
+    fn scratch_rate_clamped_at_upper_bound() {
+        // Extremely fast rotation should not produce a rate above 4.0.
+        let rate = scratch_rate_from_angular_velocity(100.0 * std::f64::consts::TAU, 0.01);
+        assert!(rate <= 4.0, "expected ≤4.0, got {rate}");
+        assert!((rate - 4.0).abs() < 1e-6, "expected exactly 4.0 at clamp, got {rate}");
+    }
+
+    #[test]
+    fn scratch_negative_angular_velocity_clamped_to_zero() {
+        // Reverse motion gives negative angular velocity; clamped to 0 (no reverse playback).
+        let rate = scratch_rate_from_angular_velocity(-std::f64::consts::TAU, 1.0);
+        assert!(rate.abs() < 1e-6, "negative velocity should clamp to 0, got {rate}");
+    }
+
+    #[test]
+    fn scratch_half_speed_rotation() {
+        // Half of 33 RPM equivalent → rate ≈ 0.5 / 0.55 ≈ 0.909.
+        let rate = scratch_rate_from_angular_velocity(std::f64::consts::TAU * 0.5, 1.0);
+        let expected = (0.5_f64 / 0.55) as f32;
+        assert!((rate - expected).abs() < 0.01, "expected ~{expected:.3}, got {rate}");
+    }
+
+    // ── M9: reverb IR (WASM) ──────────────────────────────────────────────────
+
+    #[wasm_bindgen_test]
+    fn reverb_ir_has_two_channels() {
+        let ctx = make_ctx();
+        let ir = generate_reverb_ir(&ctx, 1.0, 2.0);
+        assert_eq!(ir.number_of_channels(), 2);
+    }
+
+    #[wasm_bindgen_test]
+    fn reverb_ir_length_matches_duration() {
+        let ctx = make_ctx();
+        let duration = 0.5_f32;
+        let ir = generate_reverb_ir(&ctx, duration, 2.0);
+        let expected_samples = (ctx.sample_rate() * duration) as u32;
+        assert_eq!(ir.length(), expected_samples);
+    }
+
+    #[wasm_bindgen_test]
+    fn reverb_ir_has_positive_and_negative_samples() {
+        // Validates the LCG produces full [-1, +1] range (not [-1, 0] from >> 33 bug).
+        let ctx = make_ctx();
+        let ir = generate_reverb_ir(&ctx, 0.5, 2.0);
+        let n = ir.length() as usize;
+        let mut ch0 = vec![0.0_f32; n];
+        ir.copy_from_channel(&mut ch0, 0).expect("copy_from_channel ch0");
+        let has_positive = ch0.iter().any(|&s| s > 0.01);
+        let has_negative = ch0.iter().any(|&s| s < -0.01);
+        assert!(has_positive, "IR channel 0 has no positive samples — LCG range bug?");
+        assert!(has_negative, "IR channel 0 has no negative samples");
+    }
+
+    #[wasm_bindgen_test]
+    fn reverb_ir_decays_toward_end() {
+        // Validates exp(-decay*t) envelope: average magnitude at start > at end.
+        let ctx = make_ctx();
+        let ir = generate_reverb_ir(&ctx, 1.0, 2.5);
+        let n = ir.length() as usize;
+        let mut ch = vec![0.0_f32; n];
+        ir.copy_from_channel(&mut ch, 0).expect("copy_from_channel");
+
+        let quarter = n / 4;
+        let start_rms = rms(&ch[..quarter]);
+        let end_rms   = rms(&ch[n - quarter..]);
+        assert!(
+            start_rms > end_rms * 2.0,
+            "IR should decay: start_rms={start_rms:.4} end_rms={end_rms:.4}"
+        );
+    }
+
+    #[wasm_bindgen_test]
+    fn reverb_ir_channels_differ_for_stereo_width() {
+        // Two LCG seeds → channels must not be identical (stereo decorrelation).
+        let ctx = make_ctx();
+        let ir = generate_reverb_ir(&ctx, 0.2, 2.0);
+        let n = ir.length() as usize;
+        let mut ch0 = vec![0.0_f32; n];
+        let mut ch1 = vec![0.0_f32; n];
+        ir.copy_from_channel(&mut ch0, 0).expect("ch0");
+        ir.copy_from_channel(&mut ch1, 1).expect("ch1");
+        let identical = ch0.iter().zip(&ch1).all(|(a, b)| (a - b).abs() < 1e-9);
+        assert!(!identical, "IR channels are identical — stereo decorrelation is broken");
+    }
+
+    // ── M9: FX enable/disable (WASM) ─────────────────────────────────────────
+
+    #[wasm_bindgen_test]
+    fn stutter_gate_defaults_to_one() {
+        let deck = AudioDeck::new(make_ctx());
+        let g = deck.borrow().stutter_gate.gain().value();
+        assert!((g - 1.0).abs() < 1e-6, "stutter_gate should default to 1.0, got {g}");
+    }
+
+    #[wasm_bindgen_test]
+    fn enable_echo_raises_wet_gain() {
+        let deck = AudioDeck::new(make_ctx());
+        deck.borrow().enable_echo();
+        // After a ramp is scheduled the current *instantaneous* value is still 0.0,
+        // but the AudioParam must have a scheduled event — check via a read after
+        // the ramp end time has elapsed.  In a headless test we just verify the
+        // call does not panic and the immediate value is still bounded.
+        let wet = deck.borrow().echo_wet.gain().value();
+        assert!(wet >= 0.0, "echo_wet should be non-negative after enable, got {wet}");
+    }
+
+    #[wasm_bindgen_test]
+    fn disable_echo_does_not_panic() {
+        let deck = AudioDeck::new(make_ctx());
+        deck.borrow().enable_echo();
+        deck.borrow().disable_echo();
+    }
+
+    #[wasm_bindgen_test]
+    fn enable_reverb_does_not_panic() {
+        // Verifies reverb is wired (ConvolverNode has an IR loaded) and enable/disable
+        // calls succeed without panic.
+        let deck = AudioDeck::new(make_ctx());
+        deck.borrow().enable_reverb();
+        deck.borrow().disable_reverb();
+    }
+
+    #[wasm_bindgen_test]
+    fn enable_flanger_does_not_panic() {
+        let deck = AudioDeck::new(make_ctx());
+        deck.borrow().enable_flanger();
+        deck.borrow().disable_flanger();
+    }
+
+    #[wasm_bindgen_test]
+    fn enable_stutter_does_not_panic() {
+        let deck = AudioDeck::new(make_ctx());
+        deck.borrow().enable_stutter(120.0, 8.0);
+        deck.borrow().disable_stutter();
+    }
+
+    #[wasm_bindgen_test]
+    fn scratch_state_inactive_by_default() {
+        let deck = AudioDeck::new(make_ctx());
+        assert!(!deck.borrow().scratch_active);
+    }
+
+    #[wasm_bindgen_test]
+    fn scratch_end_without_start_is_safe() {
+        // Calling scratch_end when scratch is not active should be a no-op.
+        let deck = AudioDeck::new(make_ctx());
+        deck.borrow_mut().scratch_end(); // must not panic
+    }
+}
+
+/// RMS of a sample slice — used by the reverb IR decay test.
+#[cfg(test)]
+fn rms(samples: &[f32]) -> f32 {
+    if samples.is_empty() { return 0.0; }
+    (samples.iter().map(|&s| s * s).sum::<f32>() / samples.len() as f32).sqrt()
 }

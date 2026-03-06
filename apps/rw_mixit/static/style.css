@@ -875,3 +875,118 @@ html, body {
   border-color: #000;
   box-shadow: 0 0 8px var(--hc-color, #888), var(--shadow-cartoon);
 }
+
+/* ─── FX Panel (M9) ───────────────────────────────────────────────── */
+.fx-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.4rem 0.5rem;
+  border: var(--border-cartoon);
+  border-radius: var(--radius-button);
+  background-color: #0d1b2a;
+  box-shadow: var(--shadow-cartoon);
+}
+
+.fx-panel-label {
+  font-family: 'Bangers', cursive;
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  color: var(--color-text-dim);
+  text-align: center;
+}
+
+.fx-toggle-row {
+  display: flex;
+  gap: 0.3rem;
+  justify-content: center;
+}
+
+.btn-fx {
+  font-family: 'Bangers', cursive;
+  font-size: 0.85rem;
+  letter-spacing: 0.05em;
+  padding: 0.3rem 0.5rem;
+  border: var(--border-cartoon);
+  border-radius: var(--radius-button);
+  box-shadow: var(--shadow-cartoon);
+  cursor: pointer;
+  background-color: var(--color-panel);
+  color: var(--color-text-dim);
+  opacity: 0.5;
+  transition: transform 0.08s ease, opacity 0.12s ease, box-shadow 0.12s ease;
+}
+
+.btn-fx:hover {
+  opacity: 0.8;
+  transform: translateY(-1px);
+}
+
+.btn-fx:active {
+  box-shadow: 2px 2px 0 var(--color-shadow);
+  transform: translateY(1px);
+}
+
+/* Active FX button: full brightness with a glow */
+.btn-fx-active {
+  opacity: 1;
+  background-color: var(--color-glow);
+  color: #000;
+  border-color: #000;
+  box-shadow: 0 0 10px var(--color-glow), var(--shadow-cartoon);
+  animation: fx-wiggle 0.6s ease-in-out infinite alternate;
+}
+
+@keyframes fx-wiggle {
+  from { transform: rotate(-1deg) scale(1.0); }
+  to   { transform: rotate(1deg)  scale(1.03); }
+}
+
+/* Param knob row below active effect */
+.fx-params-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0.2rem 0.3rem;
+  border-top: 1px solid #1e3050;
+}
+
+.fx-knob-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  min-width: 60px;
+}
+
+.fx-knob-label {
+  font-family: 'Bangers', cursive;
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  color: var(--color-text-dim);
+}
+
+.fx-knob {
+  width: 70px;
+  accent-color: var(--color-glow);
+  cursor: pointer;
+  height: 6px;
+}
+
+.fx-knob-readout {
+  font-size: 0.6rem;
+  color: var(--color-text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Stutter subdivision buttons */
+.fx-stutter-subdivs {
+  gap: 0.3rem;
+}
+
+.btn-subdiv {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.4rem;
+}

@@ -15,6 +15,7 @@ use crate::canvas::raf_loop::start_raf_loop;
 use crate::canvas::platter_draw::PLATTER_SIZE;
 use crate::components::controls::Controls;
 use crate::components::eq::{EqKnobs, FilterKnob, VuMeter};
+use crate::components::fx_panel::FxPanel;
 use crate::components::hot_cues::HotCues;
 use crate::components::loop_controls::LoopControls;
 use crate::components::mixer::Mixer;
@@ -319,6 +320,176 @@ pub fn Deck(
         });
     }
 
+    // ── T9.1 — Echo toggle + param Effects ───────────────────────────────────
+    {
+        let state_eff = state.clone();
+        let holder_eff = audio_deck_holder.clone();
+        Effect::new(move |_| {
+            let on = state_eff.fx_echo.get();
+            if let Some(ref deck_rc) = *holder_eff.borrow() {
+                if on { deck_rc.borrow().enable_echo(); }
+                else  { deck_rc.borrow().disable_echo(); }
+            }
+        });
+    }
+    {
+        let state_eff = state.clone();
+        let holder_eff = audio_deck_holder.clone();
+        Effect::new(move |_| {
+            let time = state_eff.fx_echo_time.get();
+            if let Some(ref deck_rc) = *holder_eff.borrow() {
+                deck_rc.borrow().echo_delay.delay_time().set_value(time);
+            }
+        });
+    }
+    {
+        let state_eff = state.clone();
+        let holder_eff = audio_deck_holder.clone();
+        Effect::new(move |_| {
+            // Hard-cap feedback at 0.85 to prevent runaway feedback loop.
+            let fb = state_eff.fx_echo_feedback_val.get().min(0.85);
+            if let Some(ref deck_rc) = *holder_eff.borrow() {
+                deck_rc.borrow().echo_feedback.gain().set_value(fb);
+            }
+        });
+    }
+
+    // ── T9.2 — Reverb toggle + IR param Effects ───────────────────────────────
+    {
+        let state_eff = state.clone();
+        let holder_eff = audio_deck_holder.clone();
+        Effect::new(move |_| {
+            let on = state_eff.fx_reverb.get();
+            if let Some(ref deck_rc) = *holder_eff.borrow() {
+                if on { deck_rc.borrow().enable_reverb(); }
+                else  { deck_rc.borrow().disable_reverb(); }
+            }
+        });
+    }
+    {
+        let state_eff = state.clone();
+        let holder_eff = audio_deck_holder.clone();
+        Effect::new(move |_| {
+            let duration = state_eff.fx_reverb_duration.get();
+            let decay    = state_eff.fx_reverb_decay.get();
+            if let Some(ref deck_rc) = *holder_eff.borrow() {
+                deck_rc.borrow().reload_reverb_ir(duration, decay);
+            }
+        });
+    }
+
+    // ── T9.3 — Flanger toggle + param Effects ─────────────────────────────────
+    {
+        let state_eff = state.clone();
+        let holder_eff = audio_deck_holder.clone();
+        Effect::new(move |_| {
+            let on = state_eff.fx_flanger.get();
+            if let Some(ref deck_rc) = *holder_eff.borrow() {
+                if on { deck_rc.borrow().enable_flanger(); }
+                else  { deck_rc.borrow().disable_flanger(); }
+            }
+        });
+    }
+    {
+        let state_eff = state.clone();
+        let holder_eff = audio_deck_holder.clone();
+        Effect::new(move |_| {
+            let rate = state_eff.fx_flanger_rate.get();
+            if let Some(ref deck_rc) = *holder_eff.borrow() {
+                deck_rc.borrow().flanger_lfo.frequency().set_value(rate);
+            }
+        });
+    }
+    {
+        let state_eff = state.clone();
+        let holder_eff = audio_deck_holder.clone();
+        Effect::new(move |_| {
+            let depth = state_eff.fx_flanger_depth.get();
+            if let Some(ref deck_rc) = *holder_eff.borrow() {
+                deck_rc.borrow().flanger_depth.gain().set_value(depth);
+            }
+        });
+    }
+
+    // ── T9.4 — Stutter toggle + subdivision Effect ────────────────────────────
+    {
+        let state_eff = state.clone();
+        let holder_eff = audio_deck_holder.clone();
+        Effect::new(move |_| {
+            let on     = state_eff.fx_stutter.get();
+            let subdiv = state_eff.fx_stutter_subdiv.get();
+            let bpm    = bpm_own.get().unwrap_or(120.0);
+            if let Some(ref deck_rc) = *holder_eff.borrow() {
+                if on { deck_rc.borrow().enable_stutter(bpm, subdiv as f64); }
+                else  { deck_rc.borrow().disable_stutter(); }
+            }
+        });
+    }
+
+    // ── T9.5 — Scratch pointer event handlers ─────────────────────────────────
+    let on_platter_pointerdown = {
+        let state_ptr  = state.clone();
+        let holder_ptr = audio_deck_holder.clone();
+        move |ev: web_sys::PointerEvent| {
+            if !state_ptr.fx_scratch.get_untracked() { return; }
+            let canvas: web_sys::HtmlCanvasElement =
+                ev.target().expect("pointerdown target").unchecked_into();
+            let cx    = canvas.width()  as f64 / 2.0;
+            let cy    = canvas.height() as f64 / 2.0;
+            let angle = (ev.offset_y() as f64 - cy)
+                            .atan2(ev.offset_x() as f64 - cx);
+            let now   = web_sys::window()
+                .and_then(|w| w.performance())
+                .map(|p| p.now())
+                .unwrap_or(0.0);
+            // Capture pointer so we keep receiving move/up events outside the canvas.
+            let _ = canvas.unchecked_ref::<web_sys::Element>()
+                .set_pointer_capture(ev.pointer_id());
+            if let Some(ref deck_rc) = *holder_ptr.borrow() {
+                deck_rc.borrow_mut().scratch_start(angle, now);
+            }
+        }
+    };
+
+    let on_platter_pointermove = {
+        let state_ptr  = state.clone();
+        let holder_ptr = audio_deck_holder.clone();
+        move |ev: web_sys::PointerEvent| {
+            if !state_ptr.fx_scratch.get_untracked() { return; }
+            let canvas: web_sys::HtmlCanvasElement =
+                ev.target().expect("pointermove target").unchecked_into();
+            let cx    = canvas.width()  as f64 / 2.0;
+            let cy    = canvas.height() as f64 / 2.0;
+            let angle = (ev.offset_y() as f64 - cy)
+                            .atan2(ev.offset_x() as f64 - cx);
+            let now   = web_sys::window()
+                .and_then(|w| w.performance())
+                .map(|p| p.now())
+                .unwrap_or(0.0);
+            if let Some(ref deck_rc) = *holder_ptr.borrow() {
+                deck_rc.borrow_mut().scratch_move(angle, now);
+            }
+        }
+    };
+
+    // Shared scratch-end logic for pointerup and pointerleave.
+    let on_platter_scratch_end = {
+        let holder_ptr = audio_deck_holder.clone();
+        Rc::new(move || {
+            if let Some(ref deck_rc) = *holder_ptr.borrow() {
+                deck_rc.borrow_mut().scratch_end();
+            }
+        })
+    };
+    let on_platter_pointerup = {
+        let end_fn = on_platter_scratch_end.clone();
+        move |_: web_sys::PointerEvent| { end_fn(); }
+    };
+    let on_platter_pointerleave = {
+        let end_fn = on_platter_scratch_end.clone();
+        move |_: web_sys::PointerEvent| { end_fn(); }
+    };
+
     view! {
         <div class=deck_class>
             <h2 class="deck-label">{format!("DECK {side}")}</h2>
@@ -347,6 +518,10 @@ pub fn Deck(
                 width=PLATTER_SIZE
                 height=PLATTER_SIZE
                 node_ref=platter_ref
+                on:pointerdown=on_platter_pointerdown
+                on:pointermove=on_platter_pointermove
+                on:pointerup=on_platter_pointerup
+                on:pointerleave=on_platter_pointerleave
             />
 
             // Transport controls (T2.5)
@@ -364,6 +539,9 @@ pub fn Deck(
                 <FilterKnob state=state.clone()/>
                 <VuMeter state=state.clone()/>
             </div>
+
+            // FX Panel: Echo, Reverb, Flanger, Stutter, Scratch (T9.1–T9.6)
+            <FxPanel state=state.clone()/>
 
             // Pitch fader (T3.4)
             <PitchFader state=state.clone()/>
