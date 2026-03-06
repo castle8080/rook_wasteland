@@ -73,3 +73,34 @@ top of every file under `tests/` that contains `#[wasm_bindgen_test]` tests.
 the configure line, otherwise tests silently do nothing in browser mode.
 
 ---
+
+## L3: `glow::Context::from_webgl2_context` is not `unsafe` in glow 0.13
+
+**Milestone:** M2  
+**Area:** WebGL / Build  
+**Symptom:** Compiler warns "unnecessary `unsafe` block" when wrapping the
+`from_webgl2_context` call in an `unsafe {}` block.  
+**Cause:** In glow 0.13, `Context::from_webgl2_context` is a safe function —
+the function signature does not include `unsafe`.  
+**Fix / Workaround:** Call it directly without an `unsafe` block.  Remove any
+SAFETY doc comment that refers to this call.  
+**Watch out for:** Any future upgrade of the `glow` crate may change the
+signature; re-check after bumping the version.
+
+---
+
+## L4: Use `inspect_err` instead of `map_err` for pure side-effect logging
+
+**Milestone:** M2  
+**Area:** Build  
+**Symptom:** `cargo clippy -- -D warnings` fails with `manual_inspect` lint
+when `map_err(|e| { side_effect(e); e })` is used solely to log the error
+without transforming it.  
+**Cause:** Clippy's `manual_inspect` lint detects `map_err` where the closure
+returns the argument unchanged.  
+**Fix / Workaround:** Replace `.map_err(|e| { log(e); e })` with
+`.inspect_err(|e| { log(e); })`.  
+**Watch out for:** Any `map_err` used purely for logging — always prefer
+`inspect_err` for zero-transformation side effects.
+
+---

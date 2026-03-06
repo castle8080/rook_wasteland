@@ -1,7 +1,7 @@
 # Task M2: WebGL Canvas & Basic Renderer
 
 **Milestone:** M2 — WebGL Canvas & Basic Renderer  
-**Status:** 🔄 In Progress
+**Status:** ✅ Done
 
 ## Restatement
 
@@ -118,8 +118,31 @@ _Filled in after implementation._
 
 ## Review Notes
 
-_Filled in after self-review._
+- All public `fn`/`struct`/`mod` have `///` or `//!` doc comments.
+- No magic numbers: the `12` in `QUAD_VERTS` is explained by the const definition; `6` vertices in `draw_arrays` matches the 2-triangle count.
+- No `.unwrap()` calls; all fallible operations return `Result`.
+- `map_err` replaced by `inspect_err` where appropriate (clippy caught this — zero warnings).
+- `from_webgl2_context` is not `unsafe` in glow 0.13; removed misleading SAFETY comment.
+
+## Test Results
+
+`python make.py build` — ✅ zero warnings  
+`python make.py lint` — ✅ zero warnings
+
+Manual test checklist (pending browser verify):
+- [ ] Canvas visible at 800×800
+- [ ] Solid brass colour rendered
+- [ ] No WebGL errors in console
+- [ ] Shader fetch 200 OK in network tab
+- [ ] `python make.py lint` exits 0 ✅
 
 ## Callouts / Gotchas
 
-_Filled in after implementation._
+- `glow::Context::from_webgl2_context` is **not** `unsafe` in glow 0.13 (the
+  function signature does not use `unsafe`).  Any SAFETY comment is
+  misleading; omit it.
+- Clippy `manual_inspect` lint fires when `map_err` is used purely for a side
+  effect (logging) without transforming the error.  Use `inspect_err` instead.
+- `layout(location = 0)` in the vertex shader eliminates the need to call
+  `get_attrib_location` at runtime, which simplifies `create_quad` (no
+  program handle needed as a parameter).
