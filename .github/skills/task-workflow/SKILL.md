@@ -57,17 +57,45 @@ Fill in the Design Critique table. Challenge each dimension honestly. Write a on
 
 Follow existing patterns. Every task must include at least one test:
 - Pure Rust logic → `#[cfg(test)]` in the same file, runs with `cargo test`
-- Browser-only code → `#[wasm_bindgen_test]` in `tests/`, runs with `wasm-pack test --headless --firefox`
+- Browser-only WebGL / web-sys calls → `#[wasm_bindgen_test]` in `tests/mN_*.rs`, runs with `wasm-pack test --headless --firefox`
+- Component wiring / reactive signal → DOM behaviour → `#[wasm_bindgen_test]` in `tests/integration.rs` (see guidance below)
+
+**When to add an integration test in `tests/integration.rs`:**
+- A new signal gates a DOM element's visibility or content
+- A user action triggers a signal change that causes a redraw or layout change
+- A new pipeline (e.g. file → GPU → signal) is wired through multiple components
+- The full `App` gains a new DOM landmark that should always be present
+- An error path should show UI feedback in the DOM
+
+Integration tests mount a real Leptos component into a headless Firefox browser.
+Follow these patterns (see existing tests for working examples):
+```rust
+use leptos::mount::mount_to;   // NOT leptos::mount_to
+
+// Isolate each test with a fresh container.
+let container = fresh_container();
+let _handle = mount_to(container.clone(), App);
+
+// Flush Leptos effects before asserting.
+tick().await;
+
+// Query within the container, not the whole document.
+container.query_selector(".foo").unwrap()
+```
 
 ## Phase 6 — Run Tests + Clippy
 
 ```bash
 cargo test
-cargo clippy --target wasm32-unknown-unknown -- -D warnings
+cargo clippy --target wasm32-unknown-unknown --tests -- -D warnings
 trunk build
 ```
 
 All three must pass. Zero warnings. Fix the code, not the test, if a test fails.
+
+> **Note:** `cargo test` runs only native (Tier 1) tests. Browser tests
+> (Tier 2 & 3) require `python make.py test` which also runs
+> `wasm-pack test --headless --firefox`.
 
 ## Phase 7 — Self-Review
 

@@ -173,3 +173,65 @@ run cleanly.  Integration test files that use WebGL/glow must also start with
 types not available on native — add the cfg gate in `lib.rs` immediately.
 
 ---
+
+## L9: Embed shaders with `include_str!()` to enable renderer init in tests
+
+**Milestone:** M3 (refactor)  
+**Area:** Build / Testing  
+**Symptom:** Attempting to mount the full `App` in a `wasm-pack test` integration
+test caused the renderer to fail silently — the WebGL program was never linked and
+the canvas stayed blank.  The root cause was that `shader.rs` fetched GLSL source
+from `/rw_teleidoscope/shaders/vert.glsl` at runtime.  `wasm-pack test` does not
+serve static asset files, so the fetch returned 404.  
+**Cause:** `Trunk.toml` copy-dirs the shaders into `dist/` at build time, but
+`wasm-pack test` does not invoke Trunk and has no equivalent asset pipeline.  
+**Fix / Workaround:** Replaced `fetch_text(url).await` with
+`include_str!("../../assets/shaders/vert.glsl")` constants.  This embeds the GLSL
+source directly in the WASM binary at compile time, making `create_program()` (and
+therefore `Renderer::new()`) fully synchronous and independent of any HTTP server.  
+**Watch out for:** Any future shader files added for new effects (M5 etc.) must
+also use `include_str!()` — do **not** reintroduce runtime shader fetching.  The
+binary size overhead is negligible (shaders are a few hundred bytes each).
+
+---
+
+## L10: Browser integration test patterns for Leptos 0.8
+
+**Milestone:** M3 (refactor)  
+**Area:** Testing  
+**Several non-obvious gotchas when writing `tests/integration.rs`:**
+
+1. **`mount_to` import path.** The function lives at `leptos::mount::mount_to`,
+   not at the crate root. `leptos::mount_to` does not exist and causes a compile
+   error. Use `use leptos::mount::mount_to;`.
+
+2. **DOM isolation.** All tests run in the same browser page and share
+   `document.body`.  Always append a fresh `<div>` container per test and scope
+   DOM queries to that container (`container.query_selector(...)`) rather than the
+   whole document.  This prevents state leakage between tests.
+
+3. **Flushing Leptos effects.** After mounting or mutating a signal, effects are
+   scheduled as microtasks — they have not run yet.  Yield with:
+   ```rust
+   wasm_bindgen_futures::JsFuture::from(
+       js_sys::Promise::resolve(&wasm_bindgen::JsValue::NULL)
+   ).await.unwrap();
+   ```
+   One yield is usually enough; reactive effects in Leptos 0.8 CSR run in the
+   microtask checkpoint.
+
+4. **`ImageData::data()` returns `Clamped<Vec<u8>>` under wasm32 clippy.** Use
+   `.len()` (Rust slice method), not `.length()` (JS TypedArray method).  Both
+   `cargo clippy --target wasm32-unknown-unknown --tests` and the actual runtime
+   agree on `.len()`.
+
+5. **`query_selector_all` on `Element` requires the `"NodeList"` web-sys
+   feature.** Add `"NodeList"` to the web-sys `features` list in `Cargo.toml` or
+   the method will not be found even though `"Element"` is enabled.
+
+6. **Creating signals outside a component.** `RwSignal::new(value)` in Leptos 0.8
+   uses `Arc`-backed storage and can be created before `mount_to` — no reactive
+   owner is required.  The signal remains valid for the lifetime of the test
+   function, making it possible to mutate signals from outside the component tree.
+
+---

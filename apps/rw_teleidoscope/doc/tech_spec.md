@@ -516,19 +516,119 @@ python make.py lint     # clippy --target wasm32-unknown-unknown -D warnings
 
 ## 13. Testing Strategy
 
-| What | Method | Location |
-|---|---|---|
-| Polar coordinate math | `#[test]` native | `src/renderer/shader.rs` or `src/utils.rs` |
-| Mirror fold algorithm | `#[test]` native | Pure function extracted from shader logic |
-| Color transform math (hue, sat, posterize) | `#[test]` native | `src/renderer/uniforms.rs` or `src/utils.rs` |
-| Uniform struct serialisation | `#[test]` native | `src/renderer/uniforms.rs` |
-| WebGL context init | `#[wasm_bindgen_test]` | `tests/` |
-| Texture upload | `#[wasm_bindgen_test]` | `tests/` |
-| Camera permission-denied error path | `#[wasm_bindgen_test]` | `tests/` |
+The project uses three tiers of tests, each with a different scope and runner:
 
-Pure shader math (fold angle, radial warp formulas) should be implemented first
-as testable Rust functions, then ported verbatim to GLSL. This ensures the
-mathematical correctness can be verified without a browser.
+### Tier 1 — Native unit tests (`#[test]`)
+
+Run with `cargo test` (no browser, no WASM toolchain required).
+
+Suitable for any **pure Rust logic** that has no browser or WebGL dependency.
+Extract such logic into free functions in `utils.rs` or a dedicated module so
+it can be tested natively.
+
+| What | Module |
+|---|---|
+| `cover_rect` (CSS cover algorithm) | `src/utils.rs` |
+| `is_accepted_image_type` (MIME validation) | `src/utils.rs` |
+| Polar coordinate / mirror fold math | `src/utils.rs` |
+| Color transform math (hue, saturation, posterize) | `src/utils.rs` |
+| URL routing round-trips | `src/routing.rs` |
+
+**Rule:** any non-trivial formula or pure function **must** have a native unit
+test before being ported to GLSL or wired into a component.
+
+---
+
+### Tier 2 — Browser wasm_bindgen tests (`#[wasm_bindgen_test]`, low-level)
+
+Run with `wasm-pack test --headless --firefox` (Firefox required).  
+File: `tests/m3_image_input.rs` and per-milestone `tests/mN_*.rs` files.
+
+Suitable for **isolated WebGL / web-sys API calls** that need a real browser
+but do not require a mounted component tree.
+
+| What | Why browser needed |
+|---|---|
+| `HtmlImageElement` creation | web-sys DOM |
+| Offscreen canvas → `ImageData` | Canvas 2D API |
+| `texture::upload_image_data` | WebGL 2 |
+| `resize_to_800` output dimensions | Canvas 2D + async onload |
+| Camera API error paths (M7) | `getUserMedia` |
+
+**Rule:** each milestone that touches WebGL or browser APIs should add at
+least one Tier 2 test covering the lowest-level happy path.
+
+---
+
+### Tier 3 — Browser integration tests (`#[wasm_bindgen_test]`, component-level)
+
+Run with `wasm-pack test --headless --firefox`.  
+File: `tests/integration.rs`.
+
+Suitable for **end-to-end wiring** — mounting a Leptos component (or the full
+`App`) into the browser DOM and asserting observable effects: DOM structure,
+reactive signal → DOM updates, full data pipelines.
+
+**Patterns to follow** (see `tests/integration.rs` for working examples):
+
+```rust
+// Import path — NOT leptos::mount_to
+use leptos::mount::mount_to;
+
+// Give each test its own DOM container to avoid cross-test pollution.
+fn fresh_container() -> web_sys::HtmlElement { ... }
+
+// Yield to the microtask queue so Leptos effects can flush.
+async fn tick() {
+    wasm_bindgen_futures::JsFuture::from(
+        js_sys::Promise::resolve(&wasm_bindgen::JsValue::NULL)
+    ).await.unwrap();
+}
+
+// Scope DOM queries to the container, not the whole document.
+container.query_selector(".foo").unwrap()
+```
+
+**Why integration tests are possible here:** shaders are embedded with
+`include_str!()` (not fetched at runtime), so `Renderer::new()` is
+synchronous and succeeds in the wasm-pack test environment, which does not
+serve static asset files.
+
+#### What should have an integration test
+
+Add an integration test when a feature involves **reactive wiring between a
+signal and a visible DOM change**, or when the correct behaviour requires
+multiple components to be mounted together.  Concrete triggers:
+
+| Situation | Integration test to write |
+|---|---|
+| A new signal gates a DOM element's visibility | Mount component, set signal, tick, assert element shown/hidden |
+| A user action sets a signal that causes a redraw | Dispatch event or call function, tick, assert DOM/canvas state |
+| A new component is added to `App` | Smoke-test that `App` still mounts and contains expected DOM landmarks |
+| A new pipeline (file → GPU → signal) is wired | Drive the pipeline programmatically, assert terminal state |
+| An error path should show UI feedback | Trigger the error, assert error message element appears |
+
+**Do not** write integration tests for pure math, individual WebGL calls,
+or anything already covered by a Tier 1 or Tier 2 test.  Integration tests
+are expensive to maintain — keep them focused on wiring, not logic.
+
+---
+
+### Running all tests
+
+```bash
+python make.py test   # cargo test (Tier 1) + wasm-pack test --headless --firefox (Tier 2 & 3)
+```
+
+`cargo test` alone runs only Tier 1 (browser tests are gated with
+`#![cfg(target_arch = "wasm32")]` and are silently skipped on native).
+
+```bash
+cargo clippy --target wasm32-unknown-unknown --tests -- -D warnings
+```
+
+Run clippy with `--tests` to catch type errors in browser test files before
+running the full browser suite.
 
 ---
 
