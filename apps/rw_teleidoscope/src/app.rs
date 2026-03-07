@@ -34,14 +34,18 @@ pub fn App() -> impl IntoView {
 
     provide_context(current_route);
     provide_context(KaleidoscopeParams::new());
-    provide_context(AppState::new());
+    let app_state = AppState::new();
+    provide_context(app_state);
 
     view! {
         <div id="rw-teleidoscope-root">
             <Header/>
-            <div class="main-layout">
-                <CanvasView/>
+            <div
+                class="main-layout"
+                class:is-panel-collapsed=move || !app_state.panel_open.get()
+            >
                 <ControlsPanel/>
+                <CanvasView/>
             </div>
             <CameraOverlay/>
         </div>

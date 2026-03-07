@@ -10,6 +10,8 @@ pub struct AppState {
     pub camera_open: RwSignal<bool>,
     /// Holds a human-readable camera error message, if any.
     pub camera_error: RwSignal<Option<String>>,
+    /// True while the controls panel is expanded; false when collapsed.
+    pub panel_open: RwSignal<bool>,
 }
 
 impl AppState {
@@ -19,6 +21,7 @@ impl AppState {
             image_loaded: RwSignal::new(false),
             camera_open:  RwSignal::new(false),
             camera_error: RwSignal::new(None),
+            panel_open:   RwSignal::new(true),
         }
     }
 }
@@ -26,5 +29,17 @@ impl AppState {
 impl Default for AppState {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn panel_open_defaults_to_true() {
+        let state = AppState::new();
+        // panel_open starts true so the panel is visible on first load.
+        assert!(state.panel_open.get_untracked());
     }
 }

@@ -121,6 +121,7 @@ async fn placeholder_hides_when_image_loaded_signal_is_set() {
         image_loaded,
         camera_open: RwSignal::new(false),
         camera_error: RwSignal::new(None),
+        panel_open: RwSignal::new(true),
     };
 
     let container = fresh_container();
@@ -187,6 +188,7 @@ async fn image_pipeline_hides_overlay_end_to_end() {
         image_loaded,
         camera_open: RwSignal::new(false),
         camera_error: RwSignal::new(None),
+        panel_open: RwSignal::new(true),
     };
 
     let container = fresh_container();
@@ -288,6 +290,7 @@ async fn camera_overlay_shows_when_camera_open_signal_set() {
         image_loaded: RwSignal::new(false),
         camera_open,
         camera_error: RwSignal::new(None),
+        panel_open: RwSignal::new(true),
     };
 
     let container = fresh_container();
@@ -335,6 +338,7 @@ async fn camera_overlay_shows_error_message() {
         image_loaded: RwSignal::new(false),
         camera_open,
         camera_error,
+        panel_open: RwSignal::new(true),
     };
 
     let container = fresh_container();
@@ -435,6 +439,7 @@ async fn surprise_me_button_enabled_when_image_loaded() {
         image_loaded,
         camera_open: RwSignal::new(false),
         camera_error: RwSignal::new(None),
+        panel_open: RwSignal::new(true),
     };
 
     let container = fresh_container();
@@ -466,5 +471,72 @@ async fn surprise_me_button_enabled_when_image_loaded() {
     assert!(
         !btn.has_attribute("disabled"),
         "button must be enabled after image_loaded = true"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// M10: Collapsible panel
+// ---------------------------------------------------------------------------
+
+/// Setting `AppState.panel_open` to `false` adds the `is-collapsed` class to
+/// the controls panel; setting it back to `true` removes it.
+#[wasm_bindgen_test]
+async fn panel_collapses_when_panel_open_is_false() {
+    use leptos::prelude::*;
+    use rw_teleidoscope::{
+        components::controls_panel::ControlsPanel,
+        state::{AppState, KaleidoscopeParams},
+    };
+
+    let panel_open: RwSignal<bool> = RwSignal::new(true);
+    let state = AppState {
+        image_loaded: RwSignal::new(false),
+        camera_open:  RwSignal::new(false),
+        camera_error: RwSignal::new(None),
+        panel_open,
+    };
+
+    let container = fresh_container();
+    let _handle = mount_to(container.clone(), move || {
+        provide_context(KaleidoscopeParams::new());
+        provide_context(state);
+        view! { <ControlsPanel/> }
+    });
+    tick().await;
+
+    // Panel starts open — no is-collapsed class.
+    let panel_el = container
+        .query_selector(".controls-panel")
+        .unwrap()
+        .expect(".controls-panel must be in the DOM");
+    assert!(
+        !panel_el.class_list().contains("is-collapsed"),
+        "panel must not have is-collapsed class when panel_open = true"
+    );
+
+    // Collapse the panel.
+    panel_open.set(false);
+    tick().await;
+
+    let panel_el = container
+        .query_selector(".controls-panel")
+        .unwrap()
+        .expect(".controls-panel must still be in the DOM");
+    assert!(
+        panel_el.class_list().contains("is-collapsed"),
+        "panel must have is-collapsed class when panel_open = false"
+    );
+
+    // Re-expand.
+    panel_open.set(true);
+    tick().await;
+
+    let panel_el = container
+        .query_selector(".controls-panel")
+        .unwrap()
+        .expect(".controls-panel must still be in the DOM");
+    assert!(
+        !panel_el.class_list().contains("is-collapsed"),
+        "panel must lose is-collapsed class when panel_open is set back to true"
     );
 }

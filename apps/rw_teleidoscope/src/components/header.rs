@@ -63,10 +63,29 @@ pub fn load_file(file: web_sys::File, app_state: AppState) {
     reader.read_as_data_url(&file).expect("read_as_data_url");
 }
 
+// ── Bootstrap Icons SVG paths (MIT licence) ──────────────────────────────────
+
+/// Gear-fill icon (Load Image button).
+const GEAR: &str = concat!(
+    "M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492z",
+    "M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52",
+    "l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255",
+    "l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255",
+    "l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52",
+    "l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52",
+    "l.292.16c1.64.892 3.433-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255",
+    "l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255",
+    "l.16-.292c.892-1.64-.901-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52z"
+);
+
+/// Camera-fill icon (Use Camera button).
+const CAMERA: &str =
+    "M10.5 8.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0zM2 4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1.172a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 9.172 2H6.828a2 2 0 0 0-1.414.586l-.828.828A2 2 0 0 1 3.172 4H2zm.5 2a.5.5 0 1 1 0-1 .5.5 0 0 1 0 1zm9 2.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0z";
+
 /// App title bar with the "Load Image" and "Use Camera" buttons.
 ///
 /// Clicking "Load Image" opens a hidden `<input type="file">` restricted to
-/// PNG, JPEG, and WebP.  "Use Camera" is a stub until M7.
+/// PNG, JPEG, and WebP.  "Use Camera" opens the camera overlay (M7).
 #[component]
 pub fn Header() -> impl IntoView {
     let app_state = expect_context::<AppState>();
@@ -97,13 +116,19 @@ pub fn Header() -> impl IntoView {
                         }
                     }
                 >
-                    "⚙ LOAD IMAGE"
+                    <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14" class="btn-icon">
+                        <path d=GEAR/>
+                    </svg>
+                    " LOAD IMAGE"
                 </button>
                 <button
                     class="header-btn"
                     on:click=move |_| app_state.camera_open.set(true)
                 >
-                    "📷 USE CAMERA"
+                    <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14" class="btn-icon">
+                        <path d=CAMERA/>
+                    </svg>
+                    " USE CAMERA"
                 </button>
             </div>
             // Hidden file input; triggered programmatically by the button above.

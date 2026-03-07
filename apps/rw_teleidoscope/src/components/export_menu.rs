@@ -128,6 +128,10 @@ async fn trigger_download(mime: String, filename: String) {
     }
 }
 
+/// Download icon (Bootstrap Icons, MIT licence).
+const DOWNLOAD: &str =
+    "M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5zM7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z";
+
 /// Export format picker and canvas download trigger.
 ///
 /// Renders a **↓ EXPORT** toggle button at the bottom of the controls panel.
@@ -164,7 +168,10 @@ pub fn ExportMenu() -> impl IntoView {
                 disabled=move || !app_state.image_loaded.get()
                 on:click=on_toggle
             >
-                "↓ EXPORT"
+                <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14" class="btn-icon">
+                    <path d=DOWNLOAD/>
+                </svg>
+                " EXPORT"
             </button>
             <Show when=move || dropdown_open.get()>
                 <div class="export-dropdown">
@@ -200,7 +207,10 @@ pub fn ExportMenu() -> impl IntoView {
                     </label>
                     <hr class="export-divider"/>
                     <button class="download-button" on:click=on_download>
-                        "↓ DOWNLOAD"
+                        <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14" class="btn-icon">
+                            <path d=DOWNLOAD/>
+                        </svg>
+                        " DOWNLOAD"
                     </button>
                 </div>
             </Show>
