@@ -1,7 +1,7 @@
 # Task M8-T1: Export / Download
 
 **Milestone:** M8 — Export / Download  
-**Status:** 🔄 In Progress
+**Status:** ✅ Done
 
 ## Restatement
 
@@ -106,12 +106,22 @@ pub fn ExportMenu() -> impl IntoView;
 
 ## Test Results
 
-_Filled after Phase 6._
+All tests pass:
+- 7 Tier-2 wasm_bindgen_tests in `export_menu.rs` (mime_to_ext × 4, build_filename × 3)
+- 5 Tier-3 integration tests in `tests/m8_export.rs` (disabled state, toggle open/close, format count)
+- 34 native Tier-1 tests unaffected
+- All pre-existing browser tests (integration, m3, m4, scaffold) pass
 
 ## Review Notes
 
-_Filled after Phase 7._
+Code review (code-review agent): No significant issues found. All concerns reviewed and passed.
+
+Notable: `canvas.to_blob_with_type` is callback-based (not Promise-returning); bridged via `canvas_to_blob_promise` helper using `Closure::once` + `cb.forget()`.
 
 ## Callouts / Gotchas
 
-_Filled after Phase 10._
+- `canvas.toBlob()` in web-sys is callback-based, NOT Promise-returning. Must wrap in `js_sys::Promise::new` with a `Closure::once` that calls `resolve`. Use `cb.forget()` on success so the closure outlives the `Promise::new` call; call `reject` on synchronous failure.
+- Appending `<a>` to `document.body` before `.click()` is required in Firefox for programmatic anchor downloads. After click, call `a.remove()` (via `Element::remove()`).
+- `js_sys::Date::get_month()` is 0-indexed — add 1 before formatting.
+- Adding `ExportMenu` to `ControlsPanel` requires `AppState` in context. Updated `m4_mirror_symmetry` tests to provide it.
+- Stale slider count assertion in M4 test (expected 8, actual 12 after M5+M6) was a pre-existing bug unmasked by this milestone's AppState context fix.
