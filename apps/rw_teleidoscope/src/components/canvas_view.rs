@@ -1,7 +1,7 @@
 use std::cell::Cell;
 use std::rc::Rc;
 
-use gloo_events::EventListener;
+use gloo_events::{EventListener, EventListenerOptions};
 use leptos::prelude::*;
 use wasm_bindgen::JsCast;
 
@@ -54,12 +54,15 @@ pub fn CanvasView() -> impl IntoView {
                 {
                     let canvas_el: &web_sys::HtmlCanvasElement = &canvas;
 
-                    // Drag-and-drop
-                    let over_listener = EventListener::new(canvas_el, "dragover", |ev| {
+                    // Drag-and-drop — must be non-passive so prevent_default() works
+                    // (prevents the browser from overriding the drop with its default
+                    // file-open behaviour).
+                    let opts = EventListenerOptions::enable_prevent_default();
+                    let over_listener = EventListener::new_with_options(canvas_el, "dragover", opts, |ev| {
                         ev.prevent_default();
                     });
                     let drop_listener =
-                        EventListener::new(canvas_el, "drop", move |ev| {
+                        EventListener::new_with_options(canvas_el, "drop", opts, move |ev| {
                             ev.prevent_default();
                             let drop_ev: &web_sys::DragEvent =
                                 ev.dyn_ref().expect("DragEvent");
@@ -73,10 +76,12 @@ pub fn CanvasView() -> impl IntoView {
                         });
 
                     // Pointer drag → update centre of symmetry.
+                    // Must be non-passive so prevent_default() can suppress text
+                    // selection (pointerdown) and touchscreen scrolling (pointermove).
                     // `params` is Copy so it is safely captured by each closure.
                     let pparams = params;
                     let pointerdown_listener =
-                        EventListener::new(canvas_el, "pointerdown", move |ev| {
+                        EventListener::new_with_options(canvas_el, "pointerdown", opts, move |ev| {
                             ev.prevent_default();
                             let ptr: &web_sys::PointerEvent =
                                 ev.dyn_ref().expect("PointerEvent");
@@ -87,12 +92,12 @@ pub fn CanvasView() -> impl IntoView {
                             pparams.center.set((cx, cy));
                         });
                     let pointermove_listener =
-                        EventListener::new(canvas_el, "pointermove", move |ev| {
-                            ev.prevent_default();
+                        EventListener::new_with_options(canvas_el, "pointermove", opts, move |ev| {
                             let ptr: &web_sys::PointerEvent =
                                 ev.dyn_ref().expect("PointerEvent");
-                            // Only update while the primary button is held.
+                            // Only update (and prevent scroll) while the primary button is held.
                             if ptr.buttons() & 1 != 0 {
+                                ev.prevent_default();
                                 let cx =
                                     (ptr.offset_x() as f32 / CANVAS_SIZE).clamp(0.0, 1.0);
                                 let cy = (1.0 - ptr.offset_y() as f32 / CANVAS_SIZE)

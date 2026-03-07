@@ -310,3 +310,31 @@ might dismiss the UI before the operation completes.  The general pattern:
 always re-validate app state after every `await` that involves user interaction.
 
 ---
+
+## L14: `gloo_events::EventListener::new` defaults to `passive: true`
+
+**Milestone:** M8 bug fix  
+**Area:** Leptos / Events  
+**Symptom:** Browser console fills with "Unable to preventDefault inside passive
+event listener invocation" on every `pointermove` event, even before any image
+is loaded.  
+**Cause:** `gloo_events::EventListenerOptions::default()` sets `passive: true`.
+`EventListener::new()` (which uses the default) therefore creates passive
+listeners.  Calling `event.prevent_default()` inside a passive listener is
+forbidden by the browser spec — the call is silently ignored and a warning is
+logged.  Additionally, `prevent_default()` was called unconditionally in the
+`pointermove` handler (before the drag-check), causing a warning on every mouse
+movement.  
+**Fix / Workaround:**  
+1. Use `EventListenerOptions::enable_prevent_default()` (sets `passive: false`)
+   with `EventListener::new_with_options` for any listener that calls
+   `prevent_default()`.
+2. Only call `prevent_default()` when the action actually requires it — in
+   `pointermove`, gate it inside `if ptr.buttons() & 1 != 0` so it only fires
+   during an active drag.  
+**Watch out for:** Every future `EventListener::new(...)` that intends to call
+`event.prevent_default()` — always use
+`EventListener::new_with_options(..., EventListenerOptions::enable_prevent_default(), ...)`
+instead.  Affected events in this codebase: `dragover`, `drop`, `pointerdown`,
+`pointermove`.
+
