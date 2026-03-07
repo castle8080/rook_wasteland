@@ -1,7 +1,7 @@
 # Task M9-01: Randomize ("Surprise Me")
 
 **Milestone:** M9 — Randomize  
-**Status:** 🔄 In Progress
+**Status:** ✅ Done
 
 ## Restatement
 
@@ -106,12 +106,32 @@ pub fn randomize(params: KaleidoscopeParams) { ... }
 
 ## Test Results
 
-_(filled after Phase 6)_
+All 47 browser tests pass (wasm-pack test --headless --firefox):
+- 9 lib unit tests (export, context)
+- 9 integration tests (3 new M9: button presence, disabled, enabled)
+- 4 m3_image_input tests
+- 2 m4_mirror_symmetry tests
+- 5 m8_export tests
+- **13 m9_randomize tests** (new — all parameter range invariants)
+- 5 scaffold tests
+
+`cargo test`: 34 native tests pass.  
+`python make.py lint`: zero warnings.  
+`python make.py build`: trunk build succeeds.
 
 ## Review Notes
 
-_(filled after Phase 7)_
+Code review found no issues. The `.min(remaining - 1)` on the Fisher-Yates
+offset is technically redundant (float truncation already guarantees
+`offset < remaining`) but harmless — kept as a defensive bound.
 
 ## Callouts / Gotchas
 
-_(filled after Phase 10)_
+- `randomize.rs` must be gated with `#[cfg(target_arch = "wasm32")]` in
+  `state/mod.rs` because it uses `js_sys::Math::random()`, which is
+  WASM-only.
+- Tests in `tests/m9_randomize.rs` require `use leptos::prelude::*` to
+  access `RwSignal::get_untracked()` — without it, `wasm-pack test`
+  emits "no method named `get_untracked`" compile errors.
+- The `disabled=move || !app_state.image_loaded.get()` pattern is
+  identical to the ExportMenu button — confirmed correct for Leptos 0.8.
