@@ -2,7 +2,7 @@ use leptos::prelude::*;
 use wasm_bindgen::JsCast;
 
 use crate::components::export_menu::ExportMenu;
-use crate::state::KaleidoscopeParams;
+use crate::state::{randomize, AppState, KaleidoscopeParams};
 
 /// Macro to reduce the boilerplate of a float range slider row.
 ///
@@ -75,6 +75,7 @@ macro_rules! float_slider {
 #[component]
 pub fn ControlsPanel() -> impl IntoView {
     let params = expect_context::<KaleidoscopeParams>();
+    let app_state = expect_context::<AppState>();
 
     view! {
         <div class="controls-panel">
@@ -363,6 +364,17 @@ pub fn ControlsPanel() -> impl IntoView {
                     }
                 />
             </div>
+
+            // ================================================================
+            // Randomize (M9)
+            // ================================================================
+            <button
+                class="surprise-button"
+                disabled=move || !app_state.image_loaded.get()
+                on:click=move |_| randomize(params)
+            >
+                "⚡ SURPRISE ME"
+            </button>
 
             // ================================================================
             // Export (M8)

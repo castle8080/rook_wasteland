@@ -366,3 +366,105 @@ async fn camera_overlay_shows_error_message() {
         "error text must match the signal value"
     );
 }
+
+// ---------------------------------------------------------------------------
+// M9 Randomize: "Surprise Me" button presence and disabled state
+// ---------------------------------------------------------------------------
+
+/// The "Surprise Me" button is present in the DOM when the app is mounted.
+///
+/// Verifies that `ControlsPanel` renders the `.surprise-button` element.
+#[wasm_bindgen_test]
+async fn surprise_me_button_present_in_dom() {
+    let container = fresh_container();
+    let _handle = mount_to(container.clone(), rw_teleidoscope::app::App);
+    tick().await;
+
+    assert!(
+        container
+            .query_selector(".surprise-button")
+            .unwrap()
+            .is_some(),
+        ".surprise-button must be in the DOM after app mounts"
+    );
+}
+
+/// The "Surprise Me" button is disabled when no image is loaded.
+///
+/// Mounts `ControlsPanel` with `image_loaded = false` and checks that the
+/// button carries the `disabled` attribute, matching the same pattern used
+/// by the EXPORT button.
+#[wasm_bindgen_test]
+async fn surprise_me_button_disabled_when_no_image() {
+    use leptos::prelude::*;
+    use rw_teleidoscope::{
+        components::controls_panel::ControlsPanel,
+        state::{AppState, KaleidoscopeParams},
+    };
+
+    let container = fresh_container();
+    let _handle = mount_to(container.clone(), move || {
+        provide_context(KaleidoscopeParams::new());
+        provide_context(AppState::new());
+        view! { <ControlsPanel/> }
+    });
+    tick().await;
+
+    let btn = container
+        .query_selector(".surprise-button")
+        .unwrap()
+        .expect(".surprise-button must be rendered");
+
+    assert!(
+        btn.has_attribute("disabled"),
+        ".surprise-button must be disabled when image_loaded = false"
+    );
+}
+
+/// The "Surprise Me" button becomes enabled once an image is loaded.
+#[wasm_bindgen_test]
+async fn surprise_me_button_enabled_when_image_loaded() {
+    use leptos::prelude::*;
+    use rw_teleidoscope::{
+        components::controls_panel::ControlsPanel,
+        state::{AppState, KaleidoscopeParams},
+    };
+
+    let image_loaded: RwSignal<bool> = RwSignal::new(false);
+    let state = AppState {
+        image_loaded,
+        camera_open: RwSignal::new(false),
+        camera_error: RwSignal::new(None),
+    };
+
+    let container = fresh_container();
+    let _handle = mount_to(container.clone(), move || {
+        provide_context(KaleidoscopeParams::new());
+        provide_context(state);
+        view! { <ControlsPanel/> }
+    });
+    tick().await;
+
+    // Before: button disabled.
+    let btn = container
+        .query_selector(".surprise-button")
+        .unwrap()
+        .expect(".surprise-button must be rendered");
+    assert!(
+        btn.has_attribute("disabled"),
+        "button must be disabled before image loads"
+    );
+
+    // Load image.
+    image_loaded.set(true);
+    tick().await;
+
+    let btn = container
+        .query_selector(".surprise-button")
+        .unwrap()
+        .expect(".surprise-button must still be in the DOM");
+    assert!(
+        !btn.has_attribute("disabled"),
+        "button must be enabled after image_loaded = true"
+    );
+}
