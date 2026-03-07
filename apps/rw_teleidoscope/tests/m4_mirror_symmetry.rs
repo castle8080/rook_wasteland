@@ -47,13 +47,14 @@ async fn tick() {
 async fn controls_panel_renders_sliders() {
     use rw_teleidoscope::{
         components::controls_panel::ControlsPanel,
-        state::KaleidoscopeParams,
+        state::{AppState, KaleidoscopeParams},
     };
 
     let params = KaleidoscopeParams::new();
     let container = fresh_container();
     let _handle = mount_to(container.clone(), move || {
         provide_context(params);
+        provide_context(AppState::new());
         view! { <ControlsPanel/> }
     });
     tick().await;
@@ -62,8 +63,9 @@ async fn controls_panel_renders_sliders() {
     let sliders = el.query_selector_all("input[type='range']").unwrap();
     assert_eq!(
         sliders.length(),
-        8,
-        "expected 8 range sliders: segments, rotation, zoom + spiral, ripple, lens, radial_fold, recursion"
+        12,
+        "expected 12 range sliders: segments, rotation, zoom, spiral, ripple, lens, \
+         radial_fold, recursion (M4/M5) + hue_shift, saturation, brightness, posterize (M6)"
     );
 
     let value_spans = el.query_selector_all(".control-value").unwrap();
@@ -83,13 +85,14 @@ async fn controls_panel_renders_sliders() {
 async fn controls_panel_segments_value_updates_reactively() {
     use rw_teleidoscope::{
         components::controls_panel::ControlsPanel,
-        state::KaleidoscopeParams,
+        state::{AppState, KaleidoscopeParams},
     };
 
     let params = KaleidoscopeParams::new();
     let container = fresh_container();
     let _handle = mount_to(container.clone(), move || {
         provide_context(params);
+        provide_context(AppState::new());
         view! { <ControlsPanel/> }
     });
     tick().await;

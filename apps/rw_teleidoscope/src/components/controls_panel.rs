@@ -1,6 +1,7 @@
 use leptos::prelude::*;
 use wasm_bindgen::JsCast;
 
+use crate::components::export_menu::ExportMenu;
 use crate::state::KaleidoscopeParams;
 
 /// Macro to reduce the boilerplate of a float range slider row.
@@ -362,6 +363,11 @@ pub fn ControlsPanel() -> impl IntoView {
                     }
                 />
             </div>
+
+            // ================================================================
+            // Export (M8)
+            // ================================================================
+            <ExportMenu/>
         </div>
     }
 }

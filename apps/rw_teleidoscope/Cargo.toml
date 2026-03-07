@@ -30,6 +30,10 @@ web-sys            = { version = "0.3", features = [
   # Events
   "Event", "MouseEvent", "PointerEvent", "DragEvent",
   "ProgressEvent", "EventTarget",
+  # Download anchor
+  "HtmlAnchorElement",
+  # Node (append_child / remove_child used in download trigger)
+  "Node", "HtmlBodyElement",
   # WebGL (used only to obtain the raw context for glow)
   "WebGl2RenderingContext",
   # Console (error reporting)
