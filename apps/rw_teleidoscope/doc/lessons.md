@@ -338,3 +338,37 @@ movement.
 instead.  Affected events in this codebase: `dragover`, `drop`, `pointerdown`,
 `pointermove`.
 
+---
+
+## L15: WebGL context requires `preserveDrawingBuffer: true` for `canvas.toBlob()`
+
+**Milestone:** M8 bug fix (m8-02-bug-export-empty-image)  
+**Area:** WebGL / Export  
+**Symptom:** All exported images are empty — PNGs are fully transparent, JPEGs
+are solid black.  Two exports from different source images produce byte-identical
+files.  
+**Cause:** `canvas.get_context("webgl2")` defaults to
+`preserveDrawingBuffer: false`.  After compositing each frame the browser is
+free to clear the drawing buffer.  Since `canvas.toBlob()` runs asynchronously
+(on a future event-loop tick), it always reads the already-cleared buffer.  
+**Fix / Workaround:** Create the context with the option set:
+
+```rust
+let opts = js_sys::Object::new();
+js_sys::Reflect::set(
+    &opts,
+    &wasm_bindgen::JsValue::from_str("preserveDrawingBuffer"),
+    &wasm_bindgen::JsValue::TRUE,
+)?;
+canvas.get_context_with_context_options("webgl2", &opts)
+```
+
+**Side effect:** A small GPU cost (driver keeps the buffer alive between
+frames).  Negligible for 800×800 interactive apps; avoid in high-framerate game
+renderers.  
+**web-sys API note:** `WebGlContextAttributes::preserve_drawing_buffer()` in
+web-sys 0.3.91 is a *setter* (builder style), not a getter.  Read the attribute
+back via `js_sys::Reflect::get(attrs.as_ref(), &"preserveDrawingBuffer".into())`
+and call `.as_bool()`.
+
+

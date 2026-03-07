@@ -35,7 +35,7 @@ web-sys            = { version = "0.3", features = [
   # Node (append_child / remove_child used in download trigger)
   "Node", "HtmlBodyElement",
   # WebGL (used only to obtain the raw context for glow)
-  "WebGl2RenderingContext",
+  "WebGl2RenderingContext", "WebGlContextAttributes",
   # Console (error reporting)
   "console",
   # Misc
