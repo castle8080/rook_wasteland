@@ -16,20 +16,28 @@ pub fn mime_to_ext(mime: &str) -> &'static str {
     }
 }
 
-/// Builds the download filename from the current mirror count and today's date.
+/// Builds the download filename from the current mirror count and a local
+/// datetime timestamp (to-the-second precision).
 ///
-/// Format: `teleidoscope-{segments}m-{YYYYMMDD}.{ext}`  
-/// Example: `teleidoscope-6m-20260306.png`
+/// Format: `teleidoscope-{segments}m-{YYYYMMDD}-{HHmmss}.{ext}`  
+/// Example: `teleidoscope-6m-20260306-173045.png`
+///
+/// Second-precision timestamps prevent filename collisions when the user
+/// exports multiple times in the same session.  Local time is used so the
+/// timestamp matches the clock the user sees.
 ///
 /// Uses `js_sys::Date` rather than `std::time` because `std::time::SystemTime`
 /// is not available in WASM without the `wasm-pack` time feature.
 pub(crate) fn build_filename(segments: u32, mime: &str) -> String {
     let date = js_sys::Date::new_0();
-    let year = date.get_full_year();
+    let year  = date.get_full_year();
     let month = date.get_month() + 1; // getMonth() is 0-indexed (Jan = 0)
-    let day = date.get_date();
+    let day   = date.get_date();
+    let hour  = date.get_hours();
+    let min   = date.get_minutes();
+    let sec   = date.get_seconds();
     let ext = mime_to_ext(mime);
-    format!("teleidoscope-{segments}m-{year:04}{month:02}{day:02}.{ext}")
+    format!("teleidoscope-{segments}m-{year:04}{month:02}{day:02}-{hour:02}{min:02}{sec:02}.{ext}")
 }
 
 /// Wraps the callback-based `HtmlCanvasElement.toBlob(type)` in a
@@ -233,10 +241,10 @@ mod tests {
             "filename should start with teleidoscope-6m-; got {name}"
         );
         assert!(name.ends_with(".png"), "filename should end with .png; got {name}");
-        // "teleidoscope-6m-YYYYMMDD.png" = 28 chars
+        // "teleidoscope-6m-YYYYMMDD-HHmmss.png" = 36 chars
         assert_eq!(
             name.len(),
-            "teleidoscope-6m-YYYYMMDD.png".len(),
+            "teleidoscope-6m-YYYYMMDD-HHmmss.png".len(),
             "filename length mismatch: {name}"
         );
     }
@@ -246,6 +254,12 @@ mod tests {
         let name = build_filename(12, "image/jpeg");
         assert!(name.starts_with("teleidoscope-12m-"), "got {name}");
         assert!(name.ends_with(".jpeg"), "got {name}");
+        // "teleidoscope-12m-YYYYMMDD-HHmmss.jpeg" = 38 chars
+        assert_eq!(
+            name.len(),
+            "teleidoscope-12m-YYYYMMDD-HHmmss.jpeg".len(),
+            "filename length mismatch: {name}"
+        );
     }
 
     #[wasm_bindgen_test]
@@ -253,5 +267,22 @@ mod tests {
         let name = build_filename(3, "image/webp");
         assert!(name.starts_with("teleidoscope-3m-"), "got {name}");
         assert!(name.ends_with(".webp"), "got {name}");
+    }
+
+    #[wasm_bindgen_test]
+    fn build_filename_contains_timestamp_segment() {
+        // The HHmmss part should be a 6-digit block between the date and extension.
+        // Format: teleidoscope-{n}m-YYYYMMDD-HHmmss.ext
+        let name = build_filename(6, "image/png");
+        // Split on '-' to extract components: ["teleidoscope", "6m", "YYYYMMDD", "HHmmss.png"]
+        let parts: Vec<&str> = name.splitn(4, '-').collect();
+        assert_eq!(parts.len(), 4, "expected 4 dash-separated parts; got {name}");
+        let date_part = parts[2];
+        let time_ext  = parts[3]; // "HHmmss.png"
+        assert_eq!(date_part.len(), 8, "date part should be 8 chars (YYYYMMDD); got {date_part}");
+        let time_part = time_ext.split('.').next().unwrap_or("");
+        assert_eq!(time_part.len(), 6, "time part should be 6 chars (HHmmss); got {time_part}");
+        assert!(date_part.chars().all(|c| c.is_ascii_digit()), "date part not all digits: {date_part}");
+        assert!(time_part.chars().all(|c| c.is_ascii_digit()), "time part not all digits: {time_part}");
     }
 }

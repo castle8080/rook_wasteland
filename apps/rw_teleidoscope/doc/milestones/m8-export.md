@@ -22,7 +22,7 @@ and a timestamp. The download must work reliably across Firefox and Chrome.
 | 2 | Implement download trigger for PNG — call `canvas.to_blob_with_type("image/png")`, bridge Promise with `JsFuture`, create object URL with `Url::create_object_url_with_blob`, create an `<a>` element, set `href` and `download` attribute, `.click()`, revoke URL | ✅ |
 | 3 | Implement download for JPEG — same flow with `"image/jpeg"` | ✅ |
 | 4 | Implement download for WebP — same flow with `"image/webp"` | ✅ |
-| 5 | Build filename from current params: `teleidoscope-{segments}m-{YYYYMMDD}.{ext}` (e.g. `teleidoscope-6m-20260306.png`) | ✅ |
+| 5 | Build filename from current params: `teleidoscope-{segments}m-{YYYYMMDD}-{HHmmss}.{ext}` (e.g. `teleidoscope-6m-20260306-173045.png`) | ✅ |
 | 6 | Wire `ExportMenu` into the controls panel (below the Randomize button per wireframe) | ✅ |
 | 7 | Disable the Download button when `AppState.image_loaded` is false | ✅ |
 | 8 | Verify `python make.py build` and `python make.py lint` pass | ✅ |
@@ -52,5 +52,7 @@ and a timestamp. The download must work reliably across Firefox and Chrome.
   way to trigger a download without a server.
 - WebP is not supported in Safari (as of writing); the format selector can still
   offer it but it may fall back to PNG in those browsers — no special handling required in v1.
-- Date for filename: get from `js_sys::Date::new_0()` to avoid any native
-  `std::time` (which is not available in WASM without a feature flag).
+- Datetime for filename: get from `js_sys::Date::new_0()` (local time) using
+  `get_full_year`, `get_month`+1, `get_date`, `get_hours`, `get_minutes`,
+  `get_seconds` — avoids `std::time` which is unavailable in WASM.
+  Second-precision timestamps prevent filename collisions on rapid exports.
