@@ -1,0 +1,35 @@
+# Generated files
+/target/
+/dist/
+/pkg/
+
+# Trunk
+/.trunk/
+
+# wasm / cargo
+/node_modules/
+/.cargo/
+
+# Shader cache (if any editor tooling generates these)
+*.spv
+
+# Ad-hoc scratch / borrow-test files dropped in the project root
+test_borrow*.rs
+test_borrow*.exe
+test_borrow*.pdb
+
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

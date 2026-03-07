@@ -1,0 +1,574 @@
+:root {
+  --color-brass:        #8B6914;
+  --color-brass-bright: #D4A017;
+  --color-copper:       #4A7C59;
+  --color-soot:         #1A1A1A;
+  --color-soot-mid:     #242424;
+  --color-soot-light:   #2e2e2e;
+  --color-parchment:    #C4A35A;
+  --color-ivory:        #F5F0E0;
+
+  --font-heading: 'Cinzel', serif;          /* Victorian / mechanical */
+  --font-mono:    'Courier Prime', monospace; /* instrument readouts */
+
+  --panel-width:        260px;
+  --panel-collapsed-w:  2.5rem;
+  --canvas-size:        800px;
+  --border-width:       3px;
+  --btn-radius:         3px;
+  --transition-panel:   width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Base reset ─────────────────────────────────────────────────────────────── */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  background-color: var(--color-soot);
+  color: var(--color-ivory);
+  font-family: var(--font-mono);
+}
+
+/* ── Root layout ────────────────────────────────────────────────────────────── */
+
+#rw-teleidoscope-root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────────── */
+
+#app-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 1rem;
+  background-color: #0e0e0e;
+  border-bottom: var(--border-width) solid var(--color-brass);
+  flex-shrink: 0;
+}
+
+.app-title {
+  font-family: var(--font-heading);
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--color-brass-bright);
+  letter-spacing: 0.2em;
+  margin-right: auto;
+  text-transform: uppercase;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* ── Button base ─────────────────────────────────────────────────────────────── */
+
+button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  letter-spacing: 0.06em;
+  border-radius: var(--btn-radius);
+  border: 2px solid var(--color-brass);
+  background: linear-gradient(to bottom, #a07820 0%, #6b4e10 100%);
+  color: var(--color-ivory);
+  box-shadow:
+    0 3px 6px rgba(0, 0, 0, 0.7),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  transition: background 0.15s, box-shadow 0.1s, transform 0.1s;
+  user-select: none;
+}
+
+button:hover:not(:disabled) {
+  background: linear-gradient(to bottom, #c8951e 0%, #8b6914 100%);
+  border-color: var(--color-brass-bright);
+  color: #fff;
+}
+
+button:active:not(:disabled) {
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.7),
+    inset 0 2px 4px rgba(0, 0, 0, 0.45);
+  transform: translateY(1px);
+}
+
+button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-icon {
+  flex-shrink: 0;
+}
+
+/* ── Header buttons ─────────────────────────────────────────────────────────── */
+
+.header-btn {
+  padding: 0.35rem 0.85rem;
+  font-size: 0.8rem;
+}
+
+/* ── Main layout ─────────────────────────────────────────────────────────────── */
+
+.main-layout {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  align-items: flex-start;
+}
+
+/* ── Controls panel ─────────────────────────────────────────────────────────── */
+
+.controls-panel {
+  width: var(--panel-width);
+  flex-shrink: 0;
+  overflow: hidden;
+  transition: var(--transition-panel);
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-soot);
+  background-image: radial-gradient(
+    circle,
+    rgba(139, 105, 20, 0.12) 1px,
+    transparent 1px
+  );
+  background-size: 24px 24px;
+  border-right: var(--border-width) solid var(--color-brass);
+  height: 100%;
+}
+
+.controls-panel.is-collapsed {
+  width: var(--panel-collapsed-w);
+}
+
+/* ── Panel collapse toggle ──────────────────────────────────────────────────── */
+
+.panel-toggle-btn {
+  width: 100%;
+  padding: 0.45rem 0.5rem;
+  font-size: 0.75rem;
+  background: var(--color-soot-mid);
+  border: none;
+  border-bottom: 1px solid var(--color-brass);
+  border-radius: 0;
+  color: var(--color-parchment);
+  box-shadow: none;
+  justify-content: flex-start;
+  white-space: nowrap;
+}
+
+.panel-toggle-btn:hover:not(:disabled) {
+  background: var(--color-soot-light);
+  color: var(--color-brass-bright);
+  border-bottom-color: var(--color-brass-bright);
+}
+
+.panel-toggle-btn:active:not(:disabled) {
+  transform: none;
+  background: var(--color-soot);
+}
+
+.toggle-label {
+  font-family: var(--font-heading);
+  font-size: 0.72rem;
+  letter-spacing: 0.15em;
+}
+
+/* ── Panel scrollable content ───────────────────────────────────────────────── */
+
+.panel-content {
+  width: var(--panel-width);
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1;
+  padding: 0.5rem 0.75rem 1rem;
+  /* Subtle scrollbar styling */
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-brass) var(--color-soot);
+}
+
+.panel-content::-webkit-scrollbar {
+  width: 5px;
+}
+.panel-content::-webkit-scrollbar-track {
+  background: var(--color-soot);
+}
+.panel-content::-webkit-scrollbar-thumb {
+  background: var(--color-brass);
+  border-radius: 2px;
+}
+
+/* ── Section dividers ───────────────────────────────────────────────────────── */
+
+.section-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.9rem 0 0.5rem;
+}
+
+.section-divider::before,
+.section-divider::after {
+  content: '';
+  flex: 1;
+  height: 2px;
+  background: var(--color-brass);
+}
+
+.section-label {
+  font-family: var(--font-heading);
+  font-size: 0.65rem;
+  color: var(--color-brass-bright);
+  letter-spacing: 0.2em;
+  white-space: nowrap;
+}
+
+/* ── Control rows ────────────────────────────────────────────────────────────── */
+
+.control-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.5rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid rgba(139, 105, 20, 0.18);
+}
+
+.control-label {
+  font-family: var(--font-heading);
+  font-size: 0.65rem;
+  color: var(--color-parchment);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  min-width: 72px;
+}
+
+.control-value {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-brass-bright);
+  min-width: 2.8rem;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.control-hint {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--color-brass);
+  font-style: italic;
+  flex: 1;
+}
+
+/* ── Gauge-rail sliders ─────────────────────────────────────────────────────── */
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1;
+  min-width: 0;
+  height: 6px;
+  background: var(--color-soot-light);
+  border: 1px solid var(--color-brass);
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+}
+
+/* Firefox track */
+input[type="range"]::-moz-range-track {
+  height: 6px;
+  background: var(--color-soot-light);
+  border: 1px solid var(--color-brass);
+  border-radius: 3px;
+}
+
+/* WebKit / Blink thumb */
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, var(--color-brass-bright), var(--color-brass));
+  border: 2px solid #5a3f00;
+  box-shadow:
+    0 2px 5px rgba(0, 0, 0, 0.7),
+    inset 0 1px 2px rgba(255, 255, 255, 0.25);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  background: radial-gradient(circle at 35% 35%, #f0c830, var(--color-brass-bright));
+}
+
+/* Firefox thumb */
+input[type="range"]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, var(--color-brass-bright), var(--color-brass));
+  border: 2px solid #5a3f00;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.7);
+  cursor: pointer;
+}
+
+/* ── Lever toggle switches ──────────────────────────────────────────────────── */
+
+/* Wrapper label acts as the visible toggle; hides the real checkbox */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 46px;
+  height: 24px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.toggle-switch input[type="checkbox"] {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+/* Track (lever channel) */
+.toggle-lever {
+  position: absolute;
+  inset: 0;
+  background: var(--color-soot-light);
+  border: 2px solid var(--color-brass);
+  border-radius: 12px;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+/* Knob (lever handle) */
+.toggle-lever::before {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  top: 2px;
+  left: 2px;
+  background: radial-gradient(circle at 35% 35%, #c49b1f, var(--color-brass));
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
+  transition: transform 0.2s, background 0.2s;
+}
+
+.toggle-switch input:checked + .toggle-lever {
+  background: rgba(74, 124, 89, 0.3);
+  border-color: var(--color-copper);
+}
+
+.toggle-switch input:checked + .toggle-lever::before {
+  transform: translateX(22px);
+  background: radial-gradient(circle at 35% 35%, #7acc90, var(--color-copper));
+}
+
+/* ── Surprise Me button ─────────────────────────────────────────────────────── */
+
+.surprise-button {
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  margin-top: 0.9rem;
+  font-size: 0.8rem;
+  font-family: var(--font-heading);
+  letter-spacing: 0.12em;
+  background: linear-gradient(to bottom, #a07820 0%, #5a3900 100%);
+  border: 2px solid var(--color-brass-bright);
+  box-shadow:
+    0 3px 8px rgba(0, 0, 0, 0.7),
+    inset 0 1px 0 rgba(255, 220, 80, 0.15);
+}
+
+.surprise-button:hover:not(:disabled) {
+  background: linear-gradient(to bottom, #cfaa28 0%, #7a5010 100%);
+  border-color: #f0d050;
+}
+
+/* ── Export menu ─────────────────────────────────────────────────────────────── */
+
+.export-menu {
+  position: relative;
+  margin-top: 0.5rem;
+}
+
+.export-button {
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.8rem;
+  font-family: var(--font-heading);
+  letter-spacing: 0.12em;
+}
+
+.export-dropdown {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--color-soot-mid);
+  border: 2px solid var(--color-brass);
+  border-radius: var(--btn-radius);
+  padding: 0.5rem;
+  z-index: 20;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.8);
+}
+
+.export-option {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0;
+  font-size: 0.78rem;
+  color: var(--color-parchment);
+  cursor: pointer;
+}
+
+.export-option:hover {
+  color: var(--color-brass-bright);
+}
+
+.export-divider {
+  border: none;
+  border-top: 1px solid var(--color-brass);
+  margin: 0.4rem 0;
+}
+
+.download-button {
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.78rem;
+  font-family: var(--font-heading);
+  letter-spacing: 0.1em;
+}
+
+/* ── Canvas container + placeholder ────────────────────────────────────────── */
+
+.canvas-container {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 0.5rem;
+  overflow: hidden;
+  position: relative;
+}
+
+#kaleidoscope-canvas {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  /* HTML width/height attrs stay 800×800 (the GPU drawing buffer).
+     CSS scales it to fill available space while preserving 1:1 aspect ratio. */
+}
+
+.canvas-placeholder {
+  position: absolute;
+  inset: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.placeholder-inner {
+  text-align: center;
+  padding: 2rem 3rem;
+  border: 2px dashed var(--color-brass);
+  color: var(--color-parchment);
+  background-color: rgba(26, 26, 26, 0.85);
+}
+
+.placeholder-icon {
+  display: block;
+  font-size: 2.5rem;
+  margin-bottom: 0.75rem;
+  color: var(--color-brass-bright);
+}
+
+.placeholder-formats {
+  margin-top: 0.75rem;
+  font-size: 0.8rem;
+  color: var(--color-brass);
+  letter-spacing: 0.1em;
+}
+
+/* ── Camera overlay ──────────────────────────────────────────────────────────── */
+
+.camera-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.camera-modal {
+  background: var(--color-soot-mid);
+  border: var(--border-width) solid var(--color-brass);
+  border-radius: 4px;
+  padding: 1.25rem;
+  min-width: 340px;
+  max-width: 90vw;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.9);
+}
+
+.camera-modal-title {
+  font-family: var(--font-heading);
+  font-size: 0.9rem;
+  color: var(--color-brass-bright);
+  letter-spacing: 0.18em;
+  text-align: center;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--color-brass);
+  margin-bottom: 0.75rem;
+}
+
+.camera-preview {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background: #000;
+  border: 1px solid var(--color-brass);
+  border-radius: 2px;
+  margin-bottom: 0.75rem;
+}
+
+.camera-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.camera-error {
+  color: #f87171;
+  font-size: 0.8rem;
+  margin-top: 0.5rem;
+  text-align: center;
+}
+
+/* ── Stub / disabled states ──────────────────────────────────────────────────── */
+
+.header-btn--stub {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+

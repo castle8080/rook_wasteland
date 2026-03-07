@@ -1,0 +1,55 @@
+[package]
+name = "rw_teleidoscope"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+# When set, suppresses the #[wasm_bindgen(start)] entry point so the
+# wasm-bindgen-test harness can inject its own `main` without conflict.
+# Pass `--features wasm-test` to wasm-pack / cargo test when running
+# browser integration tests.
+wasm-test = []
+
+[dependencies]
+leptos             = { version = "0.8", features = ["csr"] }
+glow               = { version = "0.13", default-features = false }
+wasm-bindgen       = "0.2"
+wasm-bindgen-futures = "0.4"
+web-sys            = { version = "0.3", features = [
+  # DOM / Canvas
+  "Window", "Document", "HtmlCanvasElement", "HtmlVideoElement",
+  "HtmlInputElement", "HtmlImageElement", "CanvasRenderingContext2d",
+  "Element", "NodeList", "ImageData",
+  # File / Camera
+  "File", "FileList", "FileReader", "Blob", "Url", "DataTransfer",
+  "MediaDevices", "MediaStream", "MediaStreamConstraints",
+  "MediaStreamTrack",
+  # Events
+  "Event", "MouseEvent", "PointerEvent", "DragEvent",
+  "ProgressEvent", "EventTarget",
+  # Download anchor
+  "HtmlAnchorElement",
+  # Node (append_child / remove_child used in download trigger)
+  "Node", "HtmlBodyElement",
+  # WebGL (used only to obtain the raw context for glow)
+  "WebGl2RenderingContext", "WebGlContextAttributes",
+  # Console (error reporting)
+  "console",
+  # Misc
+  "Navigator", "Location", "Performance",
+] }
+js-sys             = "0.3"
+gloo-events        = "0.2"
+console_error_panic_hook = "0.1"
+
+[dev-dependencies]
+wasm-bindgen-test  = "0.3"
+glow               = { version = "0.13", default-features = false }
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
