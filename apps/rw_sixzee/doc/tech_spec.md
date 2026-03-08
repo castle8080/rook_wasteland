@@ -581,16 +581,17 @@ The closing quote tier is computed from the player's final grand total:
 tier = grand_total / THEORETICAL_MAX_SCORE
 ```
 
-`THEORETICAL_MAX_SCORE` is a `const u32` in `src/state/quotes.rs`, initially set to
-**1200** as a placeholder and calibrated during M3 through playtesting.
+`THEORETICAL_MAX_SCORE` is a `const u32` in `src/state/quotes.rs`. Calibrated during M3
+via a 5,000-game simulation (greedy strategy): median 1,005 · 90th pct 1,146 · 95th pct 1,190.
+Value: **1500**.
 
-| Tier | Score range |
-|------|-------------|
-| `great` | ≥ 80% |
-| `good` | 60–80% |
-| `ok` | 40–60% |
-| `bad` | 20–40% |
-| `really_bad` | < 20% |
+| Tier | Score range | Approx. frequency (simulation) |
+|------|-------------|--------------------------------|
+| `great` | ≥ 80% (≥ 1200) | ~3% greedy / ~15% skilled |
+| `good` | 67–80% (1005–1199) | ~47% |
+| `ok` | 57–67% (855–1004) | ~40% (median falls here) |
+| `bad` | 48–57% (720–854) | ~8% |
+| `really_bad` | < 48% (< 720) | ~2% |
 
 ### 11.3 JSON Asset Schema
 
@@ -637,7 +638,7 @@ pub struct ClosingQuotes {
 
 pub enum PerformanceTier { ReallyBad, Bad, Ok, Good, Great }
 
-pub const THEORETICAL_MAX_SCORE: u32 = 1200; // placeholder; calibrated in M3
+pub const THEORETICAL_MAX_SCORE: u32 = 1500; // calibrated M3; see quotes.rs for simulation notes
 
 pub fn compute_tier(grand_total: u32) -> PerformanceTier { ... }
 pub fn pick_quote(pool: &[String]) -> Option<&str>  // random selection; None if pool empty
