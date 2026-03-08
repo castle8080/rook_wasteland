@@ -159,3 +159,89 @@ File path: `assets/grandma_quotes.json`
 - **Score calibration:** The `THEORETICAL_MAX_SCORE` used for tier computation is a placeholder
   until real gameplay data is collected. The tier thresholds can be adjusted without changing the
   quote content — they are separate constants.
+
+---
+
+## Implementation Notes
+
+### Voice development
+
+The character was established through a detailed biographical brief from the project owner rather
+than a generic creative brief. Key decisions made during voice development:
+
+- **Survival as the lens, not harshness.** Early drafts risked making Grandma simply blunt.
+  The key framing was that everything hard she says is said *because she thinks it will help you
+  survive* — not to hurt you. This distinction is the difference between mean and honest, and it
+  is documented explicitly in `doc/grandma_soul.md`.
+
+- **"Nice is different than good."** The character was explicitly aligned with this distinction.
+  She is not warm. She is good. Warmth-for-its-own-sake was identified as a disqualifying pattern
+  for any quote and is listed in the soul document's "what she would never say" section.
+
+- **Spirit over strategy.** Her belief that luck follows spirit, not tactics, is the core of
+  her relationship with dice. This came directly from the owner's description of her correcting
+  how he rolled — "you're fighting luck." Every quote pool was checked against this lens: does
+  this sound like someone who believes dice reveal character?
+
+- **Observation, not instruction.** She states what she sees. She does not advise. Quotes written
+  as instructions ("you should...") were rewritten as observations ("you didn't..."). This is
+  documented in the generation checklist in `doc/grandma_soul.md`.
+
+### Quote generation
+
+- **Double pass.** An initial set of ~81 quotes was generated, reviewed, and then doubled to
+  161 in a second pass. The second pass was specifically asked to find *new angles* rather than
+  repeat themes. This ensured variety within each pool without diluting voice consistency.
+
+- **Terse is correct.** Some of the most effective quotes are a single sentence or even a single
+  word ("Adequate."). The temptation to add a second sentence for clarity was identified as a
+  voice error early and resisted throughout.
+
+- **Sixzee restraint.** The rare all-five-same outcome was the hardest to write. The instinct is
+  to make these celebratory. The decision was to make them *witnessing* instead — she notes it,
+  she does not perform excitement. "There it is." and "Hm. All five." became the anchors.
+
+- **Scratch as acceptance, not punishment.** The scratch pool was intentionally kept free of
+  judgment. Grandma respects the decision to cut a losing round. The tone is quiet acknowledgment
+  of a hard choice, not a lecture about failure.
+
+### `doc/grandma_soul.md`
+
+A character soul document was created as an explicit deliverable (not in the original milestone
+spec) because the owner intends to generate additional quotes in future sessions. Without a
+written voice guide, voice drift across sessions is nearly inevitable. The document covers:
+- Worldview, what she respects, what she has no use for
+- Voice register, vocabulary, rhythm with concrete examples
+- An 8-question generation checklist
+- Per-tier emotional tone descriptions
+
+This document is referenced in `.github/copilot-instructions.md` and should be loaded as a
+prompt preamble in any future quote-generation session.
+
+### Score calibration
+
+The original `THEORETICAL_MAX_SCORE` placeholder of 1200 was discovered to be **below the
+median game score** from simulation — it would have placed most games in the `great` tier,
+making Grandma's highest praise the default experience.
+
+Calibration was done via a Python simulation (5,000 games, greedy strategy):
+
+| Percentile | Score |
+|------------|-------|
+| min        |   683 |
+| 10th       |   882 |
+| median     | 1,005 |
+| 90th       | 1,146 |
+| 95th       | 1,190 |
+| max        | 1,681 |
+
+The original symmetric 20/40/60/80% thresholds were replaced with asymmetric 48/57/67/80%
+thresholds to match the actual score distribution (which is tightly clustered around 950–1150,
+not spread evenly across a wide range). Final values:
+
+- `THEORETICAL_MAX_SCORE = 1500`
+- `great ≥ 1200` · `good 1005–1199` · `ok 855–1004` · `bad 720–854` · `really_bad < 720`
+
+The design intent is that median play earns "Adequate" from Grandma (`ok`), which fits her
+character — she is not easily impressed. Exceptional play (~top 15% for a skilled player)
+earns `great`.
