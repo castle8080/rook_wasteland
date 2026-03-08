@@ -22,13 +22,13 @@ configuration, and the foundational error-handling plumbing that all other miles
 - [x] `python make.py build` produces a valid WASM build with no compiler errors or warnings
 - [x] `python make.py lint` passes with zero clippy warnings
 - [x] `python make.py test` runs (zero tests is acceptable; native harness must not error)
-- [ ] App loads at `http://localhost:8080/rw_sixzee/` (or trunk serve equivalent) and renders a placeholder game screen
-- [ ] Hash-based navigation works: manually changing URL hash to `#/history` and `#/settings` renders placeholder
+- [x] App loads at `http://localhost:8080/rw_sixzee/` (or trunk serve equivalent) and renders a placeholder game screen
+- [x] Hash-based navigation works: manually changing URL hash to `#/history` and `#/settings` renders placeholder
   screens; `#/` and `#/game` render the placeholder game screen
-- [ ] Tab bar is visible on game, history, and settings screens; clicking each tab updates the hash and active state
-- [ ] Tab bar is NOT rendered on the resume-prompt placeholder screen
-- [ ] An `AppError::Storage` posted via `report_error()` causes the `ErrorBanner` to appear without crashing the app
-- [ ] A fatal `AppError::Internal` posted via `report_error()` causes the `ErrorOverlay` to appear
+- [x] Tab bar is visible on game, history, and settings screens; clicking each tab updates the hash and active state
+- [x] Tab bar is NOT rendered on the resume-prompt placeholder screen
+- [x] An `AppError::Storage` posted via `report_error()` causes the `ErrorBanner` to appear without crashing the app
+- [x] A fatal `AppError::Internal` posted via `report_error()` causes the `ErrorOverlay` to appear
 - [x] `clippy::unwrap_used = "deny"` is enforced in `Cargo.toml` lints
 
 ---

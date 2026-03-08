@@ -398,6 +398,68 @@ mod tests {
     // ── Column totals ──
 
     #[test]
+    fn upper_subtotal_sums_rows_0_to_5() {
+        let mut col = [None; 13];
+        col[ROW_ONES] = Some(3);
+        col[ROW_SIXES] = Some(30);
+        assert_eq!(upper_subtotal(&col), 33);
+    }
+
+    #[test]
+    fn upper_subtotal_ignores_lower_rows() {
+        let mut col = [None; 13];
+        col[ROW_CHANCE] = Some(25); // lower row — must not count
+        assert_eq!(upper_subtotal(&col), 0);
+    }
+
+    #[test]
+    fn upper_subtotal_skips_none_cells() {
+        let col = [None; 13]; // all empty
+        assert_eq!(upper_subtotal(&col), 0);
+    }
+
+    #[test]
+    fn lower_subtotal_sums_rows_6_to_12() {
+        let mut col = [None; 13];
+        col[ROW_THREE_OF_A_KIND] = Some(15);
+        col[ROW_CHANCE] = Some(20);
+        assert_eq!(lower_subtotal(&col), 35);
+    }
+
+    #[test]
+    fn lower_subtotal_ignores_upper_rows() {
+        let mut col = [None; 13];
+        col[ROW_ONES] = Some(5); // upper row — must not count
+        assert_eq!(lower_subtotal(&col), 0);
+    }
+
+    #[test]
+    fn lower_subtotal_zero_when_empty() {
+        let col = [None; 13];
+        assert_eq!(lower_subtotal(&col), 0);
+    }
+
+    #[test]
+    fn column_total_includes_upper_bonus_when_threshold_met() {
+        let mut col = [None; 13];
+        // Upper: 63 exactly → earns +35 bonus
+        col[ROW_SIXES] = Some(30);
+        col[ROW_FIVES] = Some(25);
+        col[ROW_FOURS] = Some(8); // 30+25+8 = 63
+        // Lower: Full House = 25
+        col[ROW_FULL_HOUSE] = Some(25);
+        assert_eq!(column_total(&col), 63 + 35 + 25);
+    }
+
+    #[test]
+    fn column_total_no_bonus_below_threshold() {
+        let mut col = [None; 13];
+        col[ROW_SIXES] = Some(12); // upper = 12, no bonus
+        col[ROW_CHANCE] = Some(20); // lower = 20
+        assert_eq!(column_total(&col), 12 + 0 + 20);
+    }
+
+    #[test]
     fn upper_bonus_boundary() {
         let mut col = [None; 13];
         // 62 → no bonus
@@ -424,6 +486,17 @@ mod tests {
         // column_total per col = 10 + 0 (no bonus) + 5 = 15, × 6 = 90
         // plus bonus pool 200
         assert_eq!(grand_total(&cells, 200), 290);
+    }
+
+    #[test]
+    fn grand_total_includes_upper_bonus_contribution() {
+        let mut cells = [[None; 13]; 6];
+        // Col 0: upper = 63 → earns +35; all others empty.
+        cells[0][ROW_SIXES] = Some(30);
+        cells[0][ROW_FIVES] = Some(25);
+        cells[0][ROW_FOURS] = Some(8); // 63
+        // col 0 total = 63 + 35 = 98; cols 1–5 total = 0; bonus = 0
+        assert_eq!(grand_total(&cells, 0), 98);
     }
 
     #[test]

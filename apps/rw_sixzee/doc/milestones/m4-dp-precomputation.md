@@ -22,17 +22,17 @@ repo and included at compile time in the Worker binary. Running the solver is on
 
 ## Success Criteria
 
-- [ ] `cd offline && cargo run --release` completes in under 5 seconds and produces `generated/v_col.rs`
-- [ ] `V_COL[0b1_1111_1111_1111]` (all 13 bits set — all cells filled) equals `0.0` exactly
-- [ ] `V_COL[0]` (no cells filled, empty column) is in the range **230.0 – 280.0** (theoretical single-column
+- [x] `cd offline && cargo run --release` completes in under 5 seconds and produces `generated/v_col.rs`
+- [x] `V_COL[0b1_1111_1111_1111]` (all 13 bits set — all cells filled) equals `0.0` exactly
+- [x] `V_COL[0]` (no cells filled, empty column) is in the range **230.0 – 280.0** (theoretical single-column
   optimum for Sixzee is approximately 254; value should be in this neighborhood)
-- [ ] `YZ_BONUS_CORRECTION[0]` (6 Sixzee cells open, bonus not forfeited) is positive and reasonable
+- [x] `YZ_BONUS_CORRECTION[0]` (6 Sixzee cells open, bonus not forfeited) is positive and reasonable
   (expected bonus pool contribution when all cells available)
-- [ ] `YZ_BONUS_CORRECTION[7]` (0 Sixzee cells open, not forfeited) equals `0.0`
+- [x] `YZ_BONUS_CORRECTION[7]` (0 Sixzee cells open, not forfeited) equals `0.0`
   (no open cells, no future bonus possible)
-- [ ] The generated file compiles into the Worker crate without error (validated in M7, but
+- [x] The generated file compiles into the Worker crate without error (validated in M7, but
   format/syntax must be correct)
-- [ ] All 8,192 entries are finite (no NaN, no Inf) — enforced by an assertion in the solver
+- [x] All 8,192 entries are finite (no NaN, no Inf) — enforced by an assertion in the solver
 
 ---
 

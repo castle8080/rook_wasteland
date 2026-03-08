@@ -15,6 +15,9 @@ test_*.rs
 test_*.exe
 test_*.pdb
 
+# Windows NUL-device compiler artifacts (rustc bug on Windows)
+NUL.*.rcgu.o
+
 # Environment and secrets
 .env
 .env.local

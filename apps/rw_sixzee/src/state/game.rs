@@ -226,7 +226,7 @@ fn current_iso8601() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::scoring::{ROW_CHANCE, ROW_ONES, ROW_SIXES, ROW_SIXZEE};
+    use crate::state::scoring::{ROW_CHANCE, ROW_COUNT, ROW_ONES, ROW_SIXES, ROW_SIXZEE};
 
     fn filled_game() -> GameState {
         let mut g = new_game();
@@ -476,6 +476,46 @@ mod tests {
         let preview = score_preview_all(&g);
         assert_eq!(preview[0][ROW_ONES], 0); // already filled → 0
         assert_eq!(preview[1][ROW_ONES], 3); // unfilled → score
+    }
+
+    // ── roll → detect_bonus_sixzee integration ──
+
+    #[test]
+    fn roll_triggers_bonus_sixzee_when_held_dice_form_sixzee() {
+        // Hold all five dice to the same value so roll() leaves them unchanged,
+        // then confirm detect_bonus_sixzee fires via the roll() code path.
+        let mut g = game_with_all_sixzee_filled(50);
+        g.dice = [Some(4), Some(4), Some(4), Some(4), Some(4)];
+        g.held = [true; 5];
+        g.rolls_used = 1;
+        roll(&mut g).expect("roll should succeed");
+        // detect_bonus_sixzee was invoked inside roll: pool += 100, start_turn called
+        assert_eq!(g.bonus_pool, 100);
+        assert_eq!(g.dice, [None; 5]);
+    }
+
+    // ── place_score bounds ──
+
+    #[test]
+    fn place_score_returns_error_on_out_of_bounds_col() {
+        let mut g = new_game();
+        g.dice = [Some(1), Some(1), Some(1), Some(1), Some(1)];
+        g.rolls_used = 1;
+        assert!(matches!(
+            place_score(&mut g, 6, ROW_ONES),
+            Err(AppError::Internal(_))
+        ));
+    }
+
+    #[test]
+    fn place_score_returns_error_on_out_of_bounds_row() {
+        let mut g = new_game();
+        g.dice = [Some(1), Some(1), Some(1), Some(1), Some(1)];
+        g.rolls_used = 1;
+        assert!(matches!(
+            place_score(&mut g, 0, ROW_COUNT),
+            Err(AppError::Internal(_))
+        ));
     }
 
     // ── JSON round-trip ──

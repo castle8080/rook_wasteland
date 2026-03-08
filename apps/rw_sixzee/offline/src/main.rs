@@ -604,4 +604,140 @@ mod tests {
             assert!(v.is_finite(), "v_col[{i}] not finite");
         }
     }
+
+    // ── score_for_row — full row coverage ────────────────────────────────────
+    //
+    // The offline solver duplicates scoring logic from src/state/scoring.rs.
+    // These tests guard against silent divergence between the two copies.
+
+    #[test]
+    fn score_for_row_upper_sections() {
+        assert_eq!(score_for_row(ROW_TWOS, [2, 2, 3, 4, 5]), 4);
+        assert_eq!(score_for_row(ROW_TWOS, [1, 3, 4, 5, 6]), 0);
+        assert_eq!(score_for_row(ROW_THREES, [3, 3, 3, 1, 2]), 9);
+        assert_eq!(score_for_row(ROW_THREES, [1, 2, 4, 5, 6]), 0);
+        assert_eq!(score_for_row(ROW_FOURS, [4, 4, 1, 2, 3]), 8);
+        assert_eq!(score_for_row(ROW_FOURS, [1, 2, 3, 5, 6]), 0);
+        assert_eq!(score_for_row(ROW_FIVES, [5, 5, 5, 1, 2]), 15);
+        assert_eq!(score_for_row(ROW_FIVES, [1, 2, 3, 4, 6]), 0);
+        assert_eq!(score_for_row(ROW_SIXES, [6, 6, 1, 2, 3]), 12);
+        assert_eq!(score_for_row(ROW_SIXES, [1, 2, 3, 4, 5]), 0);
+    }
+
+    #[test]
+    fn score_for_row_three_of_a_kind() {
+        assert_eq!(score_for_row(ROW_THREE_OF_A_KIND, [3, 3, 3, 1, 2]), 12);
+        assert_eq!(score_for_row(ROW_THREE_OF_A_KIND, [4, 4, 4, 4, 2]), 18); // 4-of-a-kind satisfies ≥3
+        assert_eq!(score_for_row(ROW_THREE_OF_A_KIND, [1, 2, 3, 4, 5]), 0);
+    }
+
+    #[test]
+    fn score_for_row_four_of_a_kind() {
+        assert_eq!(score_for_row(ROW_FOUR_OF_A_KIND, [5, 5, 5, 5, 2]), 22);
+        assert_eq!(score_for_row(ROW_FOUR_OF_A_KIND, [6, 6, 6, 6, 6]), 30); // 5-of-a-kind satisfies ≥4
+        assert_eq!(score_for_row(ROW_FOUR_OF_A_KIND, [3, 3, 3, 1, 2]), 0);
+    }
+
+    #[test]
+    fn score_for_row_full_house() {
+        assert_eq!(score_for_row(ROW_FULL_HOUSE, [2, 2, 3, 3, 3]), 25);
+        assert_eq!(score_for_row(ROW_FULL_HOUSE, [1, 1, 1, 6, 6]), 25);
+        assert_eq!(score_for_row(ROW_FULL_HOUSE, [4, 4, 4, 4, 4]), 0); // 5-of-a-kind has no separate pair
+        assert_eq!(score_for_row(ROW_FULL_HOUSE, [1, 2, 3, 4, 5]), 0);
+    }
+
+    #[test]
+    fn score_for_row_small_straight() {
+        assert_eq!(score_for_row(ROW_SMALL_STRAIGHT, [1, 2, 3, 4, 6]), 30); // 1-2-3-4
+        assert_eq!(score_for_row(ROW_SMALL_STRAIGHT, [2, 3, 4, 5, 5]), 30); // 2-3-4-5
+        assert_eq!(score_for_row(ROW_SMALL_STRAIGHT, [3, 4, 5, 6, 1]), 30); // 3-4-5-6
+        assert_eq!(score_for_row(ROW_SMALL_STRAIGHT, [1, 1, 2, 3, 5]), 0);
+    }
+
+    #[test]
+    fn score_for_row_large_straight() {
+        assert_eq!(score_for_row(ROW_LARGE_STRAIGHT, [1, 2, 3, 4, 5]), 40);
+        assert_eq!(score_for_row(ROW_LARGE_STRAIGHT, [2, 3, 4, 5, 6]), 40);
+        assert_eq!(score_for_row(ROW_LARGE_STRAIGHT, [1, 2, 3, 4, 6]), 0); // gap
+        assert_eq!(score_for_row(ROW_LARGE_STRAIGHT, [1, 1, 2, 3, 4]), 0); // duplicate
+    }
+
+    #[test]
+    fn score_for_row_chance() {
+        assert_eq!(score_for_row(ROW_CHANCE, [1, 2, 3, 4, 5]), 15);
+        assert_eq!(score_for_row(ROW_CHANCE, [6, 6, 6, 6, 6]), 30);
+    }
+
+    // ── Transition distribution invariant ────────────────────────────────────
+
+    #[test]
+    fn transition_probabilities_sum_to_one() {
+        let multisets = enumerate_dice_multisets();
+        let lookup = build_lookup(&multisets);
+        let trans = precompute_transitions(&multisets, &lookup);
+        for (d_idx, hold_dists) in trans.iter().enumerate() {
+            for (h_idx, dist) in hold_dists.iter().enumerate() {
+                let total: f64 = dist.iter().map(|&(_, p)| p).sum();
+                assert!(
+                    (total - 1.0).abs() < 1e-9,
+                    "trans[{d_idx}][{h_idx}] probs sum to {total}, expected 1.0"
+                );
+            }
+        }
+    }
+
+    // ── YZ_BONUS_CORRECTION full table ────────────────────────────────────────
+
+    #[test]
+    fn yz_bonus_correction_full_table() {
+        let (_, yz) = solve();
+        // Not-forfeited: index = 6 - n, value = n × 15.0
+        for n in 0usize..=6 {
+            let idx = 6 - n;
+            let expected = (n as f32) * 15.0;
+            assert!(
+                (yz[idx] - expected).abs() < 1e-4,
+                "YZ_BONUS_CORRECTION[{idx}] = {}, expected {expected} (n_sixzee_open={n})",
+                yz[idx]
+            );
+        }
+        // Forfeited: all 0.0
+        for i in 7..14 {
+            assert_eq!(
+                yz[i], 0.0,
+                "YZ_BONUS_CORRECTION[{i}] (forfeited) must be 0.0"
+            );
+        }
+    }
+
+    // ── V_COL monotonicity ────────────────────────────────────────────────────
+
+    #[test]
+    fn v_col_filling_row_never_increases_value() {
+        let (v_col, _) = solve();
+        // For a representative sample of fill patterns, filling any open row must
+        // not increase V_COL (more rows filled = fewer scoring opportunities left).
+        let sample = [
+            0usize,
+            0b000_0000_0001,
+            0b000_0010_1010,
+            0b001_1110_0000,
+            0b011_0000_1111,
+            0b111_0111_0000,
+        ];
+        for &fill in &sample {
+            for row in 0..ROW_COUNT {
+                if fill & (1 << row) == 0 {
+                    let next = fill | (1 << row);
+                    assert!(
+                        v_col[fill] >= v_col[next],
+                        "v_col[{fill:#015b}]={} < v_col[{next:#015b}]={}: \
+                         filling row {row} should not increase value",
+                        v_col[fill],
+                        v_col[next]
+                    );
+                }
+            }
+        }
+    }
 }
