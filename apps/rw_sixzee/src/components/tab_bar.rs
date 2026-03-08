@@ -1,5 +1,6 @@
 use leptos::prelude::*;
 use crate::router::{navigate, Route};
+use crate::state::{HideTabBar, ShowResume};
 
 /// Persistent bottom tab bar. Hidden (via inline style) while the resume
 /// prompt overlay or any game overlay (confirm_zero, opening quote) is visible.
@@ -9,9 +10,9 @@ pub fn TabBar() -> impl IntoView {
     let route =
         use_context::<RwSignal<Route>>().expect("route context must be provided");
     let show_resume =
-        use_context::<RwSignal<bool>>().expect("show_resume context must be provided");
+        use_context::<ShowResume>().expect("show_resume context must be provided").0;
     let hide_tab_bar =
-        use_context::<RwSignal<bool>>().expect("hide_tab_bar context must be provided");
+        use_context::<HideTabBar>().expect("hide_tab_bar context must be provided").0;
 
     let tab_style = move || {
         if show_resume.get() || hide_tab_bar.get() {

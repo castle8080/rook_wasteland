@@ -18,6 +18,7 @@ use crate::state::game::{new_game, prune_old_entries, score_preview_all, GameSta
 use crate::state::quotes::{load_quote_bank, QuoteBank};
 use crate::state::scoring::grand_total as compute_grand_total;
 use crate::state::storage;
+use crate::state::{HideTabBar, ShowOpeningQuote, ShowResume};
 
 fn get_initial_route() -> Route {
     web_sys::window()
@@ -69,13 +70,13 @@ pub fn App() -> impl IntoView {
 
     provide_context(route);
     provide_context(app_error);
-    provide_context(show_resume);
+    provide_context(ShowResume(show_resume));
     provide_context(game_signal);
     provide_context(grand_total);
     provide_context(score_preview);
     provide_context(quote_bank);
-    provide_context(show_opening_quote);
-    provide_context(hide_tab_bar);
+    provide_context(ShowOpeningQuote(show_opening_quote));
+    provide_context(HideTabBar(hide_tab_bar));
     provide_context(pending_resume);
 
     // ── M6: App load sequence ─────────────────────────────────────────────
@@ -119,6 +120,14 @@ pub fn App() -> impl IntoView {
         }
     }
 
+    // Keep hide_tab_bar in sync with overlay visibility.  Using an Effect (not
+    // a signal-set inside the view closure) avoids a secondary reactive flush
+    // that can cause the opening-quote overlay to persist after dismissal.
+    Effect::new(move |_| {
+        let quote_visible = show_opening_quote.get() && quote_bank.get().is_some();
+        hide_tab_bar.set(quote_visible || show_resume.get());
+    });
+
     // Register the hashchange listener using a raw wasm-bindgen Closure so
     // we avoid the Send+Sync requirement that on_cleanup imposes. App is
     // mounted once and never unmounted in a SPA, so cb.forget() is correct.
@@ -153,10 +162,8 @@ pub fn App() -> impl IntoView {
                 if show_opening_quote.get() && bank_ready {
                     let on_dismiss = Callback::new(move |_| {
                         show_opening_quote.set(false);
-                        hide_tab_bar.set(false);
+                        // hide_tab_bar is managed by the Effect above.
                     });
-                    // Ensure the tab bar is hidden while the overlay is up.
-                    hide_tab_bar.set(true);
                     return view! { <GrandmaQuoteOverlay on_dismiss=on_dismiss /> }.into_any();
                 }
                 if show_resume.get() {

@@ -6,6 +6,7 @@
 
 use leptos::prelude::*;
 
+use crate::state::HideTabBar;
 use crate::components::grandma_quote::GrandmaQuoteInline;
 use crate::state::game::GameState;
 use crate::state::quotes::{pick_quote, QuoteBank};
@@ -28,7 +29,7 @@ pub fn ConfirmZero(
     let quote_bank =
         use_context::<RwSignal<Option<QuoteBank>>>().expect("quote_bank context must be provided");
     let hide_tab_bar =
-        use_context::<RwSignal<bool>>().expect("hide_tab_bar context must be provided");
+        use_context::<HideTabBar>().expect("hide_tab_bar context must be provided").0;
 
     // Resolve a scratch quote once on mount.
     let scratch_quote: Option<String> = quote_bank

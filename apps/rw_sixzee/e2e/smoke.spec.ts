@@ -159,26 +159,29 @@ test.describe("M6 Persistence", () => {
     // Reload to trigger resume prompt.
     await page.reload({ waitUntil: "networkidle" });
 
+    // Hard-wait for the resume prompt — it must appear or the test should fail.
     const startNewBtn = page.locator(
       ".resume-prompt .btn--secondary, .resume-prompt button:has-text('Discard')"
     );
-    if (await startNewBtn.isVisible()) {
-      await startNewBtn.click();
-      await page.waitForTimeout(300);
+    await startNewBtn.waitFor({ state: "visible", timeout: 5000 });
+    await startNewBtn.click();
 
-      // Dismiss the opening-quote overlay that appears after Start New.
-      const letsPlay = page.locator(".grandma-quote-overlay .btn--primary");
-      if (await letsPlay.isVisible()) {
-        await letsPlay.click();
-        await page.waitForTimeout(200);
-      }
+    // After clicking "Discard and Start New" a new opening-quote overlay
+    // appears.  Use waitFor so we never miss it regardless of WASM render
+    // timing.  The overlay may take a tick to appear after the reactive flush.
+    const letsPlay = page.locator(".grandma-quote-overlay .btn--primary");
+    try {
+      await letsPlay.waitFor({ state: "visible", timeout: 3000 });
+      await letsPlay.click();
+    } catch {
+      // Quote bank not yet loaded — game view renders directly without overlay.
+    }
 
-      // Fresh game — all dice should show '?'
-      const diceButtons = page.locator(".dice-row button");
-      await expect(diceButtons).toHaveCount(5);
-      for (let i = 0; i < 5; i++) {
-        await expect(diceButtons.nth(i)).toHaveText("?");
-      }
+    // Fresh game — all dice should show '?'
+    const diceButtons = page.locator(".dice-row button");
+    await expect(diceButtons).toHaveCount(5);
+    for (let i = 0; i < 5; i++) {
+      await expect(diceButtons.nth(i)).toHaveText("?");
     }
   });
 });

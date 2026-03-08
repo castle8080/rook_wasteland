@@ -17,6 +17,7 @@ use crate::state::game::{
 use crate::state::quotes::{pick_quote, QuoteBank};
 use crate::state::scoring::score_sixzee;
 use crate::state::storage;
+use crate::state::{HideTabBar, ShowOpeningQuote};
 
 /// Called after every `place_score` invocation to handle localStorage persistence.
 ///
@@ -59,9 +60,9 @@ pub fn GameView() -> impl IntoView {
     let quote_bank =
         use_context::<RwSignal<Option<QuoteBank>>>().expect("quote_bank context must be provided");
     let hide_tab_bar =
-        use_context::<RwSignal<bool>>().expect("hide_tab_bar context must be provided");
+        use_context::<HideTabBar>().expect("hide_tab_bar context must be provided").0;
     let show_opening_quote =
-        use_context::<RwSignal<bool>>().expect("show_opening_quote context must be provided");
+        use_context::<ShowOpeningQuote>().expect("show_opening_quote context must be provided").0;
 
     // ── Local overlay state ──────────────────────────────────────────────────
 

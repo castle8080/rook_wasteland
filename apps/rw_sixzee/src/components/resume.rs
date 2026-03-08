@@ -3,6 +3,7 @@ use leptos::prelude::*;
 use crate::state::game::{new_game, GameState};
 use crate::state::scoring::grand_total;
 use crate::state::storage;
+use crate::state::{ShowOpeningQuote, ShowResume};
 
 /// Full-screen overlay shown when an in-progress game is detected in
 /// localStorage on app load. Presents game metadata and two choices:
@@ -15,13 +16,13 @@ use crate::state::storage;
 #[component]
 pub fn ResumePrompt() -> impl IntoView {
     let show_resume =
-        use_context::<RwSignal<bool>>().expect("show_resume context must be provided");
+        use_context::<ShowResume>().expect("show_resume context must be provided").0;
     let pending_resume = use_context::<RwSignal<Option<GameState>>>()
         .expect("pending_resume context must be provided");
     let game_signal =
         use_context::<RwSignal<GameState>>().expect("game_signal context must be provided");
     let show_opening_quote =
-        use_context::<RwSignal<bool>>().expect("show_opening_quote context must be provided");
+        use_context::<ShowOpeningQuote>().expect("show_opening_quote context must be provided").0;
 
     // Snapshot the saved state at component mount. `pending_resume` is always
     // `Some` when `show_resume` is `true`.
