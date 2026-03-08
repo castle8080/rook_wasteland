@@ -132,16 +132,16 @@ File path: `assets/grandma_quotes.json`
 
 ### Performance Tier Calibration
 
-- [ ] Play 5–10 test games and record scores
-- [ ] Review score distribution; confirm `THEORETICAL_MAX_SCORE` placeholder (1200) is reasonable
+- [x] Play 5–10 test games and record scores
+- [x] Review score distribution; confirm `THEORETICAL_MAX_SCORE` placeholder (1200) is reasonable
   or adjust the constant
-- [ ] Update the tier threshold percentages in `src/state/quotes.rs` if needed based on real data
+- [x] Update the tier threshold percentages in `src/state/quotes.rs` if needed based on real data
 
 ### File Creation
 
 - [x] Create `assets/grandma_quotes.json` with the final curated quotes
 - [x] Run JSON validation check
-- [ ] Commit `assets/grandma_quotes.json`
+- [x] Commit `assets/grandma_quotes.json`
 
 ---
 
