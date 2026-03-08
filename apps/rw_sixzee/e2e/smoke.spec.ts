@@ -228,10 +228,7 @@ test.describe("M7 Ask Grandma", () => {
     const btn = page
       .locator(".action-buttons button")
       .filter({ hasText: "ASK GRANDMA" });
-    // Button may still be disabled if the worker failed to load (e.g. no
-    // grandma_worker_core.js in dist yet).  We assert it is either enabled or
-    // explicitly disabled — never missing.
-    await expect(btn).toBeVisible();
+    await expect(btn).toBeEnabled();
   });
 
   test("clicking Ask Grandma opens the overlay panel", async ({ page }) => {
@@ -241,15 +238,10 @@ test.describe("M7 Ask Grandma", () => {
     const btn = page
       .locator(".action-buttons button")
       .filter({ hasText: "ASK GRANDMA" });
-    // Skip test if button is still disabled (worker binary not built yet).
-    if (await btn.isDisabled()) {
-      test.skip();
-      return;
-    }
-
+    await expect(btn).toBeEnabled();
     await btn.click();
 
-    // Overlay should appear within 2 s (worker init + computation).
+    // Overlay should appear within 5 s (worker init + computation).
     const overlay = page.locator(".overlay--grandma");
     await overlay.waitFor({ state: "visible", timeout: 5_000 });
     await expect(overlay).toBeVisible();
@@ -264,14 +256,10 @@ test.describe("M7 Ask Grandma", () => {
     const btn = page
       .locator(".action-buttons button")
       .filter({ hasText: "ASK GRANDMA" });
-    if (await btn.isDisabled()) {
-      test.skip();
-      return;
-    }
-
+    await expect(btn).toBeEnabled();
     await btn.click();
 
-    // Wait for cards to appear (worker must compute).
+    // Wait for cards to appear (worker must compute and respond).
     const cards = page.locator(".grandma-card");
     await cards.first().waitFor({ state: "visible", timeout: 10_000 });
     const count = await cards.count();
@@ -285,11 +273,7 @@ test.describe("M7 Ask Grandma", () => {
     const btn = page
       .locator(".action-buttons button")
       .filter({ hasText: "ASK GRANDMA" });
-    if (await btn.isDisabled()) {
-      test.skip();
-      return;
-    }
-
+    await expect(btn).toBeEnabled();
     await btn.click();
     await page.locator(".overlay--grandma").waitFor({ state: "visible", timeout: 5_000 });
 
