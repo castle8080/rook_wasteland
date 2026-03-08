@@ -298,3 +298,117 @@ time out. The WASM binary is fetched via a dynamic import *after* the HTML `load
 **Watch out for:** If `show_opening_quote` is true, `App` returns the `GrandmaQuoteOverlay` early
 and `.game-header` is NOT in the DOM. Smoke tests must check for `(.grandma-quote-overlay || .game-header)`
 rather than `.game-header` alone.
+
+---
+
+## L13: Leptos context resolves by TypeId — multiple `RwSignal<bool>` silently collide
+
+**Milestone:** M6
+**Area:** Leptos / Context
+**Symptom:** Child components appear to update the correct overlay signals (e.g.
+`show_resume`, `show_opening_quote`) but the UI never responds — the overlay stays
+on screen permanently. No compiler error or runtime panic.
+**Cause:** `leptos::prelude::provide_context` and `use_context` resolve by
+`std::any::TypeId`. When two or more signals of the *same Rust type* are provided,
+each `provide_context` call **overwrites** the previous entry. Only the last signal
+provided survives in the context map. Every `use_context::<RwSignal<bool>>()` call
+in any child therefore returns the same signal (the last one provided), regardless
+of the comment describing its purpose.
+
+In rw_sixzee's M6 implementation, `show_resume`, `show_opening_quote`, and
+`hide_tab_bar` are all `RwSignal<bool>`. After `provide_context(hide_tab_bar)` ran
+last, every `use_context::<RwSignal<bool>>()` returned `hide_tab_bar`. The `ResumePrompt`
+component's "Discard and Start New" and "Resume Game" handlers were writing to
+`hide_tab_bar` rather than the intended signals, so `show_resume` never became
+`false` and the prompt never dismissed.
+**Fix / Workaround:** Wrap each `bool` signal in a **unique newtype** so it has a
+distinct `TypeId`. Defined in `src/state/mod.rs`:
+```rust
+#[derive(Clone, Copy)]
+pub struct ShowResume(pub RwSignal<bool>);
+
+#[derive(Clone, Copy)]
+pub struct ShowOpeningQuote(pub RwSignal<bool>);
+
+#[derive(Clone, Copy)]
+pub struct HideTabBar(pub RwSignal<bool>);
+```
+Provide and look up via the newtype:
+```rust
+provide_context(ShowResume(show_resume));
+// …
+let show_resume = use_context::<ShowResume>().expect("…").0;
+```
+**Watch out for:** This applies to **any** shared Leptos context type — not just
+`RwSignal<bool>`. Two `RwSignal<String>`, two `Memo<u32>`, two `ReadSignal<Vec<_>>`
+would all silently collide. The pattern is: one distinct Rust type per context slot.
+`RwSignal<GameState>` is safe only because there is exactly one in the app.
+
+---
+
+## L14: Setting a signal inside a `view!` reactive closure is an anti-pattern
+
+**Milestone:** M6
+**Area:** Leptos / Reactivity
+**Symptom:** After dismissing the opening-quote overlay, the tab bar briefly fails
+to reappear, or the overlay flickers back on screen before finally hiding. Difficult
+to reproduce reliably; depends on reactive evaluation order.
+**Cause:** A Leptos reactive closure (the `move || { … }` block inside `view!`) is
+a *derived value* — conceptually read-only. Writing to a signal *inside* a reactive
+closure triggers a secondary reactive flush: the runtime reads the signals, computes
+the view, then processes the signal write, which re-evaluates the closure, which may
+write again, and so on. This creates confusing evaluation-order dependencies and can
+cause stale or double-renders.
+
+In rw_sixzee M6, `hide_tab_bar.set(true)` was placed inside the `move || {}` view
+closure that also renders the overlay. The tab bar hide happened only while the
+closure's branch evaluated to the overlay — but on dismissal, the signal write could
+race against the next evaluation and leave the tab bar hidden one extra frame.
+**Fix / Workaround:** Move any signal write that should track other signals into a
+`leptos::Effect`:
+```rust
+Effect::new(move |_| {
+    let quote_visible = show_opening_quote.get() && quote_bank.get().is_some();
+    hide_tab_bar.set(quote_visible || show_resume.get());
+});
+```
+The Effect runs after the reactive graph settles, reads its dependencies cleanly,
+and writes without causing a re-entry loop (Leptos 0.8 Effects are allowed to write
+to signals).
+**Watch out for:** Any `signal.set(…)` inside a `move || {}` block that is also
+used as a reactive source in `view!`. The rule is: reactive closures *read*; Effects
+*write*.
+
+---
+
+## L15: WASM browser tests share localStorage — storage tests must isolate before mounting App
+
+**Milestone:** M6
+**Area:** Testing / localStorage
+**Symptom:** Integration tests that mount the full `App` pass individually but fail
+when run as a suite. Tests that previously showed the game view now show the
+`ResumePrompt` overlay instead — causing DOM queries to find 0 dice buttons.
+**Cause:** All `#[wasm_bindgen_test]` tests in `tests/integration.rs` run in the
+*same headless browser page* and share a single `localStorage`. Storage tests
+written for M6 (`save_in_progress`, `save_history`, `save_theme`) leave entries in
+`localStorage` under the `rw_sixzee.*` keys. A subsequent test that mounts `App`
+triggers the M6 load sequence, which reads those keys, finds a saved game, and shows
+the `ResumePrompt` — hiding the game view that the test asserts against.
+**Fix / Workaround:** Add a `clear_game_storage()` helper in the `helpers` section
+of `tests/integration.rs`:
+```rust
+fn clear_game_storage() {
+    if let Some(storage) = web_sys::window()
+        .and_then(|w| w.local_storage().ok().flatten())
+    {
+        let _ = storage.remove_item("rw_sixzee.in_progress");
+        let _ = storage.remove_item("rw_sixzee.history");
+        let _ = storage.remove_item("rw_sixzee.theme");
+    }
+}
+```
+Call `clear_game_storage()` at the top of every test that mounts the full `App`.
+**Watch out for:** Any future localStorage key added to the `rw_sixzee.*` namespace
+must also be removed in `clear_game_storage()`. The same issue affects test
+frameworks that run tests in a persistent browser context — always reset shared
+browser state at the start of each test that depends on it being clean.
