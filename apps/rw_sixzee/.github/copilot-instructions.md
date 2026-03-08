@@ -21,6 +21,7 @@ updating the doc first.
 | `doc/project_plan.md` | Milestone overview — milestones in dependency order, status summary. | To understand overall project progress. |
 | `doc/milestones/m<N>-*.md` | Per-milestone detail — deliverables, acceptance criteria, task checklist, implementation notes. Files: `m1-bootstrap.md` through `m10-polish-mobile.md`. | Before starting any task within a milestone; after completing a task — update the checklist and add implementation notes. |
 | `doc/lessons.md` | Living record of non-obvious bugs, browser/crate quirks, and hard-won insights discovered during development. | **Before starting work in any area.** **After resolving any non-trivial issue** — add a new lesson. |
+| `doc/grandma_soul.md` | Grandma's character soul document — her personality, worldview, voice register, vocabulary, what she respects, what she won't say, emotional tier definitions, and a quote generation checklist. | **Before writing or reviewing any Grandma quote or dialogue.** Use as the prompt preamble when generating new content. |
 
 ---
 

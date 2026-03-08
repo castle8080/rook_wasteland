@@ -1,9 +1,9 @@
 # M3 — Grandma's Sayings
 
 <!-- MILESTONE: M3 -->
-<!-- STATUS: NOT_STARTED -->
+<!-- STATUS: COMPLETE -->
 
-**Status:** 🔲 NOT STARTED
+**Status:** ✅ COMPLETE
 **Depends on:** [M2 — Game State & Scoring Engine](m2-scoring-engine.md) *(for performance tier understanding)*
 **Required by:** [M5 — Core Game UI](m5-core-game-ui.md) *(quote display components need the JSON file)*
 
@@ -43,15 +43,15 @@ Before generating quotes, the following aspects of her voice should be establish
 
 ## Success Criteria
 
-- [ ] `assets/grandma_quotes.json` exists and is valid JSON matching the schema below
-- [ ] Each quote pool meets the minimum size (see below)
-- [ ] All quotes reviewed for voice consistency — no quote sounds like a different character
-- [ ] `really_bad` and `great` closing quotes feel meaningfully different in emotional weight
-- [ ] Sixzee quotes feel celebratory but still characteristically Grandma (grudging acknowledgment,
+- [x] `assets/grandma_quotes.json` exists and is valid JSON matching the schema below
+- [x] Each quote pool meets the minimum size (see below)
+- [x] All quotes reviewed for voice consistency — no quote sounds like a different character
+- [x] `really_bad` and `great` closing quotes feel meaningfully different in emotional weight
+- [x] Sixzee quotes feel celebratory but still characteristically Grandma (grudging acknowledgment,
   not enthusiasm)
-- [ ] Scratch quotes feel like quiet judgment, not cruelty
-- [ ] Opening quotes are genuinely oracular — vague enough to apply to life, not just dice
-- [ ] File parses successfully with `python -c "import json; json.load(open('assets/grandma_quotes.json'))"`
+- [x] Scratch quotes feel like quiet judgment, not cruelty
+- [x] Opening quotes are genuinely oracular — vague enough to apply to life, not just dice
+- [x] File parses successfully with `python -c "import json; json.load(open('assets/grandma_quotes.json'))"`
 
 ---
 
@@ -99,7 +99,7 @@ File path: `assets/grandma_quotes.json`
 
 ### Voice Establishment
 
-- [ ] Run a dedicated conversation session to establish Grandma's voice:
+- [x] Run a dedicated conversation session to establish Grandma's voice:
   - Define 5–10 example quotes as a baseline to lock in the register
   - Agree on what she would and would not say
   - Note any phrases, rhythms, or reference points that feel right
@@ -107,28 +107,28 @@ File path: `assets/grandma_quotes.json`
 
 ### Quote Generation
 
-- [ ] Generate `opening` pool (≥15 quotes) — oracular, vague, life observations; the kind of thing
+- [x] Generate `opening` pool (≥15 quotes) — oracular, vague, life observations; the kind of thing
   an old woman says that you don't fully understand until later
-- [ ] Generate `closing.really_bad` pool (≥8) — not cruel, but honest; something about not
+- [x] Generate `closing.really_bad` pool (≥8) — not cruel, but honest; something about not
   understanding the fundamentals, about waste
-- [ ] Generate `closing.bad` pool (≥8) — the dice did not cooperate OR you made poor choices;
+- [x] Generate `closing.bad` pool (≥8) — the dice did not cooperate OR you made poor choices;
   Grandma is not sure which
-- [ ] Generate `closing.ok` pool (≥8) — adequate; she has seen better; she has seen much worse;
+- [x] Generate `closing.ok` pool (≥8) — adequate; she has seen better; she has seen much worse;
   she will not say so in that order
-- [ ] Generate `closing.good` pool (≥8) — quiet approval; she does not celebrate, she acknowledges
-- [ ] Generate `closing.great` pool (≥8) — highest praise is still restrained; perhaps she simply
+- [x] Generate `closing.good` pool (≥8) — quiet approval; she does not celebrate, she acknowledges
+- [x] Generate `closing.great` pool (≥8) — highest praise is still restrained; perhaps she simply
   notes that the dice were respected
-- [ ] Generate `sixzee` pool (≥10) — all five same; rare; Grandma notes it without theatrics
-- [ ] Generate `scratch` pool (≥10) — placing a zero; quiet judgment; "sometimes you must give
+- [x] Generate `sixzee` pool (≥10) — all five same; rare; Grandma notes it without theatrics
+- [x] Generate `scratch` pool (≥10) — placing a zero; quiet judgment; "sometimes you must give
   up something"; not scolding, just witness
 
 ### Review & Curation
 
-- [ ] Read all generated quotes aloud — does each one sound like the same person?
-- [ ] Remove any quote that is too cheerful, too wordy, or too on-the-nose
-- [ ] Remove any quote that sounds generic (fortune cookie, inspirational poster)
-- [ ] Ensure each closing tier has clearly different emotional valence from adjacent tiers
-- [ ] Confirm all quotes are 1–3 sentences maximum
+- [x] Read all generated quotes aloud — does each one sound like the same person?
+- [x] Remove any quote that is too cheerful, too wordy, or too on-the-nose
+- [x] Remove any quote that sounds generic (fortune cookie, inspirational poster)
+- [x] Ensure each closing tier has clearly different emotional valence from adjacent tiers
+- [x] Confirm all quotes are 1–3 sentences maximum
 
 ### Performance Tier Calibration
 
@@ -139,8 +139,8 @@ File path: `assets/grandma_quotes.json`
 
 ### File Creation
 
-- [ ] Create `assets/grandma_quotes.json` with the final curated quotes
-- [ ] Run JSON validation check
+- [x] Create `assets/grandma_quotes.json` with the final curated quotes
+- [x] Run JSON validation check
 - [ ] Commit `assets/grandma_quotes.json`
 
 ---
