@@ -5,7 +5,7 @@
 //! keep the invariants described in the tech spec §5.3.
 
 use crate::error::{AppError, AppResult};
-use crate::state::scoring::{score_for_row, ROW_COUNT, ROW_SIXZEE};
+use crate::state::scoring::{grand_total, score_for_row, ROW_COUNT, ROW_SIXZEE};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
@@ -170,6 +170,44 @@ pub fn is_game_complete(state: &GameState) -> bool {
     state.cells.iter().all(|col| col.iter().all(|c| c.is_some()))
 }
 
+// ─── History helpers ─────────────────────────────────────────────────────────
+
+/// Sort a history list in-place by `final_score` descending.
+pub fn sort_history_by_score(history: &mut [CompletedGame]) {
+    history.sort_by(|a, b| b.final_score.cmp(&a.final_score));
+}
+
+/// Remove entries whose `completed_at` timestamp is more than 365 days before
+/// `now_ms` (milliseconds since Unix epoch).
+///
+/// Entries whose timestamp cannot be parsed are retained (fail-safe).
+pub fn prune_old_entries(history: Vec<CompletedGame>, now_ms: f64) -> Vec<CompletedGame> {
+    const DAYS_365_MS: f64 = 365.0 * 24.0 * 3600.0 * 1000.0;
+    let cutoff = now_ms - DAYS_365_MS;
+    history
+        .into_iter()
+        .filter(|entry| {
+            parse_timestamp_ms(&entry.completed_at)
+                .map(|ts| ts > cutoff)
+                .unwrap_or(true) // retain if unparseable
+        })
+        .collect()
+}
+
+/// Build a `CompletedGame` snapshot from a finished `GameState`.
+///
+/// Call only when `is_game_complete(state)` is `true`.
+pub fn completed_game_from_state(state: &GameState) -> CompletedGame {
+    CompletedGame {
+        id: state.id.clone(),
+        completed_at: current_iso8601(),
+        final_score: grand_total(&state.cells, state.bonus_pool),
+        bonus_pool: state.bonus_pool,
+        bonus_forfeited: state.bonus_forfeited,
+        cells: state.cells,
+    }
+}
+
 /// For each cell `(col, row)`, returns the score the current dice would yield.
 ///
 /// Returns all zeros if any die is `None` (unrolled state).
@@ -198,6 +236,37 @@ fn current_dice(state: &GameState) -> Option<[u8; 5]> {
     let d3 = state.dice[3]?;
     let d4 = state.dice[4]?;
     Some([d0, d1, d2, d3, d4])
+}
+
+/// Parse an ISO 8601 timestamp string to milliseconds since Unix epoch.
+///
+/// On WASM, delegates to `js_sys::Date` for exact results.
+/// On native (test) targets, uses an approximate formula good enough for
+/// pruning comparisons (month lengths approximated as 30 days; accurate to
+/// within ~5 days for any date in the current century).
+fn parse_timestamp_ms(s: &str) -> Option<f64> {
+    #[cfg(target_arch = "wasm32")]
+    {
+        let d = js_sys::Date::new(&wasm_bindgen::JsValue::from_str(s));
+        let ms = d.get_time();
+        if ms.is_nan() {
+            None
+        } else {
+            Some(ms)
+        }
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        if s.len() < 10 {
+            return None;
+        }
+        let year: i64 = s[0..4].parse().ok()?;
+        let month: i64 = s[5..7].parse().ok()?;
+        let day: i64 = s[8..10].parse().ok()?;
+        // Days since Unix epoch (approximate: 30 days/month, 365+leap days/year)
+        let days = (year - 1970) * 365 + (year - 1969) / 4 + (month - 1) * 30 + day - 1;
+        Some((days * 86_400_000) as f64)
+    }
 }
 
 /// Generate a new UUID v4 string.
@@ -244,6 +313,17 @@ mod tests {
             col[ROW_SIXZEE] = Some(score);
         }
         g
+    }
+
+    fn make_completed(final_score: u32, id: &str) -> CompletedGame {
+        CompletedGame {
+            id: id.to_string(),
+            completed_at: "2025-01-01T00:00:00.000Z".to_string(),
+            final_score,
+            bonus_pool: 0,
+            bonus_forfeited: false,
+            cells: [[None; ROW_COUNT]; 6],
+        }
     }
 
     // ── new_game / start_turn ──
@@ -545,4 +625,138 @@ mod tests {
         let cg2: CompletedGame = serde_json::from_str(&json).expect("deserialize CompletedGame");
         assert_eq!(cg, cg2);
     }
+
+    // ── sort_history_by_score ──
+
+    #[test]
+    fn sort_history_by_score_orders_descending() {
+        let mut h = vec![
+            make_completed(100, "a"),
+            make_completed(300, "b"),
+            make_completed(200, "c"),
+        ];
+        sort_history_by_score(&mut h);
+        assert_eq!(h[0].final_score, 300);
+        assert_eq!(h[1].final_score, 200);
+        assert_eq!(h[2].final_score, 100);
+    }
+
+    #[test]
+    fn sort_history_empty_vec_does_not_panic() {
+        let mut h: Vec<CompletedGame> = vec![];
+        sort_history_by_score(&mut h);
+        assert!(h.is_empty());
+    }
+
+    #[test]
+    fn sort_history_stable_for_equal_scores() {
+        // Two entries with the same score — should not panic; order is unspecified
+        // but both must still be present.
+        let mut h = vec![make_completed(200, "x"), make_completed(200, "y")];
+        sort_history_by_score(&mut h);
+        assert_eq!(h.len(), 2);
+        assert!(h.iter().all(|e| e.final_score == 200));
+    }
+
+    // ── prune_old_entries ──
+    // Uses now_ms = 1_735_689_600_000.0 ≈ 2025-01-01T00:00:00Z
+
+    #[test]
+    fn prune_old_entries_removes_entries_older_than_365_days() {
+        // 2022-01-01 is ~3 years before 2025-01-01 → pruned
+        let old = CompletedGame {
+            id: "old".to_string(),
+            completed_at: "2022-01-01T00:00:00.000Z".to_string(),
+            final_score: 100,
+            bonus_pool: 0,
+            bonus_forfeited: false,
+            cells: [[None; ROW_COUNT]; 6],
+        };
+        let pruned = prune_old_entries(vec![old], 1_735_689_600_000.0);
+        assert!(pruned.is_empty(), "entry >365 days old must be pruned");
+    }
+
+    #[test]
+    fn prune_old_entries_retains_recent_entries() {
+        // 2024-12-15 is ~16 days before 2025-01-01 → retained
+        let recent = CompletedGame {
+            id: "recent".to_string(),
+            completed_at: "2024-12-15T00:00:00.000Z".to_string(),
+            final_score: 200,
+            bonus_pool: 0,
+            bonus_forfeited: false,
+            cells: [[None; ROW_COUNT]; 6],
+        };
+        let pruned = prune_old_entries(vec![recent], 1_735_689_600_000.0);
+        assert_eq!(pruned.len(), 1, "recent entry must be retained");
+        assert_eq!(pruned[0].id, "recent");
+    }
+
+    #[test]
+    fn prune_old_entries_removes_old_and_retains_recent() {
+        let old = CompletedGame {
+            id: "old".to_string(),
+            completed_at: "2022-01-01T00:00:00.000Z".to_string(),
+            final_score: 100,
+            bonus_pool: 0,
+            bonus_forfeited: false,
+            cells: [[None; ROW_COUNT]; 6],
+        };
+        let recent = CompletedGame {
+            id: "recent".to_string(),
+            completed_at: "2024-12-15T00:00:00.000Z".to_string(),
+            final_score: 200,
+            bonus_pool: 0,
+            bonus_forfeited: false,
+            cells: [[None; ROW_COUNT]; 6],
+        };
+        let pruned = prune_old_entries(vec![old, recent], 1_735_689_600_000.0);
+        assert_eq!(pruned.len(), 1);
+        assert_eq!(pruned[0].id, "recent");
+    }
+
+    #[test]
+    fn prune_old_entries_empty_history_returns_empty() {
+        let pruned = prune_old_entries(vec![], 1_735_689_600_000.0);
+        assert!(pruned.is_empty());
+    }
+
+    #[test]
+    fn prune_old_entries_retains_unparseable_timestamps() {
+        // Garbled timestamps should be retained (fail-safe)
+        let garbled = CompletedGame {
+            id: "garbled".to_string(),
+            completed_at: "not-a-date".to_string(),
+            final_score: 150,
+            bonus_pool: 0,
+            bonus_forfeited: false,
+            cells: [[None; ROW_COUNT]; 6],
+        };
+        let pruned = prune_old_entries(vec![garbled], 1_735_689_600_000.0);
+        assert_eq!(pruned.len(), 1, "entry with unparseable timestamp must be retained");
+    }
+
+    // ── completed_game_from_state ──
+
+    #[test]
+    fn completed_game_from_state_captures_fields() {
+        let mut g = new_game();
+        g.bonus_pool = 200;
+        g.bonus_forfeited = false;
+        g.cells[0][ROW_ONES] = Some(5);
+        let cg = completed_game_from_state(&g);
+        assert_eq!(cg.id, g.id);
+        assert_eq!(cg.bonus_pool, 200);
+        assert_eq!(cg.cells[0][ROW_ONES], Some(5));
+        assert!(!cg.completed_at.is_empty());
+    }
+
+    #[test]
+    fn completed_game_from_state_bonus_forfeited_preserved() {
+        let mut g = new_game();
+        g.bonus_forfeited = true;
+        let cg = completed_game_from_state(&g);
+        assert!(cg.bonus_forfeited);
+    }
 }
+

@@ -3,3 +3,5 @@
 pub mod game;
 pub mod quotes;
 pub mod scoring;
+#[cfg(target_arch = "wasm32")]
+pub mod storage;

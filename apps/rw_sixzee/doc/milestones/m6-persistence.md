@@ -1,9 +1,9 @@
 # M6 — Persistence & Resume
 
 <!-- MILESTONE: M6 -->
-<!-- STATUS: NOT_STARTED -->
+<!-- STATUS: COMPLETE -->
 
-**Status:** 🔲 NOT STARTED
+**Status:** ✅ COMPLETE
 **Depends on:** [M5 — Core Game UI](m5-core-game-ui.md)
 **Required by:** [M9 — History Screen](m9-history.md), [M10 — Polish & Mobile](m10-polish-mobile.md)
 
@@ -19,19 +19,19 @@ After this milestone, closing and reopening the browser preserves an in-progress
 
 ## Success Criteria
 
-- [ ] After rolling, refreshing the browser restores exact dice values, held state, roll count, and turn number
-- [ ] After placing a score, refreshing the browser shows that cell filled with the recorded value
-- [ ] Closing and reopening the app shows the Resume prompt when a game is in progress
-- [ ] Choosing Resume restores the game to exactly the same state (cells, dice, held, turn, bonus pool)
-- [ ] Choosing Start New discards the in-progress save and begins a fresh game
-- [ ] Completing a game (all 78 cells filled) appends a `CompletedGame` record to history;
+- [x] After rolling, refreshing the browser restores exact dice values, held state, roll count, and turn number
+- [x] After placing a score, refreshing the browser shows that cell filled with the recorded value
+- [x] Closing and reopening the app shows the Resume prompt when a game is in progress
+- [x] Choosing Resume restores the game to exactly the same state (cells, dice, held, turn, bonus pool)
+- [x] Choosing Start New discards the in-progress save and begins a fresh game
+- [x] Completing a game (all 78 cells filled) appends a `CompletedGame` record to history;
   the record includes correct `final_score`, `bonus_pool`, `bonus_forfeited`, and `cells`
-- [ ] History is sorted descending by `final_score` after each append
-- [ ] On app load, history entries older than 365 days are pruned; a fresh load after adding an old
+- [x] History is sorted descending by `final_score` after each append
+- [x] On app load, history entries older than 365 days are pruned; a fresh load after adding an old
   record (manipulated via browser dev tools or test) confirms removal
-- [ ] When localStorage is unavailable, the game remains fully playable and an `ErrorBanner`
+- [x] When localStorage is unavailable, the game remains fully playable and an `ErrorBanner`
   ("Storage unavailable — progress will not be saved") appears without blocking gameplay
-- [ ] Storage errors from `roll()` and `place_score()` propagate as `Degraded` banners, not game crashes
+- [x] Storage errors from `roll()` and `place_score()` propagate as `Degraded` banners, not game crashes
 
 ---
 
@@ -39,27 +39,27 @@ After this milestone, closing and reopening the browser preserves an in-progress
 
 ### Storage Module (`src/state/storage.rs`)
 
-- [ ] Implement `load_in_progress() -> AppResult<Option<GameState>>` — reads `rw_sixzee.in_progress`
+- [x] Implement `load_in_progress() -> AppResult<Option<GameState>>` — reads `rw_sixzee.in_progress`
   from localStorage; returns `None` if key absent; `AppError::Json` if JSON parse fails
-- [ ] Implement `save_in_progress(state: &GameState) -> AppResult<()>` — serialises and writes to
+- [x] Implement `save_in_progress(state: &GameState) -> AppResult<()>` — serialises and writes to
   `rw_sixzee.in_progress`
-- [ ] Implement `clear_in_progress() -> AppResult<()>`
-- [ ] Implement `load_history() -> AppResult<Vec<CompletedGame>>` — reads `rw_sixzee.history`;
+- [x] Implement `clear_in_progress() -> AppResult<()>`
+- [x] Implement `load_history() -> AppResult<Vec<CompletedGame>>` — reads `rw_sixzee.history`;
   returns empty vec if absent
-- [ ] Implement `save_history(history: &[CompletedGame]) -> AppResult<()>` — writes sorted (by
+- [x] Implement `save_history(history: &[CompletedGame]) -> AppResult<()>` — writes sorted (by
   `final_score` descending) list to `rw_sixzee.history`
-- [ ] Implement `load_theme() -> AppResult<Option<ThemeId>>` — reads `rw_sixzee.theme`
-- [ ] Implement `save_theme(theme_id: ThemeId) -> AppResult<()>`
-- [ ] Handle localStorage unavailability: all functions must detect `SecurityError`/`DOMException`
+- [x] Implement `load_theme() -> AppResult<Option<ThemeId>>` — reads `rw_sixzee.theme`
+- [x] Implement `save_theme(theme_id: ThemeId) -> AppResult<()>`
+- [x] Handle localStorage unavailability: all functions must detect `SecurityError`/`DOMException`
   from `web-sys` and return `AppError::Storage(...)` rather than panicking
-- [ ] Implement history pruning helper: filter out entries where `completed_at` is >365 days before now
+- [x] Implement history pruning helper: filter out entries where `completed_at` is >365 days before now
 
 ### Wiring Persistence into Game Logic
 
-- [ ] In `roll()` — call `save_in_progress()` after updating state; on storage error, call
+- [x] In `roll()` — call `save_in_progress()` after updating state; on storage error, call
   `report_error()` with the error (Degraded banner) but do NOT abort the roll
-- [ ] In `place_score()` — call `save_in_progress()` after cell update; same error handling as above
-- [ ] On game completion in `place_score()`:
+- [x] In `place_score()` — call `save_in_progress()` after cell update; same error handling as above
+- [x] On game completion in `place_score()`:
   - Build `CompletedGame` from current `GameState`
   - Load history, append new record, sort by `final_score` desc, save history
   - Call `clear_in_progress()`
@@ -67,39 +67,58 @@ After this milestone, closing and reopening the browser preserves an in-progress
 
 ### App Load Sequence (in `App` on_mount)
 
-- [ ] Call `load_theme()` → apply theme to body (or use default); storage error → Degraded banner
-- [ ] Call `load_in_progress()`:
+- [x] Call `load_theme()` → apply theme to body (or use default); storage error → Degraded banner
+- [x] Call `load_in_progress()`:
   - `Ok(Some(state))` → set resume prompt signal to show `ResumePrompt` overlay
   - `Ok(None)` → start new game directly (call `GameState::new()`)
   - `Err(AppError::Json(_))` → corrupt save; report Fatal error; offer Start New escape
   - `Err(AppError::Storage(_))` → report Degraded banner; start new game
-- [ ] Prune history on load: `load_history()` → filter old entries → `save_history()` (best-effort)
+- [x] Prune history on load: `load_history()` → filter old entries → `save_history()` (best-effort)
 
 ### Resume Prompt (`src/components/resume.rs`)
 
-- [ ] Full-screen overlay shown when in-progress game detected on app load
-- [ ] Display: game start date, turn count, current score (computed from saved state)
-- [ ] "Resume Game" button — dismiss overlay, set `GameState` signal from saved state
-- [ ] "Discard and Start New" button — call `clear_in_progress()`, init fresh `GameState`
-- [ ] Tab bar NOT shown while prompt is visible
-- [ ] Hash router navigation blocked until choice is made (overlay sits on top; no tab bar to click)
+- [x] Full-screen overlay shown when in-progress game detected on app load
+- [x] Display: game start date, turn count, current score (computed from saved state)
+- [x] "Resume Game" button — dismiss overlay, set `GameState` signal from saved state
+- [x] "Discard and Start New" button — call `clear_in_progress()`, init fresh `GameState`
+- [x] Tab bar NOT shown while prompt is visible
+- [x] Hash router navigation blocked until choice is made (overlay sits on top; no tab bar to click)
 
 ### CSS
 
-- [ ] Add `.resume-prompt` overlay styles to `style/main.css`
-- [ ] Ensure resume overlay uses same `.overlay` base block with appropriate modifiers
+- [x] Add `.resume-prompt` overlay styles to `style/main.css`
+- [x] Ensure resume overlay uses same `.overlay` base block with appropriate modifiers
 
 ### Tests
 
-- [ ] Unit test: `GameState` serialise → JSON string → deserialise produces equal struct (native test)
-- [ ] Unit test: history pruning removes entries >365 days old and retains others
-- [ ] Unit test: `save_history` sorts by `final_score` descending
-- [ ] **E2E smoke test** (`e2e/smoke.spec.ts`): after rolling and refreshing the page, the game
+- [x] Unit test: `GameState` serialise → JSON string → deserialise produces equal struct (native test)
+- [x] Unit test: history pruning removes entries >365 days old and retains others
+- [x] Unit test: `save_history` sorts by `final_score` descending
+- [x] WASM browser tests: in_progress round-trip, absent key, clear, corrupt JSON, preserves cells/bonus_pool (5 tests)
+- [x] WASM browser tests: history round-trip, absent, sorted descending, corrupt JSON (4 tests)
+- [x] WASM browser tests: theme round-trip, absent, overwrite (3 tests)
+- [x] **E2E smoke test** (`e2e/smoke.spec.ts`): after rolling and refreshing the page, the game
   header and dice row are visible (verifies localStorage save + WASM re-init + resume prompt appear)
-- [ ] **E2E smoke test**: close and reopen the app → Resume prompt appears with correct turn count
-- [ ] **E2E smoke test**: choose "Start New" on the Resume prompt → fresh game starts (dice show `?`)
+- [x] **E2E smoke test**: close and reopen the app → Resume prompt appears with correct turn count
+- [x] **E2E smoke test**: choose "Start New" on the Resume prompt → fresh game starts (dice show `?`)
 
 ---
+
+## Implementation Notes
+
+- `src/state/storage.rs` (new) — all 7 localStorage functions; `#[cfg(target_arch = "wasm32")]`
+  gate applied at module level in `state/mod.rs`
+- `sort_history_by_score` and `prune_old_entries` live in `game.rs` (not `storage.rs`) so they are
+  natively testable without a browser; `storage.rs` calls them
+- `js_sys::Date::new(&JsValue::from_str(s))` is the correct WASM API for parsing ISO 8601 strings
+  (`Date::new_with_str` does not exist in js-sys 0.3)
+- `sort_history_by_score` signature uses `&mut [CompletedGame]` (not `&mut Vec<…>`) to satisfy
+  `clippy::ptr_arg`
+- `pending_resume: RwSignal<Option<GameState>>` added to App context; set during on_mount load
+  sequence, consumed and cleared by `ResumePrompt`
+- Integration tests: added `clear_game_storage()` helper to the top of `tests/integration.rs`
+  and called it at the start of every app-mounting test to prevent cross-test contamination from
+  storage tests leaving keys in localStorage
 
 ## Notes & Risks
 

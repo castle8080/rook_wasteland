@@ -1,4 +1,4 @@
-//! Browser integration tests for the M5 core game UI.
+//! Browser integration tests for M5 core game UI and M6 storage.
 //!
 //! These tests mount real Leptos components into a headless Firefox browser and
 //! assert DOM behaviour. Each test creates its own isolated container per
@@ -40,6 +40,18 @@ async fn tick() {
         .expect("tick");
 }
 
+/// Clear all rw_sixzee localStorage keys so app-mount tests start with a
+/// clean slate, regardless of what previous test runs left behind.
+fn clear_game_storage() {
+    if let Some(w) = web_sys::window() {
+        if let Ok(Some(ls)) = w.local_storage() {
+            let _ = ls.remove_item("rw_sixzee.in_progress");
+            let _ = ls.remove_item("rw_sixzee.history");
+            let _ = ls.remove_item("rw_sixzee.theme");
+        }
+    }
+}
+
 /// Click the "Let's play." button on the opening-quote overlay if it exists.
 async fn dismiss_opening_quote(container: &web_sys::HtmlElement) {
     if let Ok(Some(btn)) = container.query_selector(".grandma-quote-overlay .btn--primary") {
@@ -70,6 +82,7 @@ async fn app_mounts_without_panic() {
     use leptos::mount::mount_to;
     use rw_sixzee::app::App;
 
+    clear_game_storage();
     let container = fresh_container();
     let _handle = mount_to(container.clone(), App);
     tick().await;
@@ -85,6 +98,7 @@ async fn fresh_game_dice_show_question_marks() {
     use leptos::mount::mount_to;
     use rw_sixzee::app::App;
 
+    clear_game_storage();
     let container = fresh_container();
     let _handle = mount_to(container.clone(), App);
     tick().await;
@@ -115,6 +129,7 @@ async fn roll_button_enabled_before_first_roll() {
     use leptos::mount::mount_to;
     use rw_sixzee::app::App;
 
+    clear_game_storage();
     let container = fresh_container();
     let _handle = mount_to(container.clone(), App);
     tick().await;
@@ -141,6 +156,7 @@ async fn roll_reveals_dice_values() {
     use leptos::mount::mount_to;
     use rw_sixzee::app::App;
 
+    clear_game_storage();
     let container = fresh_container();
     let _handle = mount_to(container.clone(), App);
     tick().await;
@@ -172,6 +188,7 @@ async fn scorecard_shows_preview_after_roll() {
     use leptos::mount::mount_to;
     use rw_sixzee::app::App;
 
+    clear_game_storage();
     let container = fresh_container();
     let _handle = mount_to(container.clone(), App);
     tick().await;
@@ -195,6 +212,7 @@ async fn clicking_die_applies_held_class() {
     use leptos::mount::mount_to;
     use rw_sixzee::app::App;
 
+    clear_game_storage();
     let container = fresh_container();
     let _handle = mount_to(container.clone(), App);
     tick().await;
@@ -222,6 +240,7 @@ async fn roll_button_disabled_after_three_rolls() {
     use leptos::mount::mount_to;
     use rw_sixzee::app::App;
 
+    clear_game_storage();
     let container = fresh_container();
     let _handle = mount_to(container.clone(), App);
     tick().await;
@@ -257,6 +276,7 @@ async fn confirm_zero_overlay_shown_for_zero_cell() {
     use leptos::mount::mount_to;
     use rw_sixzee::app::App;
 
+    clear_game_storage();
     let container = fresh_container();
     let _handle = mount_to(container.clone(), App);
     tick().await;
@@ -287,6 +307,7 @@ async fn confirm_zero_cancel_dismisses_overlay() {
     use leptos::mount::mount_to;
     use rw_sixzee::app::App;
 
+    clear_game_storage();
     let container = fresh_container();
     let _handle = mount_to(container.clone(), App);
     tick().await;
@@ -330,6 +351,7 @@ async fn scoring_non_zero_cell_advances_turn() {
     use leptos::mount::mount_to;
     use rw_sixzee::app::App;
 
+    clear_game_storage();
     let container = fresh_container();
     let _handle = mount_to(container.clone(), App);
     tick().await;
@@ -363,6 +385,7 @@ async fn confirm_zero_confirm_places_score() {
     use leptos::mount::mount_to;
     use rw_sixzee::app::App;
 
+    clear_game_storage();
     let container = fresh_container();
     let _handle = mount_to(container.clone(), App);
     tick().await;
@@ -412,6 +435,7 @@ async fn die_toggle_off_removes_held_class() {
     use leptos::mount::mount_to;
     use rw_sixzee::app::App;
 
+    clear_game_storage();
     let container = fresh_container();
     let _handle = mount_to(container.clone(), App);
     tick().await;
@@ -450,4 +474,233 @@ async fn die_toggle_off_removes_held_class() {
         still_held.is_none(),
         "die should no longer be held after second click"
     );
+}
+
+// ─── M6 Storage tests ────────────────────────────────────────────────────────
+//
+// These tests exercise the raw localStorage round-trips directly, independent
+// of Leptos component rendering.  Each test cleans up its own keys to avoid
+// cross-test contamination (tests run sequentially in a single browser page).
+
+/// Helper: remove a localStorage key unconditionally.
+fn ls_remove(key: &str) {
+    if let Some(w) = web_sys::window() {
+        if let Ok(Some(ls)) = w.local_storage() {
+            let _ = ls.remove_item(key);
+        }
+    }
+}
+
+/// Helper: write a raw string into localStorage (for corruption tests).
+fn ls_set_raw(key: &str, value: &str) {
+    if let Some(w) = web_sys::window() {
+        if let Ok(Some(ls)) = w.local_storage() {
+            let _ = ls.set_item(key, value);
+        }
+    }
+}
+
+// ── in_progress ──────────────────────────────────────────────────────────────
+
+#[wasm_bindgen_test]
+fn storage_load_in_progress_returns_none_when_absent() {
+    use rw_sixzee::state::storage;
+    ls_remove("rw_sixzee.in_progress");
+    let result = storage::load_in_progress().expect("load should succeed");
+    assert!(result.is_none());
+}
+
+#[wasm_bindgen_test]
+fn storage_save_and_load_in_progress_round_trip() {
+    use rw_sixzee::state::game::new_game;
+    use rw_sixzee::state::storage;
+
+    ls_remove("rw_sixzee.in_progress");
+    let mut state = new_game();
+    state.turn = 7;
+    state.rolls_used = 2;
+
+    storage::save_in_progress(&state).expect("save should succeed");
+    let loaded = storage::load_in_progress()
+        .expect("load should succeed")
+        .expect("should be Some after save");
+
+    assert_eq!(loaded.id, state.id);
+    assert_eq!(loaded.turn, 7);
+    assert_eq!(loaded.rolls_used, 2);
+    ls_remove("rw_sixzee.in_progress");
+}
+
+#[wasm_bindgen_test]
+fn storage_clear_in_progress_removes_key() {
+    use rw_sixzee::state::game::new_game;
+    use rw_sixzee::state::storage;
+
+    let state = new_game();
+    storage::save_in_progress(&state).expect("save should succeed");
+    storage::clear_in_progress().expect("clear should succeed");
+
+    let result = storage::load_in_progress().expect("load should succeed");
+    assert!(result.is_none(), "key must be absent after clear");
+}
+
+#[wasm_bindgen_test]
+fn storage_load_in_progress_returns_json_error_on_corrupt_data() {
+    use rw_sixzee::error::AppError;
+    use rw_sixzee::state::storage;
+
+    ls_set_raw("rw_sixzee.in_progress", "{ not valid json >>>>");
+    let result = storage::load_in_progress();
+    assert!(
+        matches!(result, Err(AppError::Json(_))),
+        "corrupt data must produce AppError::Json"
+    );
+    ls_remove("rw_sixzee.in_progress");
+}
+
+#[wasm_bindgen_test]
+fn storage_save_preserves_bonus_pool_and_cells() {
+    use rw_sixzee::state::game::new_game;
+    use rw_sixzee::state::scoring::ROW_COUNT;
+    use rw_sixzee::state::storage;
+
+    ls_remove("rw_sixzee.in_progress");
+    let mut state = new_game();
+    state.bonus_pool = 300;
+    state.cells[0][0] = Some(5);
+    state.cells[5][12] = Some(20);
+
+    storage::save_in_progress(&state).expect("save ok");
+    let loaded = storage::load_in_progress()
+        .expect("load ok")
+        .expect("Some");
+
+    assert_eq!(loaded.bonus_pool, 300);
+    assert_eq!(loaded.cells[0][0], Some(5));
+    assert_eq!(loaded.cells[5][12], Some(20));
+    ls_remove("rw_sixzee.in_progress");
+}
+
+// ── history ───────────────────────────────────────────────────────────────────
+
+#[wasm_bindgen_test]
+fn storage_load_history_returns_empty_when_absent() {
+    use rw_sixzee::state::storage;
+    ls_remove("rw_sixzee.history");
+    let result = storage::load_history().expect("load should succeed");
+    assert!(result.is_empty(), "absent key must return empty vec");
+}
+
+#[wasm_bindgen_test]
+fn storage_save_and_load_history_round_trip() {
+    use rw_sixzee::state::game::CompletedGame;
+    use rw_sixzee::state::scoring::ROW_COUNT;
+    use rw_sixzee::state::storage;
+
+    ls_remove("rw_sixzee.history");
+    let entries = vec![CompletedGame {
+        id: "hist-test".to_string(),
+        completed_at: "2025-01-01T00:00:00.000Z".to_string(),
+        final_score: 250,
+        bonus_pool: 100,
+        bonus_forfeited: false,
+        cells: [[None; ROW_COUNT]; 6],
+    }];
+
+    storage::save_history(&entries).expect("save ok");
+    let loaded = storage::load_history().expect("load ok");
+    assert_eq!(loaded.len(), 1);
+    assert_eq!(loaded[0].id, "hist-test");
+    assert_eq!(loaded[0].final_score, 250);
+    ls_remove("rw_sixzee.history");
+}
+
+#[wasm_bindgen_test]
+fn storage_save_history_stores_sorted_by_score_descending() {
+    use rw_sixzee::state::game::CompletedGame;
+    use rw_sixzee::state::scoring::ROW_COUNT;
+    use rw_sixzee::state::storage;
+
+    ls_remove("rw_sixzee.history");
+    let entries = vec![
+        CompletedGame {
+            id: "low".to_string(),
+            completed_at: "2025-01-01T00:00:00.000Z".to_string(),
+            final_score: 100,
+            bonus_pool: 0,
+            bonus_forfeited: false,
+            cells: [[None; ROW_COUNT]; 6],
+        },
+        CompletedGame {
+            id: "high".to_string(),
+            completed_at: "2025-01-01T00:00:00.000Z".to_string(),
+            final_score: 400,
+            bonus_pool: 0,
+            bonus_forfeited: false,
+            cells: [[None; ROW_COUNT]; 6],
+        },
+        CompletedGame {
+            id: "mid".to_string(),
+            completed_at: "2025-01-01T00:00:00.000Z".to_string(),
+            final_score: 250,
+            bonus_pool: 0,
+            bonus_forfeited: false,
+            cells: [[None; ROW_COUNT]; 6],
+        },
+    ];
+
+    storage::save_history(&entries).expect("save ok");
+    let loaded = storage::load_history().expect("load ok");
+
+    assert_eq!(loaded[0].final_score, 400, "highest score must be first");
+    assert_eq!(loaded[1].final_score, 250);
+    assert_eq!(loaded[2].final_score, 100, "lowest score must be last");
+    ls_remove("rw_sixzee.history");
+}
+
+#[wasm_bindgen_test]
+fn storage_load_history_returns_json_error_on_corrupt_data() {
+    use rw_sixzee::error::AppError;
+    use rw_sixzee::state::storage;
+
+    ls_set_raw("rw_sixzee.history", "[{broken");
+    let result = storage::load_history();
+    assert!(
+        matches!(result, Err(AppError::Json(_))),
+        "corrupt history must produce AppError::Json"
+    );
+    ls_remove("rw_sixzee.history");
+}
+
+// ── theme ─────────────────────────────────────────────────────────────────────
+
+#[wasm_bindgen_test]
+fn storage_save_and_load_theme_round_trip() {
+    use rw_sixzee::state::storage;
+    ls_remove("rw_sixzee.theme");
+
+    storage::save_theme("devil_rock").expect("save ok");
+    let loaded = storage::load_theme().expect("load ok");
+    assert_eq!(loaded, Some("devil_rock".to_string()));
+    ls_remove("rw_sixzee.theme");
+}
+
+#[wasm_bindgen_test]
+fn storage_load_theme_returns_none_when_absent() {
+    use rw_sixzee::state::storage;
+    ls_remove("rw_sixzee.theme");
+    let loaded = storage::load_theme().expect("load ok");
+    assert!(loaded.is_none());
+}
+
+#[wasm_bindgen_test]
+fn storage_save_theme_overwrites_previous() {
+    use rw_sixzee::state::storage;
+    ls_remove("rw_sixzee.theme");
+
+    storage::save_theme("nordic_minimal").expect("save ok");
+    storage::save_theme("borg").expect("overwrite ok");
+    let loaded = storage::load_theme().expect("load ok");
+    assert_eq!(loaded, Some("borg".to_string()));
+    ls_remove("rw_sixzee.theme");
 }

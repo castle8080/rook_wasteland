@@ -14,9 +14,10 @@ use crate::components::{
 };
 use crate::error::{report_error, AppError};
 use crate::router::{parse_hash, Route};
-use crate::state::game::{new_game, score_preview_all, GameState};
+use crate::state::game::{new_game, prune_old_entries, score_preview_all, GameState};
 use crate::state::quotes::{load_quote_bank, QuoteBank};
 use crate::state::scoring::grand_total as compute_grand_total;
+use crate::state::storage;
 
 fn get_initial_route() -> Route {
     web_sys::window()
@@ -63,6 +64,9 @@ pub fn App() -> impl IntoView {
     // opening-quote). Checked by `TabBar` alongside `show_resume`.
     let hide_tab_bar: RwSignal<bool> = RwSignal::new(false);
 
+    // ── M6: saved game state waiting for resume decision ──────────────────
+    let pending_resume: RwSignal<Option<GameState>> = RwSignal::new(None);
+
     provide_context(route);
     provide_context(app_error);
     provide_context(show_resume);
@@ -72,8 +76,48 @@ pub fn App() -> impl IntoView {
     provide_context(quote_bank);
     provide_context(show_opening_quote);
     provide_context(hide_tab_bar);
+    provide_context(pending_resume);
 
-    set_body_theme("nordic_minimal");
+    // ── M6: App load sequence ─────────────────────────────────────────────
+    // 1. Load and apply theme (best-effort; storage failure → Degraded).
+    match storage::load_theme() {
+        Ok(Some(theme)) => set_body_theme(&theme),
+        Ok(None) => set_body_theme("nordic_minimal"),
+        Err(e) => {
+            set_body_theme("nordic_minimal");
+            report_error(e);
+        }
+    }
+
+    // 2. Prune history on load (best-effort, fire-and-forget).
+    if let Ok(history) = storage::load_history() {
+        let now_ms = js_sys::Date::now();
+        let pruned = prune_old_entries(history, now_ms);
+        let _ = storage::save_history(&pruned);
+    }
+
+    // 3. Load in-progress game.
+    match storage::load_in_progress() {
+        Ok(Some(saved)) => {
+            // Saved game found — show the resume prompt instead of the opening quote.
+            show_opening_quote.set(false);
+            pending_resume.set(Some(saved));
+            show_resume.set(true);
+        }
+        Ok(None) => {
+            // No saved game — fresh start, opening quote will show normally.
+        }
+        Err(AppError::Json(_)) => {
+            // Corrupt save — treat as Fatal so the user can start fresh.
+            report_error(AppError::Json(
+                "Saved game data is corrupt — please start a new game.".to_string(),
+            ));
+        }
+        Err(e) => {
+            // Storage unavailable — Degraded banner, game is still playable.
+            report_error(e);
+        }
+    }
 
     // Register the hashchange listener using a raw wasm-bindgen Closure so
     // we avoid the Send+Sync requirement that on_cleanup imposes. App is

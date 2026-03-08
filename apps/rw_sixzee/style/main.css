@@ -302,6 +302,40 @@ button {
   margin-bottom: 1rem;
 }
 
+.resume-prompt__info {
+  margin: 1rem 0;
+}
+
+.resume-prompt__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background-color: var(--color-bg);
+  border-radius: 4px;
+  padding: 0.75rem 1rem;
+}
+
+.resume-prompt__meta-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  font-size: 0.9rem;
+}
+
+.resume-prompt__meta-label {
+  color: var(--color-accent);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+}
+
+.resume-prompt__meta-value {
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
 .resume-prompt__actions {
   display: flex;
   gap: 1rem;

@@ -10,9 +10,43 @@ use crate::components::dice_row::DiceRow;
 use crate::components::end_game::EndGame;
 use crate::components::grandma_quote::GrandmaQuoteInline;
 use crate::components::scorecard::Scorecard;
-use crate::state::game::{is_game_complete, new_game, place_score, roll, GameState};
+use crate::error::report_error;
+use crate::state::game::{
+    completed_game_from_state, is_game_complete, new_game, place_score, roll, GameState,
+};
 use crate::state::quotes::{pick_quote, QuoteBank};
 use crate::state::scoring::score_sixzee;
+use crate::state::storage;
+
+/// Called after every `place_score` invocation to handle localStorage persistence.
+///
+/// - If the game is now complete: builds a `CompletedGame` record, appends it
+///   to history (sorted), and clears the in-progress save.
+/// - Otherwise: overwrites the in-progress save with the current state.
+///
+/// Storage errors are reported as `Degraded` (non-blocking banners); game state
+/// in memory is always intact regardless of storage failures.
+fn persist_after_score(state: &GameState) {
+    if is_game_complete(state) {
+        let cg = completed_game_from_state(state);
+        let mut history = match storage::load_history() {
+            Ok(h) => h,
+            Err(e) => {
+                report_error(e);
+                vec![]
+            }
+        };
+        history.push(cg);
+        if let Err(e) = storage::save_history(&history) {
+            report_error(e);
+        }
+        if let Err(e) = storage::clear_in_progress() {
+            report_error(e);
+        }
+    } else if let Err(e) = storage::save_in_progress(state) {
+        report_error(e);
+    }
+}
 
 /// The full game screen component.
 ///
@@ -48,6 +82,21 @@ pub fn GameView() -> impl IntoView {
             }
             let _ = roll(state);
         });
+
+        // Persist after roll (Degraded on failure — roll already happened).
+        let state = game_signal.get_untracked();
+        if state.rolls_used > 0 {
+            // rolls_used == 0 means a bonus Sixzee fired and start_turn was called;
+            // the dice are reset but we still save so the bonus_pool is persisted.
+            if let Err(e) = storage::save_in_progress(&state) {
+                report_error(e);
+            }
+        } else {
+            // Bonus Sixzee fired — dice cleared, save the post-bonus state.
+            if let Err(e) = storage::save_in_progress(&state) {
+                report_error(e);
+            }
+        }
 
         // Clear any previous Sixzee inline quote, then check for a new one.
         sixzee_inline_quote.set(None);
@@ -105,6 +154,7 @@ pub fn GameView() -> impl IntoView {
             game_signal.update(|s| {
                 let _ = place_score(s, col, row);
             });
+            persist_after_score(&game_signal.get_untracked());
         } else {
             hide_tab_bar.set(true);
             pending_zero.set(Some((col, row)));
@@ -125,6 +175,7 @@ pub fn GameView() -> impl IntoView {
             game_signal.update(|s| {
                 let _ = place_score(s, col, row);
             });
+            persist_after_score(&game_signal.get_untracked());
         }
         pending_zero.set(None);
     });

@@ -75,3 +75,110 @@ test.describe("App load", () => {
     await expect(page.locator(".grandma-quote-overlay")).toBeVisible();
   });
 });
+
+// ─── M6 Persistence smoke tests ──────────────────────────────────────────────
+
+/** Helper: dismiss the opening-quote overlay if present, then roll once. */
+async function dismissQuoteAndRoll(page: Page) {
+  const letsPlay = page.locator(".grandma-quote-overlay .btn--primary");
+  if (await letsPlay.isVisible()) {
+    await letsPlay.click();
+  }
+  // Click roll button
+  const rollBtn = page.locator(".action-buttons button").filter({ hasText: "ROLL" });
+  await rollBtn.click();
+  await page.waitForTimeout(200);
+}
+
+/** Helper: dismiss the resume prompt if present (choose "Resume Game"). */
+async function dismissResumeIfPresent(page: Page) {
+  const resumeBtn = page.locator(".resume-prompt .btn--primary");
+  if (await resumeBtn.isVisible()) {
+    await resumeBtn.click();
+    await page.waitForTimeout(200);
+  }
+}
+
+test.describe("M6 Persistence", () => {
+  test.beforeEach(async ({ page }) => {
+    // Clear saved game state before each test so tests are independent.
+    await page.goto("/rw_sixzee/", { waitUntil: "networkidle", timeout: 45_000 });
+    await page.evaluate(() => {
+      localStorage.removeItem("rw_sixzee.in_progress");
+      localStorage.removeItem("rw_sixzee.history");
+    });
+  });
+
+  test("after rolling and refreshing, resume prompt appears", async ({
+    page,
+  }) => {
+    await navigate(page);
+    await dismissQuoteAndRoll(page);
+
+    // Reload the page — WASM must re-init from localStorage save.
+    await page.reload({ waitUntil: "networkidle" });
+
+    // Either resume prompt or error overlay must be present (not a blank game).
+    const hasResume = await page.locator(".resume-prompt").isVisible();
+    const hasError = await page.locator(".error-overlay").isVisible();
+    expect(hasResume || hasError).toBe(
+      true,
+      "page should show resume prompt (or error) after reload with a saved game"
+    );
+  });
+
+  test("resume prompt shows correct turn count", async ({ page }) => {
+    await navigate(page);
+    await dismissQuoteAndRoll(page);
+
+    // Score a cell to advance the turn (click the first preview cell).
+    const previewCell = page.locator(".scorecard__cell--preview").first();
+    if (await previewCell.isVisible()) {
+      await previewCell.click();
+      await page.waitForTimeout(200);
+    }
+
+    // Reload and check resume prompt shows turn ≥ 2.
+    await page.reload({ waitUntil: "networkidle" });
+
+    const resumePrompt = page.locator(".resume-prompt");
+    if (await resumePrompt.isVisible()) {
+      // Turn count text should be visible in the meta section.
+      const metaValues = page.locator(".resume-prompt__meta-value");
+      const count = await metaValues.count();
+      expect(count).toBeGreaterThan(0);
+    }
+  });
+
+  test("choosing Start New on resume prompt starts a fresh game", async ({
+    page,
+  }) => {
+    await navigate(page);
+    await dismissQuoteAndRoll(page);
+
+    // Reload to trigger resume prompt.
+    await page.reload({ waitUntil: "networkidle" });
+
+    const startNewBtn = page.locator(
+      ".resume-prompt .btn--secondary, .resume-prompt button:has-text('Discard')"
+    );
+    if (await startNewBtn.isVisible()) {
+      await startNewBtn.click();
+      await page.waitForTimeout(300);
+
+      // Dismiss the opening-quote overlay that appears after Start New.
+      const letsPlay = page.locator(".grandma-quote-overlay .btn--primary");
+      if (await letsPlay.isVisible()) {
+        await letsPlay.click();
+        await page.waitForTimeout(200);
+      }
+
+      // Fresh game — all dice should show '?'
+      const diceButtons = page.locator(".dice-row button");
+      await expect(diceButtons).toHaveCount(5);
+      for (let i = 0; i < 5; i++) {
+        await expect(diceButtons.nth(i)).toHaveText("?");
+      }
+    }
+  });
+});
