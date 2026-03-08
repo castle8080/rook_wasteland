@@ -1,7 +1,7 @@
 # Task M4-T1: DP Precomputation Solver
 
 **Milestone:** M4 — DP Precomputation
-**Status:** 🔄 In Progress
+**Status:** ✅ Done
 
 ## Restatement
 
@@ -112,11 +112,20 @@ fn write_output(v_col: &[f32; 8192], yz: &[f32; 14]) -> std::io::Result<()>
 
 ## Test Results
 
-_(to be filled after run)_
+- `cargo test` (offline): 11/11 pass (includes multiset counts, probability sums, merge,
+  hold strategy dedup, yz_bonus_correction layout, v_col boundary values)
+- `cargo run --release` (offline): v_col[0]=229.638500, v_col[8191]=0.0, runtime 2.19 s
+- `cargo test` (main app): 63/63 pass — no regressions
+- `cargo clippy -- -D warnings` (offline): 0 warnings
+- `cargo clippy --target wasm32-unknown-unknown -- -D warnings` (main app): 0 warnings
+- Code review agent: no issues found
 
 ## Review Notes
 
-_(to be filled after self-review)_
+No issues found. bt0 initialisation `best = 0.0` is correct because:
+- fill < 8191 guarantees at least one open row
+- All scores and v_col values are non-negative
+- `_f32` suffix on generated literals is valid Rust syntax
 
 ## Callouts / Gotchas
 

@@ -1,9 +1,9 @@
 # M4 — DP Precomputation
 
 <!-- MILESTONE: M4 -->
-<!-- STATUS: NOT_STARTED -->
+<!-- STATUS: DONE -->
 
-**Status:** 🔲 NOT STARTED
+**Status:** ✅ DONE
 **Depends on:** [M2 — Game State & Scoring Engine](m2-scoring-engine.md)
 **Required by:** [M7 — Ask Grandma](m7-ask-grandma.md)
 
@@ -40,68 +40,68 @@ repo and included at compile time in the Worker binary. Running the solver is on
 
 ### Offline Crate Setup
 
-- [ ] Create `offline/Cargo.toml` as a standalone binary crate (no shared dependencies with main app;
+- [x] Create `offline/Cargo.toml` as a standalone binary crate (no shared dependencies with main app;
   pure Rust std only)
-- [ ] Create `offline/src/main.rs` entry point
+- [x] Create `offline/src/main.rs` entry point
 
 ### Dice Multiset Enumeration
 
-- [ ] Enumerate all 252 distinct dice multisets for 5d6 (combinations with replacement)
-- [ ] For each multiset, compute its exact multinomial probability weight: `5! / (n1! * n2! * ... * n6!) / 6^5`
-- [ ] Verify: sum of all weights equals 1.0 (within floating-point tolerance)
-- [ ] Cache this set — it is reused in every DP computation step
+- [x] Enumerate all 252 distinct dice multisets for 5d6 (combinations with replacement)
+- [x] For each multiset, compute its exact multinomial probability weight: `5! / (n1! * n2! * ... * n6!) / 6^5`
+- [x] Verify: sum of all weights equals 1.0 (within floating-point tolerance)
+- [x] Cache this set — it is reused in every DP computation step
 
 ### Hold-Mask Optimizer
 
-- [ ] For a given dice roll and hold mask, compute the distribution of re-rolled outcomes:
+- [x] For a given dice roll and hold mask, compute the distribution of re-rolled outcomes:
   enumerate all `6^k` outcomes for `k` unheld dice; weight by uniform probability
-- [ ] Implement deduplication: for re-roll evaluation, collapse hold masks that result in the same
+- [x] Implement deduplication: for re-roll evaluation, collapse hold masks that result in the same
   sorted tuple of held values (e.g. holding dice indices 0,2 showing [5,5] is identical to holding
   indices 1,3 showing [5,5])
 
 ### DP Backward Induction
 
-- [ ] Allocate `v_col: [f64; 8192]` (use f64 for intermediate precision; output as f32)
-- [ ] Iterate fill patterns from `0b1_1111_1111_1111` (13 bits, value 8191) down to 0
-- [ ] For each fill pattern, compute `V_col(fill)` via the recurrence:
+- [x] Allocate `v_col: [f64; 8192]` (use f64 for intermediate precision; output as f32)
+- [x] Iterate fill patterns from `0b1_1111_1111_1111` (13 bits, value 8191) down to 0
+- [x] For each fill pattern, compute `V_col(fill)` via the recurrence:
   ```
   V_col(fill) = E_{dice} [ best_turn(fill, dice, rolls_remaining=3) ]
   ```
   where the expectation is over all 252 multisets weighted by their probabilities
-- [ ] `best_turn(fill, dice, r=0)` = max over open rows of `score(row, dice) + v_col[fill | 1 << row]`
-- [ ] `best_turn(fill, dice, r>0)` = max of:
+- [x] `best_turn(fill, dice, r=0)` = max over open rows of `score(row, dice) + v_col[fill | 1 << row]`
+- [x] `best_turn(fill, dice, r>0)` = max of:
   - scoring now: `best_turn(fill, dice, 0)`
   - for each unique hold strategy: `E_{reroll}[best_turn(fill, new_dice, r-1)]`
-- [ ] Assert all 8,192 values are finite after computation
-- [ ] Cast f64 values to f32 for output
+- [x] Assert all 8,192 values are finite after computation
+- [x] Cast f64 values to f32 for output
 
 ### Sixzee Bonus Correction Table
 
-- [ ] Compute `YZ_BONUS_CORRECTION: [f32; 14]` — indexed by `(n_sixzee_open: 0–6, forfeited: bool)`
+- [x] Compute `YZ_BONUS_CORRECTION: [f32; 14]` — indexed by `(n_sixzee_open: 0–6, forfeited: bool)`
   (7 values × 2 states = 14 entries; forfeited=false in indices 0–6, forfeited=true in indices 7–13)
-- [ ] For each `n_sixzee_open`, estimate the expected bonus pool contribution assuming optimal play:
+- [x] For each `n_sixzee_open`, estimate the expected bonus pool contribution assuming optimal play:
   approximate via the probability of rolling Sixzee at least once per turn × 100, summed over
   remaining Sixzee-eligible turns (simplified closed-form is acceptable; exact DP over Sixzee
   sub-game is preferred but not required)
-- [ ] `YZ_BONUS_CORRECTION[7..=13]` (forfeited=true) all equal `0.0`
+- [x] `YZ_BONUS_CORRECTION[7..=13]` (forfeited=true) all equal `0.0`
 
 ### Code Generation
 
-- [ ] Write `generated/v_col.rs` containing:
+- [x] Write `generated/v_col.rs` containing:
   ```rust
   pub const V_COL: [f32; 8192] = [ /* 8192 comma-separated values */ ];
   pub const YZ_BONUS_CORRECTION: [f32; 14] = [ /* 14 values */ ];
   ```
-- [ ] Ensure the file is valid Rust source (round-trip: `rustfmt` the output if needed, or verify
+- [x] Ensure the file is valid Rust source (round-trip: `rustfmt` the output if needed, or verify
   it compiles with `rustc --edition 2021 --crate-type lib generated/v_col.rs`)
-- [ ] Commit `generated/v_col.rs` to the repository
+- [x] Commit `generated/v_col.rs` to the repository
 
 ### Validation Assertions (in solver)
 
-- [ ] Assert `v_col[8191] == 0.0`
-- [ ] Assert `v_col[0]` is in range [200.0, 300.0] and print the value
-- [ ] Assert all values are finite
-- [ ] Print a summary: min value, max value, and `v_col[0]` for manual inspection
+- [x] Assert `v_col[8191] == 0.0`
+- [x] Assert `v_col[0]` is in range [200.0, 300.0] and print the value
+- [x] Assert all values are finite
+- [x] Print a summary: min value, max value, and `v_col[0]` for manual inspection
 
 ---
 
