@@ -168,7 +168,7 @@ Shows top 5 actions ranked by estimated end-game score.
 │  ║      Est. final score:   994                        ║   │
 │  ║      [ Apply this move ]                            ║   │
 │  ║                                                     ║   │
-│  ║  Based on ~5 000 Monte Carlo playouts               ║   │
+│  ║  Based on DP value table + MC sampling               ║   │
 │  ╚═════════════════════════════════════════════════════╝   │
 │                                                             │
 ├─────────────────────────────────────────────────────────────┤
@@ -179,10 +179,10 @@ Shows top 5 actions ranked by estimated end-game score.
 **Notes:**
 - Reroll actions show probability estimates for the most likely target outcomes.
 - Score-now actions show exact points but no probability (it's deterministic).
-- Every action shows an estimated final game score from Monte Carlo simulation.
+- Every action shows an estimated final game score via DP value table + Monte Carlo sampling.
 - "Apply this move" sets held dice (reroll) or places score (score-now) and closes
   the panel. Score-now that would place 0 still triggers the confirmation prompt.
-- The playout count note at the bottom gives transparency on approximation quality.
+- The footer note gives transparency on the computation method.
 
 ---
 

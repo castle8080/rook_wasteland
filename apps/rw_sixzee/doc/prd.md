@@ -148,10 +148,12 @@ The player may skip to the score phase after Roll 1 or Roll 2 if they
 choose not to use all three rolls.
 
 **Exception — Bonus Sixzee turn:** If, at any point during Roll 1, 2, or 3,
-all five dice show the same value AND all 6 Sixzee cells are already filled,
-the app immediately detects this as a bonus Sixzee, awards 100 points to the
-Sixzee Bonus Pool (if not forfeited), and ends the turn automatically. No
-score phase occurs; no cell is consumed. The player begins a fresh turn.
+all five dice show the same value AND all 6 Sixzee cells are already filled
+(with any value, including a scratch of 0), the app immediately detects this
+as a bonus Sixzee and ends the turn automatically — no score phase occurs, no
+cell is consumed. If the Sixzee Bonus Pool has not been forfeited, 100 points
+are added to it. If the pool has been forfeited, no points are awarded but the
+turn still ends automatically. The player begins a fresh turn.
 
 ---
 
@@ -398,10 +400,13 @@ the current game permanently).
     - A score-now action places the score in the specified cell (subject to the
       same zero-score confirmation prompt if applicable) and closes the panel.
 33. The advisor computation shall run entirely client-side (no network requests)
-    using Monte Carlo sampling — running thousands of random game playouts from
-    the current state to approximate expected end-game scores. Exact dynamic
-    programming is not required; approximation is acceptable. If computation
-    takes more than ~200 ms the panel shall show a loading indicator.
+    using a precomputed **dynamic programming value table** (one 32 KB table
+    covering all single-column states, embedded in the WASM binary) combined
+    with Monte Carlo sampling for reroll candidates where exact enumeration is
+    too expensive. Score-now candidates are evaluated with a single table
+    lookup per cell; reroll candidates with 3 or more dice unheld sample 300
+    random outcomes. If computation takes more than ~200 ms the panel shall
+    show a loading indicator.
 34. The advisor panel shall be dismissible without taking any action.
 
 **Themes & settings**
@@ -464,8 +469,9 @@ the current game permanently).
 
 47. The app shall display a persistent tab bar at the bottom of the screen with
     three destinations: **Game**, **History**, and **Settings**. The tab bar
-    shall be visible on all screens except full-screen overlays (score summary,
-    advisor panel, zero-score confirmation, resume prompt).
+    shall be visible on all screens except the following full-screen overlays:
+    advisor panel, zero-score confirmation, and resume prompt. The end-of-game
+    summary overlay keeps the tab bar visible so the player can navigate freely.
 48. Navigating away from the Game tab and back shall not reset or interrupt an
     in-progress game.
 

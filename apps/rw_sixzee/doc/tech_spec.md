@@ -23,6 +23,7 @@ apps/rw_sixzee/
 ├── src/
 │   ├── lib.rs              # wasm entry, #[wasm_bindgen(start)], cfg gates
 │   ├── app.rs              # root App component, hash-router dispatch
+│   ├── error.rs            # AppError, AppResult, ErrorSeverity, report_error
 │   ├── state/
 │   │   ├── mod.rs
 │   │   ├── game.rs         # GameState struct + all game logic
@@ -39,7 +40,9 @@ apps/rw_sixzee/
 │   │   ├── resume.rs       # resume-vs-new-game prompt
 │   │   ├── history.rs      # history list screen
 │   │   ├── history_detail.rs # read-only scorecard snapshot
-│   │   └── settings.rs     # theme picker screen
+│   │   ├── settings.rs     # theme picker screen
+│   │   ├── error_banner.rs # dismissible degraded-error banner
+│   │   └── error_overlay.rs # fatal-error full-screen overlay
 │   ├── dice_svg/
 │   │   ├── mod.rs          # DiceFace component dispatch
 │   │   ├── devil_rock.rs   # 6 face SVGs for Devil Rock theme
@@ -116,9 +119,10 @@ matching screen component. No `leptos_router` dependency.
 
 ### 4.3 Tab Bar Visibility
 
-The tab bar is rendered in `App` and hidden (CSS `display: none`) during
-full-screen overlays (Resume prompt, Advisor panel, End-of-Game summary,
-Zero-Score confirmation).
+The tab bar is rendered in `App` and hidden (CSS `display: none`) during the
+following overlays: Resume prompt, Advisor panel, Zero-Score confirmation.
+The End-of-Game summary overlay does **not** hide the tab bar — it renders
+above the completed scorecard with the tab bar remaining accessible beneath.
 
 ---
 
@@ -130,12 +134,13 @@ Zero-Score confirmation).
 /// Full serialisable game state. Stored as a single JSON blob in localStorage.
 #[derive(Serialize, Deserialize, Clone)]
 pub struct GameState {
+    pub id: String,                      // UUID v4, generated in new_game()
     pub cells: [[Option<u8>; 13]; 6],   // [col][row]; None = empty, Some(v) = filled
     pub dice: [Option<u8>; 5],           // None = unrolled this turn
     pub held: [bool; 5],
     pub rolls_used: u8,                  // 0–3
     pub turn: u32,                       // 1-indexed, increments after each cell placement
-    pub bonus_turn: bool,                // true when current turn is a bonus Sixzee
+    pub bonus_turn: bool,                // set true on bonus Sixzee detection; cleared by start_turn()
     pub bonus_pool: u32,
     pub bonus_forfeited: bool,
     pub started_at: String,              // ISO 8601 timestamp
@@ -144,23 +149,29 @@ pub struct GameState {
 
 Row index mapping (0-based within each column):
 ```
-0  Ones          7  Full House
-1  Twos          8  Small Straight
-2  Threes        9  Large Straight
-3  Fours        10  Sixzee
-4  Fives        11  Chance
-5  Sixes
-6  Three of a Kind
+0  Ones           6  Three of a Kind
+1  Twos           7  Four of a Kind
+2  Threes         8  Full House
+3  Fours          9  Small Straight
+4  Fives         10  Large Straight
+5  Sixes         11  Sixzee
+                 12  Chance
 ```
-(Row 12 is reserved for the upper-section bonus display; it is not stored in
-`cells` — it is computed on read.)
+The upper-section bonus is **not** stored in `cells` — it is a computed value
+(`upper_bonus()`) derived from rows 0–5. All 13 indices (0–12) are scoreable
+cells; `cells` contains exactly 13 `Option<u8>` entries per column.
 
 ### 5.2 Leptos Signal
 
 `GameState` is held in a single coarse-grained `RwSignal<GameState>` created
 at the `App` level and passed to child components via Leptos context
-(`provide_context`). Derived read-only signals (e.g. `grand_total`,
-`score_preview`) are computed from this signal using `Memo<T>`.
+(`provide_context`). Key derived read-only signals computed from this signal
+using `Memo<T>`:
+
+- `grand_total: Memo<u32>` — sum of all 6 column totals plus `bonus_pool`.
+- `score_preview: Memo<[[u8; 13]; 6]>` — for every cell `(col, row)`, the
+  score the current dice would yield. Computed only when `rolls_used > 0`;
+  when `rolls_used == 0` all entries are 0 and cells show no preview.
 
 ### 5.3 Turn Lifecycle
 
@@ -171,17 +182,19 @@ start_turn()
 roll()
   → for each i: if !held[i], dice[i] = rand(1..=6)
   → rolls_used += 1
+  → persist()
   → detect_bonus_sixzee()  // may immediately end the turn
 
 detect_bonus_sixzee()
   → if all dice same value
-     AND all 6 cells[col][10] are Some(50)  // all Sixzee cells filled, none scratched
+     AND all 6 cells[col][11] are Some(_)  // all Sixzee cells filled (any value, incl. 0)
+     → bonus_turn = true
      → if !bonus_forfeited: bonus_pool += 100
-     → start_turn()   // ends turn immediately; no score phase
+     → start_turn()   // resets bonus_turn to false; ends turn with no score phase
 
 place_score(col: usize, row: usize)
   → cells[col][row] = Some(score_preview(col, row))
-  → if row == 10 && cells[col][10] == Some(0): bonus_forfeited = true
+  → if row == 11 && cells[col][11] == Some(0): bonus_forfeited = true
   → turn += 1
   → persist()
   → if all 78 cells filled: trigger end_game()
@@ -243,8 +256,9 @@ pub struct CompletedGame {
 `completed_at` older than 365 days are removed.
 
 **Unavailability**: if `localStorage` is not available (e.g. private browsing),
-all storage calls are no-ops. A `StorageAvailability` signal informs the UI to
-show a non-blocking banner.
+storage calls return `AppError::Storage`. The app-level error signal (§15.7)
+receives this as a `Degraded` error and the `ErrorBanner` component (§15.8)
+informs the player that state will not be saved. Gameplay continues normally.
 
 ---
 
@@ -289,6 +303,8 @@ Key blocks:
 - `.overlay` / `.overlay--advisor` / `.overlay--end-game` / `.overlay--confirm`
 - `.history-list` / `.history-list__row`
 - `.settings` / `.settings__theme-grid` / `.settings__theme-card` / `.settings__theme-card--active`
+- `.error-banner` / `.error-banner__message` / `.error-banner__dismiss` / `.error-banner__details`
+- `.error-overlay` / `.error-overlay__body` / `.error-overlay__action` / `.error-overlay__details`
 
 ### 8.2 Theming with CSS Custom Properties
 
@@ -382,9 +398,8 @@ AdvisorComponent                       advisor_worker.rs
   │                                       │
   ├─ on Advisor btn click:                │
   │   → postMessage(AdvisorRequest)  ───→ receive AdvisorRequest
-  │                                       │  load ONNX model (once, cached)
   │                                       │  generate candidate actions
-  │                                       │  score each via ONNX + rollout
+  │                                       │  score each via DP table + MC
   │                                       │  sort top 5
   │   ← postMessage(AdvisorResponse) ←─── postMessage(AdvisorResponse)
   │
@@ -567,7 +582,7 @@ Located in `src/state/scoring.rs` (inline `#[cfg(test)]` blocks) and
 `src/state/game.rs`. No WASM target needed.
 
 Coverage targets:
-- All 12 scoring functions: correct values, edge cases, zero cases
+- All 13 scoring functions: correct values, edge cases, zero cases
 - `upper_bonus` threshold (63 boundary)
 - `grand_total` computation
 - `detect_bonus_sixzee` logic
@@ -603,6 +618,7 @@ Coverage targets:
 | `serde-wasm-bindgen` | Worker message serialization |
 | `gloo-events` | Event listener wrappers |
 | `rand` | Dice RNG (`wasm-bindgen` feature for WASM entropy) |
+| `thiserror` | `AppError` derive macro |
 | `uuid` | Game IDs for history records |
 | **offline only** | |
 | *(std only, no extra deps)* | DP solver uses only the Rust standard library |
@@ -620,7 +636,251 @@ WASM binary as a `const` array — no runtime asset fetch, no extra hosting.
 
 ---
 
-## 15. Open Questions
+## 15. Error Handling
+
+### 15.1 Core Types (`src/error.rs`)
+
+All fallible operations return `AppResult<T>`, a type alias over a single
+app-wide error enum. No operation should call `panic!()`, `unwrap()`, or
+`expect()` unless it meets the criteria in §15.4.
+
+```rust
+pub type AppResult<T> = Result<T, AppError>;
+
+#[derive(Debug, Clone, thiserror::Error)]
+pub enum AppError {
+    /// localStorage access, read, or write failure (includes unavailability).
+    #[error("Storage error: {0}")]
+    Storage(String),
+
+    /// JSON serialisation or deserialisation failure.
+    #[error("JSON error: {0}")]
+    Json(String),
+
+    /// Web Worker initialisation or postMessage failure.
+    #[error("Advisor worker error: {0}")]
+    Worker(String),
+
+    /// A web-sys / DOM API returned an error JsValue.
+    #[error("DOM error: {0}")]
+    Dom(String),
+
+    /// An internal consistency violation that indicates a programming error.
+    #[error("Internal error: {0}")]
+    Internal(&'static str),
+}
+```
+
+`AppError` is `Clone` so it can be stored in a Leptos `RwSignal`. All
+string payloads are owned so the type is `'static`.
+
+### 15.2 `From` Implementations
+
+```rust
+// serde_json — used in storage.rs for GameState / CompletedGame round-trips
+impl From<serde_json::Error> for AppError {
+    fn from(e: serde_json::Error) -> Self {
+        AppError::Json(e.to_string())
+    }
+}
+
+// web-sys JsValue errors — any web-sys call returning Result<_, JsValue>
+impl From<web_sys::JsValue> for AppError {
+    fn from(v: web_sys::JsValue) -> Self {
+        AppError::Dom(
+            v.as_string()
+                .unwrap_or_else(|| "(non-string JS error)".to_string()),
+        )
+    }
+}
+```
+
+These two `From` impls cover the majority of fallible call sites via `?`.
+`AppError::Storage` and `AppError::Worker` are constructed manually with
+context-specific messages at their call sites.
+
+### 15.3 Error Severity
+
+```rust
+#[derive(Debug, Clone, PartialEq)]
+pub enum ErrorSeverity {
+    /// Feature degraded but game continues (e.g. storage unavailable, advisor
+    /// worker failed to start). Show a non-blocking banner; do not interrupt play.
+    Degraded,
+
+    /// Unexpected failure; game state may be unreliable. Show a blocking overlay
+    /// and offer a "Start New Game" escape hatch.
+    Fatal,
+}
+
+impl AppError {
+    pub fn severity(&self) -> ErrorSeverity {
+        match self {
+            AppError::Storage(_) => ErrorSeverity::Degraded,
+            AppError::Worker(_)  => ErrorSeverity::Degraded,
+            AppError::Json(_)    => ErrorSeverity::Fatal,
+            AppError::Dom(_)     => ErrorSeverity::Fatal,
+            AppError::Internal(_)=> ErrorSeverity::Fatal,
+        }
+    }
+}
+```
+
+### 15.4 Panic Policy
+
+`unwrap()` is **banned** project-wide. `expect("reason")` is permitted only
+at the sites listed below, and must carry a message explaining why the panic
+is considered unreachable:
+
+| Site | Justification |
+|------|---------------|
+| `use_context::<T>().expect("…context must be provided")` | Programming error — context is always set up before any child renders. |
+| `include!(…)` for the DP table | Compile-time inclusion; failure is a build error, not a runtime error. |
+| Arithmetic on dice values in scoring functions | Dice values are constrained to 1–6 by `roll()` and are never None inside a scoring call. |
+
+All other `expect()` / `unwrap()` calls must be replaced with `?` or explicit
+error construction. Enforce this in CI with:
+
+```toml
+# Cargo.toml [lints.clippy]
+[lints.clippy]
+unwrap_used = "deny"
+```
+
+`expect_used` is intentionally left at `warn` to allow the permitted sites
+above without per-site `#[allow]` noise; code review enforces the policy
+for any new `expect()` call.
+
+### 15.5 Functions That Must Return `AppResult`
+
+#### `state/storage.rs`
+All public functions return `AppResult`:
+
+```rust
+pub fn load_in_progress() -> AppResult<Option<GameState>>
+pub fn save_in_progress(state: &GameState) -> AppResult<()>
+pub fn clear_in_progress() -> AppResult<()>
+pub fn load_history() -> AppResult<Vec<CompletedGame>>
+pub fn save_history(history: &[CompletedGame]) -> AppResult<()>
+pub fn load_theme() -> AppResult<Option<ThemeId>>
+pub fn save_theme(theme: ThemeId) -> AppResult<()>
+```
+
+#### `state/game.rs`
+State-mutation functions that call `persist()` propagate storage errors:
+
+```rust
+pub fn roll(state: &mut GameState) -> AppResult<()>
+pub fn place_score(state: &mut GameState, col: usize, row: usize) -> AppResult<()>
+```
+
+`start_turn()` and `detect_bonus_sixzee()` are pure in-memory mutations with
+no I/O; they return `()`.
+
+#### `worker/mod.rs`
+
+```rust
+pub fn spawn_worker() -> AppResult<Worker>
+pub fn post_request(worker: &Worker, req: &AdvisorRequest) -> AppResult<()>
+```
+
+### 15.6 Error Propagation Boundaries
+
+These are the points where `?`-chains terminate and errors are handled rather
+than propagated:
+
+| Boundary | Error handling |
+|----------|----------------|
+| `App` `on_mount` — `load_in_progress()` | Failure → treat as no saved game; post `AppError::Storage` to error signal (Degraded banner). |
+| `App` `on_mount` — `load_history()` | Failure → treat as empty history; post Degraded banner. |
+| `App` `on_mount` — `load_theme()` | Failure → use default theme; post Degraded banner. |
+| `roll()` / `place_score()` — `persist()` failure | Game state in memory remains valid; post Degraded banner ("State won't be saved"). Do **not** abort the roll or score placement. |
+| Resume prompt — `load_in_progress()` returns corrupt JSON | Post `AppError::Json` (Fatal); discard the corrupt save; offer "Start New" with an explanatory modal. |
+| `spawn_worker()` failure | Disable the Advisor button; show tooltip "Advisor unavailable". Never blocks gameplay. |
+| Any unhandled `AppError::Fatal` in a component | Post to the app-level fatal error signal → `ErrorOverlay` replaces the game screen. |
+
+### 15.7 App-Level Error Signal
+
+A single `RwSignal<Option<AppError>>` is created in `App` and provided via
+context. Components write to it via `use_context::<RwSignal<Option<AppError>>>()`.
+
+```rust
+// In App component
+let app_error: RwSignal<Option<AppError>> = create_rw_signal(None);
+provide_context(app_error);
+```
+
+Helper used throughout:
+
+```rust
+/// Post an error to the app-level signal. Logs to the browser console in all builds.
+pub fn report_error(err: AppError) {
+    web_sys::console::error_1(&format!("[rw_sixzee] {err:?}").into());
+    if let Some(signal) = use_context::<RwSignal<Option<AppError>>>() {
+        signal.set(Some(err));
+    }
+}
+```
+
+### 15.8 Visual Error Display
+
+#### `ErrorBanner` (Degraded)
+
+A dismissible banner rendered below the game header, replacing the
+`StorageAvailability` ad-hoc signal. Shows when
+`app_error.severity() == ErrorSeverity::Degraded`.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  ⚠  Storage unavailable — progress will not be saved.  [ ✕ ]│
+└─────────────────────────────────────────────────────────────┘
+```
+
+- User-friendly one-line summary drawn from `AppError` `Display` impl.
+- `[ ✕ ]` dismisses the banner (clears the signal); it does not reappear
+  until the next distinct error.
+- In `cfg(debug_assertions)` builds, a `<details>` element below the summary
+  exposes the full `{:?}` debug string for use during development.
+
+#### `ErrorOverlay` (Fatal)
+
+Full-screen overlay (same visual level as the end-game overlay) shown when
+`app_error.severity() == ErrorSeverity::Fatal`. Blocks all game interaction.
+
+```
+╔══════════════════════════════════════════════╗
+║  ⛔  Something went wrong                    ║
+║                                              ║
+║  An unexpected error occurred. Your in-      ║
+║  progress game may not be recoverable.       ║
+║                                              ║
+║  [ Start New Game ]                          ║
+║                                              ║
+║  ▶ Details  (debug only)                     ║
+╚══════════════════════════════════════════════╝
+```
+
+- "Start New Game" clears `rw_sixzee.in_progress` from localStorage (best-
+  effort, ignoring further errors), resets `GameState`, and clears the error
+  signal.
+- The `▶ Details` section is only rendered in `cfg(debug_assertions)` builds.
+  It shows the full `{:#?}` debug output of the `AppError` value in a
+  `<pre>` block, making it easy to copy for bug reports.
+
+#### Advisor Panel Error State
+
+If the Worker is unavailable (spawn failed), the Advisor button renders in a
+disabled state with a tooltip: "Advisor unavailable". No overlay is shown —
+gameplay is fully unaffected.
+
+If a `post_request` fails mid-session, the advisor panel shows an inline
+message ("Could not reach the advisor — please try again.") with a retry
+button. The error is also posted to `report_error` for console logging but
+does not affect the app-level error signal (it is scoped to the advisor).
+
+---
+
+## 16. Open Questions
 
 - **Worker bundling with Trunk**: Trunk's multi-target support for a separate
   Worker WASM binary needs validation. The Worker JS shim (`advisor_worker.js`)
