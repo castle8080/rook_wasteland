@@ -59,12 +59,18 @@ def _build_worker(release: bool = False):
         "--no-typescript",
         "--out-name", "grandma_worker_core",
     )
-    print(f"[grandma worker] built → dist/grandma_worker_core.js + .wasm")
+    print("[grandma worker] built -> dist/grandma_worker_core.js + .wasm")
+
+
+def worker():
+    """Build the grandma worker WASM binary (debug). Called by Trunk post_build hook."""
+    _build_worker(release=False)
 
 
 def build():
+    # Trunk's post_build hook (see Trunk.toml) runs _build_worker after the
+    # main app build, so no explicit call is needed here.
     _run("trunk", "build")
-    _build_worker(release=False)
 
 
 def test():

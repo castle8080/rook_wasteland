@@ -12,3 +12,10 @@ ignore = ["dist", "doc", "node_modules", "e2e"]
 # (and any future static assets) are served alongside the WASM bundle.
 [[copy-dir]]
 path = "assets"
+
+# After every trunk build (including trunk serve rebuilds), build the grandma
+# worker binary and place it alongside the other assets so Worker::new() works.
+[[hooks]]
+stage = "post_build"
+command = "python"
+command_arguments = ["make.py", "worker"]
