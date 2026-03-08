@@ -22,21 +22,21 @@ continues unaffected.
 
 ## Success Criteria
 
-- [ ] After the first roll of a turn, clicking the Ask Grandma button opens Grandma's Advice panel (previously a placeholder)
-- [ ] The panel shows 5 actions ranked by estimated end-game score, highest first
-- [ ] Each "Reroll" action shows: which dice to hold, approximate probability of target combos (~X%), estimated final score
-- [ ] Each "Score now" action shows: row name, column number, exact points, estimated final score
-- [ ] Clicking "Apply this move" on a Reroll action sets the held dice mask and closes the panel
+- [x] After the first roll of a turn, clicking the Ask Grandma button opens Grandma's Advice panel (previously a placeholder)
+- [x] The panel shows 5 actions ranked by estimated end-game score, highest first
+- [x] Each "Reroll" action shows: which dice to hold, approximate probability of target combos (~X%), estimated final score
+- [x] Each "Score now" action shows: row name, column number, exact points, estimated final score
+- [x] Clicking "Apply this move" on a Reroll action sets the held dice mask and closes the panel
   (player must then click Roll to execute)
-- [ ] Clicking "Apply this move" on a Score-now action places the score (triggering zero-score confirmation
+- [x] Clicking "Apply this move" on a Score-now action places the score (triggering zero-score confirmation
   if applicable) and closes the panel
-- [ ] Grandma's Advice panel closes without action via the ✕ button
-- [ ] If worker fails to spawn, Ask Grandma button is permanently disabled with tooltip "Ask Grandma unavailable";
+- [x] Grandma's Advice panel closes without action via the ✕ button
+- [x] If worker fails to spawn, Ask Grandma button is permanently disabled with tooltip "Ask Grandma unavailable";
   rest of game is unaffected
-- [ ] If a worker request fails mid-session, panel shows inline "Could not reach Grandma — please try again"
+- [x] If a worker request fails mid-session, panel shows inline "Could not reach Grandma — please try again"
   with retry button; no fatal error is triggered
-- [ ] WASM integration test: postMessage round-trip returns `GrandmaResponse` with exactly 5 `GrandmaAction` entries
-- [ ] DP table sanity: `V_COL[0b1_1111_1111_1111] == 0.0`; `V_COL[0]` is in expected theoretical range
+- [x] WASM integration test: postMessage round-trip returns `GrandmaResponse` with exactly 5 `GrandmaAction` entries
+- [x] DP table sanity: `V_COL[0b1_1111_1111_1111] == 0.0`; `V_COL[0]` is in expected theoretical range
 
 ---
 
@@ -149,4 +149,45 @@ continues unaffected.
 
 - **`current_dice` visibility:** Made `pub` so `grandma.rs` and future consumers can extract dice
   without duplicating the `Option`-unwrap pattern.
+
+---
+
+## Decisions & Insights
+
+### D1: Worker binary via Cargo feature, not a separate crate
+Using `--features worker` on the same crate avoids duplicating game logic and keeps the scoring
+engine, DP tables, and message types in one place. The `#[wasm_bindgen(start)]` entry point is
+gated so the main app and worker binaries never collide in the same build.
+
+### D2: Pre-build worker into `assets/` — not a Trunk `post_build` hook (see L17)
+Trunk's `post_build` hook fires *before* the atomic temp-dir → `dist/` rename, so any file a hook
+writes to `dist/` is immediately overwritten and silently lost. The correct pattern is to run
+`cargo build --features worker` + `wasm-bindgen` **before** `trunk build`, writing output into the
+source `assets/` directory. Trunk's `[[copy-dir]]` then stages it automatically. Worker artifacts
+are gitignored in `assets/`. This was discovered via bug_001 and documented in L16–L17.
+
+### D3: Score-zero Apply closes the panel without placing the score
+When Grandma recommends a Score-now action worth 0 points, clicking Apply closes the panel but does
+**not** auto-place the score. The player must click the cell manually to trigger the existing
+`ConfirmZero` flow. This preserves the game-rule invariant that every zero placement requires
+explicit player confirmation — auto-placing a zero would bypass it.
+
+### D4: Worker "ready" ping for clean startup sequencing
+After `worker_start()` wires `onmessage`, it posts the string `"ready"` to the main thread. The
+main-thread handler checks for a string value before attempting `serde_wasm_bindgen::from_value`,
+and silently ignores it. This makes the worker's startup state unambiguous without requiring a
+separate message type or an extra field in `GrandmaResponse`.
+
+### D5: EV computation threshold — exact for k ≤ 3 free dice, MC (300 samples) for k ≥ 4
+Full enumeration over 6^k outcomes is feasible up to k = 3 (216 outcomes). For k = 4 or 5 free
+dice (1296 / 7776 outcomes) the cost is still modest, but Monte Carlo with 300 samples runs in
+microseconds and the approximation error is negligible relative to the DP table's own approximation
+error. 300 samples was chosen empirically as the smallest count that produces stable rankings.
+
+### D6: Asset path is relative to the page URL, not the JS file
+`Worker::new("./assets/grandma_worker.js")` resolves relative to the page origin, not to the
+location of the main WASM JS bundle. With `public_url = "/rw_sixzee/"` in `Trunk.toml`, the
+worker files land at `/rw_sixzee/assets/` and the `./assets/` relative URL resolves correctly.
+This is distinct from `importScripts` inside the worker itself, which resolves relative to the
+worker script's own URL.
 

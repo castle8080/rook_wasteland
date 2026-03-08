@@ -23,7 +23,7 @@ and its DP validation early to prove the approach, UI and persistence next, and 
 | M4  | DP Precomputation             | ✅ COMPLETE    | [doc/milestones/m4-dp-precomputation.md](milestones/m4-dp-precomputation.md) |
 | M5  | Core Game UI                  | ✅ COMPLETE    | [doc/milestones/m5-core-game-ui.md](milestones/m5-core-game-ui.md) |
 | M6  | Persistence & Resume          | ✅ COMPLETE    | [doc/milestones/m6-persistence.md](milestones/m6-persistence.md) |
-| M7  | Ask Grandma                   | 🔲 NOT STARTED | [doc/milestones/m7-ask-grandma.md](milestones/m7-ask-grandma.md) |
+| M7  | Ask Grandma                   | ✅ COMPLETE    | [doc/milestones/m7-ask-grandma.md](milestones/m7-ask-grandma.md) |
 | M8  | Themes & SVG Dice             | 🔲 NOT STARTED | [doc/milestones/m8-themes.md](milestones/m8-themes.md) |
 | M9  | History Screen                | 🔲 NOT STARTED | [doc/milestones/m9-history.md](milestones/m9-history.md) |
 | M10 | Polish & Mobile               | 🔲 NOT STARTED | [doc/milestones/m10-polish-mobile.md](milestones/m10-polish-mobile.md) |
