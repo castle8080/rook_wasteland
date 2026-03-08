@@ -412,3 +412,88 @@ Call `clear_game_storage()` at the top of every test that mounts the full `App`.
 must also be removed in `clear_game_storage()`. The same issue affects test
 frameworks that run tests in a persistent browser context — always reset shared
 browser state at the start of each test that depends on it being clean.
+
+## L16: Web Worker with WASM in a Leptos app — full setup recipe
+
+**Milestone:** M7
+**Area:** Web Worker / wasm-bindgen / Trunk
+
+**What you need to do to ship a WASM Web Worker alongside a Leptos CSR app:**
+
+### 1. Cargo feature gate
+Add a `worker = []` feature in `Cargo.toml`. Gate the worker entry point on it:
+```rust
+// src/worker/grandma_worker.rs
+#[cfg(all(target_arch = "wasm32", feature = "worker"))]
+mod inner {
+    #[wasm_bindgen::prelude::wasm_bindgen(start)]
+    pub fn worker_start() { ... }
+}
+```
+Gate the main app entry point to exclude it:
+```rust
+// src/lib.rs
+#[cfg(all(target_arch = "wasm32", not(test), not(feature = "wasm-test"), not(feature = "worker")))]
+#[wasm_bindgen(start)]
+fn main() { ... }
+```
+This lets the same crate produce two distinct WASM binaries from one `cargo build`.
+
+### 2. Build the worker binary
+```bash
+cargo build --target wasm32-unknown-unknown --features worker [--release]
+wasm-bindgen target/wasm32-unknown-unknown/debug/rw_sixzee.wasm \
+  --out-dir dist/assets/ --target no-modules --no-typescript \
+  --out-name grandma_worker_core
+```
+Produces `dist/assets/grandma_worker_core.js` + `dist/assets/grandma_worker_core_bg.wasm`.
+Requires `cargo install wasm-bindgen-cli` (version must match `wasm-bindgen` in `Cargo.toml`).
+
+### 3. JS loader
+Create `assets/grandma_worker.js` (Trunk copies it to `dist/assets/`):
+```js
+importScripts('./grandma_worker_core.js');
+wasm_bindgen('./grandma_worker_core_bg.wasm').catch(function(e) {
+    self.postMessage(String(e));
+});
+```
+
+### 4. Spawn from the main thread
+```rust
+let worker = web_sys::Worker::new("./assets/grandma_worker.js")?;
+```
+The path is relative to the page URL, not the JS file. With `public_url = "/rw_sixzee/"` in
+`Trunk.toml` the correct path is `./assets/grandma_worker.js`.
+
+### 5. Trunk hook — so `trunk serve` just works
+Without this, the worker binary only gets built when you run `make.py build` explicitly.
+Add to `Trunk.toml`:
+```toml
+[[hooks]]
+stage = "post_build"
+command = "python"
+command_arguments = ["make.py", "worker"]
+```
+The hook fires after every `trunk build` and every `trunk serve` rebuild, keeping the
+worker binary in sync with code changes automatically.
+
+### 6. Suppress lints on generated files
+`wasm-bindgen`-generated files (and `include!`-d DP tables) trigger
+`clippy::large_const_arrays` and `clippy::excessive_precision`. Wrap the `include!` in
+a submodule with inner allows so the suppressions are scoped:
+```rust
+mod dp_tables {
+    #![allow(clippy::large_const_arrays, clippy::excessive_precision)]
+    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/generated/v_col.rs"));
+}
+use dp_tables::{V_COL, YZ_BONUS_CORRECTION};
+```
+
+### 7. Asset co-location
+Trunk's `[[copy-dir]]` places the `assets/` directory itself under `dist/`, so everything
+lands at `dist/assets/` — not directly in `dist/`. The `wasm-bindgen --out-dir` path and
+the `Worker::new()` URL must both use `./assets/`.
+
+**Watch out for:** The `→` character (U+2192) in Python print strings causes a
+`UnicodeEncodeError` when Trunk spawns the hook subprocess on Windows (cp1252 terminal).
+Use ASCII `->` in hook script output.
