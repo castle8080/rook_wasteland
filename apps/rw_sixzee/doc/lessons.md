@@ -261,3 +261,18 @@ gate it behind the relevant condition to avoid spurious calls.
 `EventListenerOptions::enable_prevent_default()`. In rw_sixzee this is most
 likely to surface on touch/pointer events for the dice hold/unhold interaction
 on mobile.
+
+## L11: `bonus_pool > 0` and `bonus_forfeited = true` are mutually exclusive
+
+**Milestone:** M5
+**Area:** Scoring / game state invariants
+**Symptom:** Appears to be a scoring bug: `compute_grand_total(&s.cells, s.bonus_pool)` is called
+without checking `bonus_forfeited`, suggesting forfeited bonuses are counted.
+**Cause:** This is not actually a bug. The invariant holds by construction: `bonus_pool` is only
+incremented inside `detect_bonus_sixzee` behind a `if !state.bonus_forfeited` guard. `bonus_forfeited`
+is only set to `true` when a Sixzee cell is scored as 0 — which can only happen before all six Sixzee
+cells are filled. Bonus turns require all six cells filled, so the forfeiture flag can only be set
+*before* any bonus points are ever earned. Therefore `bonus_pool > 0` implies `bonus_forfeited = false`.
+**Fix / Workaround:** No fix needed. Document this invariant when reviewing scoring code.
+**Watch out for:** Any future code path that could set `bonus_forfeited = true` *after* `bonus_pool`
+has been credited (e.g. an undo feature). If undo is ever added, this invariant must be re-evaluated.

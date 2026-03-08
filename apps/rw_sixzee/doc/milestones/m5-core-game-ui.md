@@ -1,9 +1,9 @@
 # M5 — Core Game UI
 
 <!-- MILESTONE: M5 -->
-<!-- STATUS: NOT_STARTED -->
+<!-- STATUS: COMPLETE -->
 
-**Status:** 🔲 NOT STARTED
+**Status:** ✅ COMPLETE
 **Depends on:** [M2 — Game State & Scoring Engine](m2-scoring-engine.md)
 **Required by:** M6, M8, M9, M10
 

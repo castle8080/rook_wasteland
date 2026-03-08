@@ -21,7 +21,7 @@ and its DP validation early to prove the approach, UI and persistence next, and 
 | M2  | Game State & Scoring Engine   | ✅ COMPLETE    | [doc/milestones/m2-scoring-engine.md](milestones/m2-scoring-engine.md) |
 | M3  | Grandma's Sayings             | ✅ COMPLETE    | [doc/milestones/m3-grandma-sayings.md](milestones/m3-grandma-sayings.md) |
 | M4  | DP Precomputation             | ✅ COMPLETE    | [doc/milestones/m4-dp-precomputation.md](milestones/m4-dp-precomputation.md) |
-| M5  | Core Game UI                  | 🔲 NOT STARTED | [doc/milestones/m5-core-game-ui.md](milestones/m5-core-game-ui.md) |
+| M5  | Core Game UI                  | ✅ COMPLETE    | [doc/milestones/m5-core-game-ui.md](milestones/m5-core-game-ui.md) |
 | M6  | Persistence & Resume          | 🔲 NOT STARTED | [doc/milestones/m6-persistence.md](milestones/m6-persistence.md) |
 | M7  | Ask Grandma                   | 🔲 NOT STARTED | [doc/milestones/m7-ask-grandma.md](milestones/m7-ask-grandma.md) |
 | M8  | Themes & SVG Dice             | 🔲 NOT STARTED | [doc/milestones/m8-themes.md](milestones/m8-themes.md) |

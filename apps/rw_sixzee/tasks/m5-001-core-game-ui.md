@@ -1,7 +1,7 @@
 # Task M5-001: Core Game UI
 
 **Milestone:** M5 — Core Game UI
-**Status:** 🔄 In Progress
+**Status:** ✅ Done
 
 ## Restatement
 
@@ -145,11 +145,17 @@ pub fn GameView() -> impl IntoView  // complete wired game screen
 
 ## Test Results
 
-_Pending_
+- `cargo test`: 75/75 native tests pass
+- `cargo clippy --target wasm32-unknown-unknown --tests -- -D warnings`: clean
+- `trunk build`: succeeds, no warnings
+- `wasm-pack test --headless --firefox`: 9/9 browser integration tests pass
 
 ## Review Notes
 
-_Pending_
+Code-review agent flagged `compute_grand_total(&s.cells, s.bonus_pool)` as
+potentially including forfeited bonuses. **Waived**: `bonus_pool` only increments
+inside `detect_bonus_sixzee` when `!bonus_forfeited`, so `bonus_pool > 0` and
+`bonus_forfeited = true` are mutually exclusive — the calculation is correct.
 
 ## Callouts / Gotchas
 
