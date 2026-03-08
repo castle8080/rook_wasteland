@@ -47,8 +47,10 @@ def _build_worker(release: bool = False):
     wasm_path = target_dir / profile / "rw_sixzee.wasm"
 
     # wasm-bindgen produces a no-modules shim that works inside a Web Worker.
-    dist_dir = ROOT / "dist"
-    dist_dir.mkdir(exist_ok=True)
+    # Output into dist/assets/ so it is co-located with the grandma_worker.js
+    # loader that Trunk copies there from assets/.
+    dist_dir = ROOT / "dist" / "assets"
+    dist_dir.mkdir(parents=True, exist_ok=True)
     _run(
         "wasm-bindgen",
         str(wasm_path),

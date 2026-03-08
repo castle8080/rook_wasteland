@@ -48,7 +48,7 @@ pub fn spawn_grandma_worker(
     use wasm_bindgen::JsCast;
     use wasm_bindgen::closure::Closure;
 
-    let worker = web_sys::Worker::new("./grandma_worker.js").map_err(|e| {
+    let worker = web_sys::Worker::new("./assets/grandma_worker.js").map_err(|e| {
         AppError::Worker(
             e.as_string()
                 .unwrap_or_else(|| "Worker::new failed".to_string()),
