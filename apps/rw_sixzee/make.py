@@ -42,6 +42,10 @@ def dist():
 
 
 def e2e():
+    # shutil.which is required for cross-platform compatibility: on Windows,
+    # `npx` resolves to `npx.CMD` (a batch script) which subprocess cannot
+    # invoke without the full path.  On Linux/macOS shutil.which returns the
+    # normal binary path; the "npx" fallback works there too if npm is on PATH.
     npx = shutil.which("npx") or "npx"
     _run(npx, "playwright", "test")
 
