@@ -1,0 +1,54 @@
+[package]
+name = "rw_sixzee"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+# When set, suppresses the #[wasm_bindgen(start)] entry point so the
+# wasm-bindgen-test harness can inject its own `main` without conflict.
+# Pass `--features wasm-test` to wasm-pack / cargo test when running
+# browser integration tests. See doc/lessons.md L5.
+wasm-test = []
+
+[lints.clippy]
+unwrap_used = "deny"
+
+[dependencies]
+leptos               = { version = "0.8", features = ["csr"] }
+wasm-bindgen         = "0.2"
+wasm-bindgen-futures = "0.4"
+web-sys              = { version = "0.3", features = [
+  "Window",
+  "Document",
+  "Element",
+  "Node",
+  "HtmlBodyElement",
+  "HtmlInputElement",
+  "Location",
+  "Event",
+  "EventTarget",
+  "Storage",
+  "console",
+] }
+js-sys               = "0.3"
+serde                = { version = "1", features = ["derive"] }
+serde_json           = "1"
+serde-wasm-bindgen   = "0.6"
+gloo-events          = "0.2"
+gloo-net             = { version = "0.6", features = ["http"] }
+rand                 = "0.8"
+getrandom            = { version = "0.2", features = ["js"] }
+thiserror            = "1"
+uuid                 = { version = "1", features = ["v4", "js"] }
+console_error_panic_hook = "0.1"
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"
+
+[profile.release]
+opt-level     = "z"
+lto           = true
+codegen-units = 1

@@ -1,0 +1,14 @@
+[build]
+target     = "index.html"
+dist       = "dist"
+# IMPORTANT: must match the deployment subdirectory exactly so Trunk injects
+# correct absolute paths for the WASM binary, JS glue, and CSS.
+public_url = "/rw_sixzee/"
+
+[watch]
+ignore = ["dist", "doc"]
+
+# Copy the assets/ directory into the dist output so grandma_quotes.json
+# (and any future static assets) are served alongside the WASM bundle.
+[[copy-dir]]
+path = "assets"

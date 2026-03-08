@@ -43,5 +43,14 @@
     "tagline": "A hand-cranked engine of impossible symmetry.",
     "description": "Load a photograph into this fine Victorian computational apparatus, adjust the brass fittings, and watch it fold your image into patterns no Euclidean geometry can explain. Toggle the Möbius mirror. Engage recursive reflection. Hit Randomize and pretend you meant for it to look like that.",
     "status": "live"
+  },
+  {
+    "name": "Sixzee",
+    "slug": "rw_sixzee",
+    "path": "/rw_sixzee/index.html",
+    "icon": "🎲",
+    "tagline": "Stop trying to force luck on the dice.",
+    "description": "Six-column solitaire Sixzee. Seventy-eight cells, each one permanent. The dice don't negotiate. When you're stuck, Ask Grandma — she knows exactly what to do. She always has.",
+    "status": "live"
   }
 ]

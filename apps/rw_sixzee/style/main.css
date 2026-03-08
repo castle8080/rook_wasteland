@@ -1,0 +1,319 @@
+/* rw_sixzee — main stylesheet (BEM + CSS custom properties) */
+
+/* ── Custom Properties ─────────────────────────────────────────────────── */
+
+:root {
+  --color-bg:          #f5f4f0;
+  --color-surface:     #ffffff;
+  --color-accent:      #4a5568;
+  --color-text:        #1a202c;
+  --color-held-border: #2d3748;
+  --color-preview:     #2b6cb0;
+  --font-body:         'Inter', sans-serif;
+  --font-display:      'Inter', sans-serif;
+}
+
+/* ── Themes ─────────────────────────────────────────────────────────────── */
+
+[data-theme="nordic_minimal"] {
+  --color-bg:          #f5f4f0;
+  --color-surface:     #ffffff;
+  --color-accent:      #4a5568;
+  --color-text:        #1a202c;
+  --color-held-border: #2d3748;
+  --color-preview:     #2b6cb0;
+  --font-body:         'Inter', sans-serif;
+  --font-display:      'Inter', sans-serif;
+}
+
+[data-theme="devil_rock"] {
+  --color-bg:          #0a0a0a;
+  --color-surface:     #1a0000;
+  --color-accent:      #ff2020;
+  --color-text:        #f5e642;
+  --color-held-border: #ff4040;
+  --color-preview:     #ff6060;
+  --font-body:         sans-serif;
+  --font-display:      sans-serif;
+}
+
+[data-theme="borg"] {
+  --color-bg:          #0d0d0d;
+  --color-surface:     #111111;
+  --color-accent:      #00ff41;
+  --color-text:        #00ff41;
+  --color-held-border: #00cc33;
+  --color-preview:     #00aa22;
+  --font-body:         monospace;
+  --font-display:      monospace;
+}
+
+[data-theme="horror"] {
+  --color-bg:          #1a0a0a;
+  --color-surface:     #2a0f0f;
+  --color-accent:      #cc2200;
+  --color-text:        #e8ddd0;
+  --color-held-border: #aa1100;
+  --color-preview:     #ff4422;
+  --font-body:         serif;
+  --font-display:      serif;
+}
+
+[data-theme="renaissance"] {
+  --color-bg:          #f2ead6;
+  --color-surface:     #faf6ec;
+  --color-accent:      #8b4513;
+  --color-text:        #3b2510;
+  --color-held-border: #6b3410;
+  --color-preview:     #a0522d;
+  --font-body:         serif;
+  --font-display:      serif;
+}
+
+[data-theme="pacific_northwest"] {
+  --color-bg:          #1a2a1a;
+  --color-surface:     #243324;
+  --color-accent:      #5a8a5a;
+  --color-text:        #d4e8d4;
+  --color-held-border: #4a7a4a;
+  --color-preview:     #7ab07a;
+  --font-body:         sans-serif;
+  --font-display:      sans-serif;
+}
+
+/* ── Reset / Base ────────────────────────────────────────────────────────── */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  min-height: 100vh;
+}
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+}
+
+/* ── App Shell ───────────────────────────────────────────────────────────── */
+
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  padding: 2rem;
+  font-size: 1.5rem;
+  color: var(--color-accent);
+}
+
+/* ── Tab Bar ─────────────────────────────────────────────────────────────── */
+
+.tab-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  background-color: var(--color-surface);
+  border-top: 1px solid var(--color-accent);
+  padding: 0.5rem 0;
+  position: sticky;
+  bottom: 0;
+  z-index: 100;
+}
+
+.tab-bar__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.5rem 1.5rem;
+  background: none;
+  border: none;
+  color: var(--color-text);
+  font-size: 0.85rem;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+
+.tab-bar__item:hover {
+  opacity: 0.85;
+}
+
+.tab-bar__item--active {
+  opacity: 1;
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+/* ── Overlay base ────────────────────────────────────────────────────────── */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.overlay__box {
+  background-color: var(--color-surface);
+  border-radius: 8px;
+  padding: 2rem;
+  max-width: 480px;
+  width: 90%;
+}
+
+/* ── Error Banner (Degraded) ─────────────────────────────────────────────── */
+
+.error-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background-color: #fffbeb;
+  border: 1px solid #f59e0b;
+  border-radius: 4px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+}
+
+.error-banner__message {
+  flex: 1;
+  color: #92400e;
+}
+
+.error-banner__dismiss {
+  background: none;
+  border: none;
+  color: #92400e;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0.25rem;
+}
+
+.error-banner__dismiss:hover {
+  color: #78350f;
+}
+
+.error-banner__details {
+  width: 100%;
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: #78350f;
+}
+
+.error-banner__details pre {
+  white-space: pre-wrap;
+  word-break: break-all;
+  background-color: #fef3c7;
+  padding: 0.5rem;
+  border-radius: 2px;
+}
+
+/* ── Error Overlay (Fatal) ───────────────────────────────────────────────── */
+
+.error-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 300;
+}
+
+.error-overlay__body {
+  background-color: var(--color-surface);
+  border-radius: 8px;
+  padding: 2rem;
+  max-width: 480px;
+  width: 90%;
+  text-align: center;
+}
+
+.error-overlay__body h2 {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+  color: var(--color-text);
+}
+
+.error-overlay__body p {
+  margin-bottom: 1.5rem;
+  color: var(--color-text);
+  line-height: 1.5;
+}
+
+.error-overlay__action {
+  background-color: var(--color-accent);
+  color: var(--color-bg);
+  border: none;
+  border-radius: 4px;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.error-overlay__action:hover {
+  opacity: 0.9;
+}
+
+.error-overlay__details {
+  margin-top: 1.5rem;
+  text-align: left;
+  font-size: 0.75rem;
+  color: var(--color-text);
+}
+
+.error-overlay__details pre {
+  background-color: var(--color-bg);
+  padding: 0.75rem;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+/* ── Resume Prompt ───────────────────────────────────────────────────────── */
+
+.resume-prompt {
+  padding: 1rem;
+  text-align: center;
+}
+
+.resume-prompt h2 {
+  font-family: var(--font-display);
+  margin-bottom: 1rem;
+}
+
+.resume-prompt__actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-top: 1.5rem;
+}
+
+/* ── Mobile Responsive ───────────────────────────────────────────────────── */
+
+@media (max-width: 599px) {
+  .tab-bar__item {
+    padding: 0.5rem 1rem;
+    min-height: 44px;
+  }
+}

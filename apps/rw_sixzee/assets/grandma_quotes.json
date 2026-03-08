@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "opening": [],
+  "closing": {
+    "really_bad": [],
+    "bad": [],
+    "ok": [],
+    "good": [],
+    "great": []
+  },
+  "sixzee": [],
+  "scratch": []
+}

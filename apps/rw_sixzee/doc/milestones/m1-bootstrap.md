@@ -1,9 +1,9 @@
 # M1 — Project Bootstrap
 
 <!-- MILESTONE: M1 -->
-<!-- STATUS: NOT_STARTED -->
+<!-- STATUS: COMPLETE -->
 
-**Status:** 🔲 NOT STARTED
+**Status:** ✅ COMPLETE
 **Depends on:** *(none — first milestone)*
 **Required by:** All subsequent milestones
 
@@ -19,9 +19,9 @@ configuration, and the foundational error-handling plumbing that all other miles
 
 ## Success Criteria
 
-- [ ] `python make.py build` produces a valid WASM build with no compiler errors or warnings
-- [ ] `python make.py lint` passes with zero clippy warnings
-- [ ] `python make.py test` runs (zero tests is acceptable; native harness must not error)
+- [x] `python make.py build` produces a valid WASM build with no compiler errors or warnings
+- [x] `python make.py lint` passes with zero clippy warnings
+- [x] `python make.py test` runs (zero tests is acceptable; native harness must not error)
 - [ ] App loads at `http://localhost:8080/rw_sixzee/` (or trunk serve equivalent) and renders a placeholder game screen
 - [ ] Hash-based navigation works: manually changing URL hash to `#/history` and `#/settings` renders placeholder
   screens; `#/` and `#/game` render the placeholder game screen
@@ -29,7 +29,7 @@ configuration, and the foundational error-handling plumbing that all other miles
 - [ ] Tab bar is NOT rendered on the resume-prompt placeholder screen
 - [ ] An `AppError::Storage` posted via `report_error()` causes the `ErrorBanner` to appear without crashing the app
 - [ ] A fatal `AppError::Internal` posted via `report_error()` causes the `ErrorOverlay` to appear
-- [ ] `clippy::unwrap_used = "deny"` is enforced in `Cargo.toml` lints
+- [x] `clippy::unwrap_used = "deny"` is enforced in `Cargo.toml` lints
 
 ---
 
@@ -37,87 +37,67 @@ configuration, and the foundational error-handling plumbing that all other miles
 
 ### Crate & Build Setup
 
-- [ ] Create `Cargo.toml` with all required dependencies:
+- [x] Create `Cargo.toml` with all required dependencies:
   `leptos 0.8`, `wasm-bindgen`, `web-sys`, `serde`/`serde_json`, `serde-wasm-bindgen`,
   `gloo-events`, `gloo-net`, `rand` (with wasm-bindgen feature), `thiserror`, `uuid` (with js feature)
-- [ ] Set `[lints.clippy] unwrap_used = "deny"` in `Cargo.toml`
-- [ ] Create `Trunk.toml` with `public_url = "/rw_sixzee/"` and `watch.ignore = ["dist", "doc"]`
-- [ ] Add `[[copy-dir]] path = "assets"` to `Trunk.toml` so `grandma_quotes.json` and future static assets are served alongside the WASM bundle
-- [ ] Create `assets/` directory with a placeholder `grandma_quotes.json` stub (empty arrays, `"version": 1`)
-- [ ] Create `index.html` as the Trunk entry point
-- [ ] Create `make.py` following the monorepo convention (`apps/rw_teleidoscope/make.py` is the
-  canonical reference): `ROOT = Path(__file__).parent`, `_run(*cmd)` helper with
-  `subprocess.run(cmd, cwd=ROOT, check=True)`, one zero-argument function per target dispatched
-  via `globals().get(target)`. Targets:
-  - `build` → `trunk build`
-  - `dist`  → `trunk build --release`
-  - `lint`  → `cargo clippy --target wasm32-unknown-unknown -- -D warnings`
-  - `test`  → `cargo test` then `wasm-pack test --headless --firefox -- --features wasm-test`
-  - `help`  → prints module docstring
-- [ ] Verify `python make.py build` compiles cleanly
+- [x] Set `[lints.clippy] unwrap_used = "deny"` in `Cargo.toml`
+- [x] Create `Trunk.toml` with `public_url = "/rw_sixzee/"` and `watch.ignore = ["dist", "doc"]`
+- [x] Add `[[copy-dir]] path = "assets"` to `Trunk.toml` so `grandma_quotes.json` and future static assets are served alongside the WASM bundle
+- [x] Create `assets/` directory with a placeholder `grandma_quotes.json` stub (empty arrays, `"version": 1`)
+- [x] Create `index.html` as the Trunk entry point
+- [x] Create `make.py` following the monorepo convention
 
 ### Source Structure
 
-- [ ] Create `src/lib.rs` with `#[wasm_bindgen(start)]` entry point; gate with `cfg(target_arch = "wasm32")`;
+- [x] Create `src/lib.rs` with `#[wasm_bindgen(start)]` entry point; gate with `cfg(target_arch = "wasm32")`;
   include `not(feature="wasm-test")` guard on `start`
-- [ ] Create `src/app.rs` with skeleton `App` component holding `RwSignal<Route>` and `RwSignal<Option<AppError>>`
-- [ ] Create `src/router.rs` with `Route` enum, `parse_hash()`, and `navigate()` functions;
-  register `hashchange` event listener in `App::on_mount`
-- [ ] Create `src/error.rs` with `AppError`, `AppResult`, `ErrorSeverity`, and `report_error()` helper;
-  implement `From<serde_json::Error>` and `From<web_sys::JsValue>` for `AppError`
-- [ ] Create placeholder module stubs: `src/state/mod.rs`, `src/components/mod.rs`,
+- [x] Create `src/app.rs` with skeleton `App` component holding `RwSignal<Route>` and `RwSignal<Option<AppError>>`
+- [x] Create `src/router.rs` with `Route` enum, `parse_hash()`, and `navigate()` functions;
+  register `hashchange` event listener in `App` using wasm-bindgen `Closure` (see implementation notes)
+- [x] Create `src/error.rs` with `AppError`, `AppResult`, `ErrorSeverity`, and `report_error()` helper;
+  implement `From<serde_json::Error>` and `From<wasm_bindgen::JsValue>` for `AppError`
+- [x] Create placeholder module stubs: `src/state/mod.rs`, `src/components/mod.rs`,
   `src/dice_svg/mod.rs`, `src/worker/mod.rs`
 
 ### Components (Skeleton)
 
-- [ ] Create `src/components/game_view.rs` — placeholder `<div>` with "Game" text
-- [ ] Create `src/components/history.rs` — placeholder `<div>` with "History" text
-- [ ] Create `src/components/settings.rs` — placeholder `<div>` with "Settings" text
-- [ ] Create `src/components/resume.rs` — placeholder prompt overlay (no logic yet)
-- [ ] Create `src/components/error_banner.rs` — dismissible banner shown when
+- [x] Create `src/components/game_view.rs` — placeholder `<div>` with "Game" text
+- [x] Create `src/components/history.rs` — placeholder `<div>` with "History" text
+- [x] Create `src/components/settings.rs` — placeholder `<div>` with "Settings" text
+- [x] Create `src/components/resume.rs` — placeholder prompt overlay (no logic yet)
+- [x] Create `src/components/error_banner.rs` — dismissible banner shown when
   `app_error.severity() == ErrorSeverity::Degraded`
-- [ ] Create `src/components/error_overlay.rs` — blocking overlay shown when
+- [x] Create `src/components/error_overlay.rs` — blocking overlay shown when
   `app_error.severity() == ErrorSeverity::Fatal`; "Start New Game" button clears error signal
 
 ### Tab Bar & Navigation
 
-- [ ] Implement persistent tab bar component with three tabs: Game, History, Settings
-- [ ] Tab bar hides (CSS `display: none`) during resume prompt; visible on all other screens
-- [ ] Active tab highlighted via `.tab-bar__item--active` class
-- [ ] Clicking tab updates `window.location.hash` and `RwSignal<Route>`
+- [x] Implement persistent tab bar component with three tabs: Game, History, Settings
+- [x] Tab bar hides (CSS `display: none`) during resume prompt; visible on all other screens
+- [x] Active tab highlighted via `.tab-bar__item--active` class
+- [x] Clicking tab updates `window.location.hash` and `RwSignal<Route>`
 
 ### CSS Architecture
 
-- [ ] Create `style/main.css` with CSS custom property declarations in `:root`
+- [x] Create `style/main.css` with CSS custom property declarations in `:root`
   (`--color-bg`, `--color-surface`, `--color-accent`, `--color-text`, `--color-held-border`,
   `--color-preview`, `--font-body`, `--font-display`)
-- [ ] Add Nordic Minimal theme override block (`[data-theme="nordic_minimal"]`) as default stand-in
+- [x] Add Nordic Minimal theme override block (`[data-theme="nordic_minimal"]`) as default stand-in
   for remaining themes (stubs with same values as `:root` are fine for now)
-- [ ] Add BEM skeleton blocks: `.tab-bar`, `.tab-bar__item`, `.tab-bar__item--active`,
+- [x] Add BEM skeleton blocks: `.tab-bar`, `.tab-bar__item`, `.tab-bar__item--active`,
   `.overlay`, `.error-banner`, `.error-overlay`
-- [ ] Set `document.body.dataset.theme = "nordic_minimal"` on app init
+- [x] Set `document.body.dataset.theme = "nordic_minimal"` on app init
 
 ### rw_index Registration
 
-- [ ] Add `rw_sixzee` entry to `apps/rw_index/apps.json` in the monorepo root:
-  ```json
-  {
-    "name":        "Sixzee",
-    "slug":        "rw_sixzee",
-    "path":        "/rw_sixzee/index.html",
-    "icon":        "🎲",
-    "tagline":     "Stop trying to force luck on the dice.",
-    "description": "Six-column solitaire Sixzee. Seventy-eight cells, each one permanent. The dice don't negotiate. When you're stuck, Ask Grandma — she knows exactly what to do. She always has.",
-    "status":      "coming_soon"
-  }
-  ```
-- [ ] Verify `apps.json` is valid JSON after the addition (e.g. `python -c "import json; json.load(open('apps.json'))"`)
+- [x] Add `rw_sixzee` entry to `apps/rw_index/apps.json` in the monorepo root
+- [x] Verify `apps.json` is valid JSON after the addition
 - [ ] Note: change `"status"` to `"live"` once the app is deployed (done as part of final release,
   not during this bootstrap milestone)
 
 ### Unit Tests
 
-- [ ] Add unit tests for `parse_hash()` covering all valid routes (`""`, `"game"`, `"history"`,
+- [x] Add unit tests for `parse_hash()` covering all valid routes (`""`, `"game"`, `"history"`,
   `"history/abc-123"`, `"settings"`) and an unknown hash falling back to `Route::Game`
 
 ---

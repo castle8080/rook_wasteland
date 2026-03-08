@@ -219,7 +219,29 @@ more code.
 
 ---
 
-## L9: `gloo_events::EventListener::new` defaults to `passive: true`
+## L10: `leptos::on_cleanup` requires `Send + Sync`; use `Closure::forget()` for page-lifetime DOM listeners
+
+**Milestone:** M1
+**Area:** Events / Leptos
+**Symptom:** Compiler error "`(dyn FnMut(&Event))` cannot be sent between threads safely" when passing
+a `gloo_events::EventListener` into `on_cleanup(move || drop(listener))`.
+**Cause:** `leptos::prelude::on_cleanup` requires its closure to be `Send + Sync + 'static` to
+support multi-threaded runtimes. `gloo_events::EventListener` contains a `Box<dyn FnMut>` which is
+`!Send`, so it cannot satisfy this bound.
+**Fix / Workaround:** For DOM listeners that must live for the entire page lifetime (e.g. a `hashchange`
+listener on `window` in the root `App` component), use a raw `wasm_bindgen::closure::Closure` and call
+`closure.forget()` after registering it with `add_event_listener_with_callback`. The intentional leak
+is correct because the App is never unmounted in a browser SPA.
+```rust
+let cb = Closure::<dyn FnMut(web_sys::Event)>::new(move |_: web_sys::Event| { ... });
+window.add_event_listener_with_callback("hashchange", cb.as_ref().unchecked_ref()).expect("...");
+cb.forget(); // intentional: App lives for the entire page lifetime
+```
+**Watch out for:** Any future root-component event listener (resize, visibilitychange, etc.) — use the
+same `Closure::forget()` pattern. If a listener must be removable (e.g. inside a component that can
+unmount), wrap it in `SendWrapper` or use a `RwSignal<bool>` flag to gate the handler instead of
+removing the listener.
+
 
 **Milestone:** M5
 **Area:** Events
