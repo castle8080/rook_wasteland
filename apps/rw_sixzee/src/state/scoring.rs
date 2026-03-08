@@ -261,11 +261,41 @@ fn unique_sorted(dice: &[u8; 5]) -> Vec<u8> {
     v
 }
 
+// ─── Display helpers ─────────────────────────────────────────────────────────
+
+/// Returns the bonus-pool fill label shown below the bonus-pool value.
+///
+/// e.g. `bonus_pool_label(3)` → `"(3 of 6 6z filled)"`
+pub fn bonus_pool_label(filled: usize) -> String {
+    format!("({filled} of 6 6z filled)")
+}
+
 // ─── Unit tests ──────────────────────────────────────────────────────────────
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // ── Display helpers ──
+
+    #[test]
+    fn bonus_pool_label_uses_6z_abbreviation() {
+        let label = bonus_pool_label(3);
+        assert!(
+            label.contains("6z"),
+            "Expected '6z' in bonus pool label, got: {label}"
+        );
+        assert!(
+            !label.contains("Yz"),
+            "Found legacy 'Yz' in bonus pool label, got: {label}"
+        );
+    }
+
+    #[test]
+    fn bonus_pool_label_formats_count_correctly() {
+        assert_eq!(bonus_pool_label(0), "(0 of 6 6z filled)");
+        assert_eq!(bonus_pool_label(6), "(6 of 6 6z filled)");
+    }
 
     // ── Upper section ──
 

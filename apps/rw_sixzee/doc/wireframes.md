@@ -87,7 +87,7 @@ button is disabled until the first roll.
 │  ┌─────────────────────────┐   GRAND TOTAL:   726          │
 │  │  SIXZEE BONUS POOL     │                               │
 │  │       +100              │                               │
-│  │  (3 of 6 Yz filled ✓)  │                               │
+│  │  (3 of 6 6z filled ✓)  │                               │
 │  └─────────────────────────┘                               │
 ├─────────────────────────────────────────────────────────────┤
 │      [ 🎮 Game ]      [ 📋 History ]    [ ⚙️ Settings ]    │

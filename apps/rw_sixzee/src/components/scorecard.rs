@@ -9,7 +9,8 @@ use leptos::prelude::*;
 
 use crate::state::game::GameState;
 use crate::state::scoring::{
-    column_total, lower_subtotal, upper_bonus, upper_subtotal, ROW_LABELS, ROW_SIXZEE,
+    bonus_pool_label, column_total, lower_subtotal, upper_bonus, upper_subtotal, ROW_LABELS,
+    ROW_SIXZEE,
 };
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -173,7 +174,7 @@ pub fn Scorecard(
                         let filled = s.cells.iter().filter(|col| col[ROW_SIXZEE].is_some()).count();
                         view! {
                             <div class="bonus-pool__forfeited">
-                                {format!("({filled} of 6 Yz filled)")}
+                                {bonus_pool_label(filled)}
                             </div>
                         }
                         .into_any()
