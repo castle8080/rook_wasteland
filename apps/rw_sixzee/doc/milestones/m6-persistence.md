@@ -94,6 +94,10 @@ After this milestone, closing and reopening the browser preserves an in-progress
 - [ ] Unit test: `GameState` serialise → JSON string → deserialise produces equal struct (native test)
 - [ ] Unit test: history pruning removes entries >365 days old and retains others
 - [ ] Unit test: `save_history` sorts by `final_score` descending
+- [ ] **E2E smoke test** (`e2e/smoke.spec.ts`): after rolling and refreshing the page, the game
+  header and dice row are visible (verifies localStorage save + WASM re-init + resume prompt appear)
+- [ ] **E2E smoke test**: close and reopen the app → Resume prompt appears with correct turn count
+- [ ] **E2E smoke test**: choose "Start New" on the Resume prompt → fresh game starts (dice show `?`)
 
 ---
 

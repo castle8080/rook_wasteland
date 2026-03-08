@@ -106,6 +106,9 @@ Symbol descriptions (from PRD §6.35):
 - [ ] Each theme card has `min-height: 120px`; grid is `repeat(2, 1fr)` on mobile,
   `repeat(3, 1fr)` on wider viewports
 - [ ] Active card uses accent border (`.settings__theme-card--active { border: 2px solid var(--color-accent); }`)
+- [ ] **E2E smoke test** (`e2e/smoke.spec.ts`): navigate to `#/settings`, verify theme grid renders
+  with at least one card; click a theme card, verify `data-theme` attribute updates on `<body>`;
+  reload page, verify theme persists (confirms localStorage save + load round-trip)
 
 ---
 

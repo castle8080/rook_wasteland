@@ -170,3 +170,6 @@ Ask Grandma.
   including Roll 1 and Roll 2 (not just Roll 3). The turn ends immediately if detected.
 - **End-of-game history save:** M5's "New Game" button does NOT save to history — that is M6's scope.
   Clicking "New Game" simply resets state in memory.
+- **E2E infrastructure bootstrapped in M5:** `python make.py e2e` runs Playwright smoke tests
+  against `trunk serve`. See `e2e/smoke.spec.ts` and `doc/tech_spec.md §13.3`. Future milestones
+  should add E2E smoke tests for any new screen or major user flow they introduce.

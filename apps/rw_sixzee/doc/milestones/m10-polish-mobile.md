@@ -119,6 +119,12 @@ every existing feature works correctly on mobile, handles all edge cases gracefu
 - [ ] Run `python make.py test` — all tests pass (native + WASM)
 - [ ] Run `python make.py dist` — release build succeeds; `dist/` contains all required files
   including `grandma_worker.js` and `grandma_worker_bg.wasm`
+- [ ] Run `python make.py e2e` — all Playwright smoke tests pass
+- [ ] **E2E smoke test** (`e2e/smoke.spec.ts`): full end-to-end game completion — drive a game to
+  completion by clicking a preview cell each turn (Chance always scores > 0), assert end-game
+  overlay appears with a non-zero final score (the single highest-value E2E regression test)
+- [ ] **E2E smoke test**: mobile viewport (375 × 812px) — navigate to game, roll, score; assert no
+  horizontal overflow (`document.documentElement.scrollWidth <= 375`)
 - [ ] Manually verify in Chrome (desktop) and one mobile browser (iOS Safari or Android Chrome):
   - New game flow end-to-end
   - Resume after page reload

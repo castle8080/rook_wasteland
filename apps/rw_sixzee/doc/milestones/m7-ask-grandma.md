@@ -115,6 +115,8 @@ continues unaffected.
 - [ ] Test `post_message` round-trip: create a known `GrandmaRequest` (mid-game state, dice rolled),
   send to worker, await response, assert `actions.len() == 5`
 - [ ] Test DP sanity: assert `V_COL[8191] == 0.0` and `V_COL[0]` is in [200.0, 300.0]
+- [ ] **E2E smoke test** (`e2e/smoke.spec.ts`): after rolling, clicking "Ask Grandma" opens the
+  advice panel and displays at least one action card (verifies Worker spawning end-to-end)
 
 ---
 

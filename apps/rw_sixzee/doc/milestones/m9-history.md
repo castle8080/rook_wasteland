@@ -78,6 +78,9 @@ mode. Navigation integrates with the hash router (`#/history` and `#/history/:id
   `.history-list__row--silver`, `.history-list__row--bronze`, `.history-list__empty`
 - [ ] Medal row variants have subtle background tint corresponding to medal colour
 - [ ] `.history-detail__header` with back button layout (left-aligned arrow + centred title)
+- [ ] **E2E smoke test** (`e2e/smoke.spec.ts`): after a game completes in E2E, navigate to `#/history`,
+  verify at least one `.history-list__row` is visible with a non-zero score; click "View →",
+  verify history detail loads and shows filled scorecard cells
 
 ---
 
