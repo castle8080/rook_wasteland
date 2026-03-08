@@ -704,3 +704,274 @@ fn storage_save_theme_overwrites_previous() {
     assert_eq!(loaded, Some("borg".to_string()));
     ls_remove("rw_sixzee.theme");
 }
+
+// ─── M6 App load sequence & ResumePrompt integration tests ──────────────────
+//
+// These tests mount the full App and verify the M6 load sequence: saved-game
+// detection, ResumePrompt button callbacks, history pruning on load, roll
+// persistence, and theme application.
+
+/// When a game is saved in localStorage before mount, App shows the resume
+/// prompt — not the opening-quote overlay.
+#[wasm_bindgen_test]
+async fn app_shows_resume_prompt_when_game_saved() {
+    use leptos::mount::mount_to;
+    use rw_sixzee::app::App;
+    use rw_sixzee::state::game::new_game;
+    use rw_sixzee::state::storage;
+
+    clear_game_storage();
+    let mut state = new_game();
+    state.turn = 3;
+    storage::save_in_progress(&state).expect("save ok");
+
+    let container = fresh_container();
+    let _handle = mount_to(container.clone(), App);
+    tick().await;
+
+    let resume_prompt = container.query_selector(".resume-prompt").expect("query ok");
+    assert!(
+        resume_prompt.is_some(),
+        "resume-prompt must be visible when a saved game exists"
+    );
+    let quote_overlay = container
+        .query_selector(".grandma-quote-overlay")
+        .expect("query ok");
+    assert!(
+        quote_overlay.is_none(),
+        "opening-quote overlay must NOT appear when resume prompt is shown"
+    );
+    ls_remove("rw_sixzee.in_progress");
+}
+
+/// When no saved game exists in localStorage, App does NOT show the resume prompt.
+#[wasm_bindgen_test]
+async fn app_no_saved_game_does_not_show_resume_prompt() {
+    use leptos::mount::mount_to;
+    use rw_sixzee::app::App;
+
+    clear_game_storage();
+    let container = fresh_container();
+    let _handle = mount_to(container.clone(), App);
+    tick().await;
+
+    let resume_prompt = container.query_selector(".resume-prompt").expect("query ok");
+    assert!(
+        resume_prompt.is_none(),
+        "resume-prompt must NOT appear when no game is saved"
+    );
+}
+
+/// Clicking "Resume Game" dismisses the prompt and shows the game view.
+#[wasm_bindgen_test]
+async fn resume_prompt_resume_button_dismisses_prompt() {
+    use leptos::mount::mount_to;
+    use rw_sixzee::app::App;
+    use rw_sixzee::state::game::new_game;
+    use rw_sixzee::state::storage;
+
+    clear_game_storage();
+    let mut state = new_game();
+    state.turn = 5;
+    storage::save_in_progress(&state).expect("save ok");
+
+    let container = fresh_container();
+    let _handle = mount_to(container.clone(), App);
+    tick().await;
+
+    // Sanity: prompt is up.
+    assert!(
+        container
+            .query_selector(".resume-prompt")
+            .expect("query ok")
+            .is_some(),
+        "resume-prompt must be visible before clicking Resume"
+    );
+
+    // Click "Resume Game" (primary button).
+    let btn = container
+        .query_selector(".resume-prompt .btn--primary")
+        .expect("query ok")
+        .expect("Resume Game button must exist");
+    btn.unchecked_ref::<HtmlElement>().click();
+    tick().await;
+
+    // Prompt must be gone and the game view must appear.
+    assert!(
+        container
+            .query_selector(".resume-prompt")
+            .expect("query ok")
+            .is_none(),
+        "resume-prompt must be dismissed after clicking Resume"
+    );
+    let dice = container
+        .query_selector_all(".dice-row button")
+        .expect("query ok");
+    assert_eq!(dice.length(), 5, "5 dice buttons must be visible after resume");
+    ls_remove("rw_sixzee.in_progress");
+}
+
+/// Clicking "Discard and Start New" dismisses the prompt and clears the saved
+/// game from localStorage.
+#[wasm_bindgen_test]
+async fn resume_prompt_discard_clears_storage_and_dismisses_prompt() {
+    use leptos::mount::mount_to;
+    use rw_sixzee::app::App;
+    use rw_sixzee::state::game::new_game;
+    use rw_sixzee::state::storage;
+
+    clear_game_storage();
+    let mut state = new_game();
+    state.turn = 2;
+    storage::save_in_progress(&state).expect("save ok");
+
+    let container = fresh_container();
+    let _handle = mount_to(container.clone(), App);
+    tick().await;
+
+    // Click "Discard and Start New" (secondary button).
+    let btn = container
+        .query_selector(".resume-prompt .btn--secondary")
+        .expect("query ok")
+        .expect("Discard button must exist");
+    btn.unchecked_ref::<HtmlElement>().click();
+    // Two ticks: first flush sets show_resume=false; second settles
+    // show_opening_quote=true and re-renders the view.
+    tick().await;
+    tick().await;
+
+    // Prompt must be gone.
+    assert!(
+        container
+            .query_selector(".resume-prompt")
+            .expect("query ok")
+            .is_none(),
+        "resume-prompt must be dismissed after Discard and Start New"
+    );
+    // Saved game must be cleared from localStorage.
+    let saved = storage::load_in_progress().expect("load ok");
+    assert!(
+        saved.is_none(),
+        "in_progress must be cleared from storage after Discard and Start New"
+    );
+}
+
+/// When the saved game JSON is corrupt, App shows an error banner (not the
+/// resume prompt).
+#[wasm_bindgen_test]
+async fn app_load_corrupt_save_shows_error_banner() {
+    use leptos::mount::mount_to;
+    use rw_sixzee::app::App;
+
+    clear_game_storage();
+    ls_set_raw("rw_sixzee.in_progress", "{corrupt!!!");
+
+    let container = fresh_container();
+    let _handle = mount_to(container.clone(), App);
+    tick().await;
+
+    // Resume prompt must NOT appear for a corrupt save.
+    assert!(
+        container
+            .query_selector(".resume-prompt")
+            .expect("query ok")
+            .is_none(),
+        "resume-prompt must NOT appear for corrupt save data"
+    );
+    // Error banner must be shown.
+    assert!(
+        container
+            .query_selector(".error-overlay")
+            .expect("query ok")
+            .is_some(),
+        "error overlay must appear when saved game JSON is corrupt"
+    );
+    ls_remove("rw_sixzee.in_progress");
+}
+
+/// App's load sequence prunes history entries older than 365 days.
+#[wasm_bindgen_test]
+async fn app_load_prunes_old_history_entries() {
+    use leptos::mount::mount_to;
+    use rw_sixzee::app::App;
+    use rw_sixzee::state::game::CompletedGame;
+    use rw_sixzee::state::scoring::ROW_COUNT;
+    use rw_sixzee::state::storage;
+
+    clear_game_storage();
+    // 2022 is more than 365 days before any reasonable "current" time.
+    let old_entry = CompletedGame {
+        id: "old-game".to_string(),
+        completed_at: "2022-01-01T00:00:00.000Z".to_string(),
+        final_score: 999,
+        bonus_pool: 0,
+        bonus_forfeited: false,
+        cells: [[None; ROW_COUNT]; 6],
+    };
+    storage::save_history(&[old_entry]).expect("save ok");
+
+    let _handle = mount_to(fresh_container(), App);
+    tick().await;
+
+    // App load sequence must have pruned the ancient entry.
+    let history = storage::load_history().expect("load ok");
+    assert!(
+        history.is_empty(),
+        "history entry from 2022 must be pruned on app load"
+    );
+}
+
+/// Rolling dice persists the updated game state to localStorage.
+#[wasm_bindgen_test]
+async fn on_roll_persists_game_state_to_storage() {
+    use leptos::mount::mount_to;
+    use rw_sixzee::app::App;
+    use rw_sixzee::state::storage;
+
+    clear_game_storage();
+    let container = fresh_container();
+    let _handle = mount_to(container.clone(), App);
+    tick().await;
+    dismiss_opening_quote(&container).await;
+
+    // Before rolling, nothing should be in storage yet.
+    let before = storage::load_in_progress().expect("load ok");
+    assert!(before.is_none(), "no in_progress should exist before the first roll");
+
+    click_roll(&container);
+    tick().await;
+
+    // After rolling, the current game state should be persisted.
+    let after = storage::load_in_progress().expect("load ok");
+    assert!(
+        after.is_some(),
+        "in_progress must be saved after rolling dice"
+    );
+}
+
+/// App applies the saved theme from localStorage to the document body on mount.
+#[wasm_bindgen_test]
+async fn app_load_applies_saved_theme_to_body() {
+    use leptos::mount::mount_to;
+    use rw_sixzee::app::App;
+    use rw_sixzee::state::storage;
+
+    clear_game_storage();
+    // Use a non-default value so we distinguish "loaded from storage" from
+    // "fell back to the nordic_minimal default".
+    storage::save_theme("sixzee_dark").expect("save ok");
+
+    let _handle = mount_to(fresh_container(), App);
+    tick().await;
+
+    let theme_attr = web_sys::window()
+        .and_then(|w| w.document())
+        .and_then(|d| d.body())
+        .and_then(|b| b.get_attribute("data-theme"));
+    assert_eq!(
+        theme_attr.as_deref(),
+        Some("sixzee_dark"),
+        "body data-theme must match the theme saved in localStorage"
+    );
+    ls_remove("rw_sixzee.theme");
+}
