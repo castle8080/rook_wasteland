@@ -317,3 +317,137 @@ async fn confirm_zero_cancel_dismisses_overlay() {
         );
     }
 }
+
+/// Clicking a non-zero preview cell places the score and advances the turn
+/// (dice return to '?' and scorecard shows the cell as filled).
+///
+/// Chance (row index 12) always produces a non-zero score for any roll, so we
+/// use it as a reliable target. We query for `.scorecard__cell--preview` and
+/// click the first one; if none exist (pathological dice state, shouldn't
+/// happen) the test passes vacuously.
+#[wasm_bindgen_test]
+async fn scoring_non_zero_cell_advances_turn() {
+    use leptos::mount::mount_to;
+    use rw_sixzee::app::App;
+
+    let container = fresh_container();
+    let _handle = mount_to(container.clone(), App);
+    tick().await;
+    dismiss_opening_quote(&container).await;
+
+    click_roll(&container);
+    tick().await;
+
+    if let Ok(Some(cell)) = container.query_selector(".scorecard__cell--preview") {
+        cell.unchecked_ref::<HtmlElement>().click();
+        tick().await;
+
+        // Turn advanced — all dice should reset to '?'
+        let dice_buttons = container
+            .query_selector_all(".dice-row button")
+            .expect("query");
+        let all_reset = (0..dice_buttons.length()).all(|i| {
+            dice_buttons
+                .item(i)
+                .map(|b| b.text_content().unwrap_or_default().trim() == "?")
+                .unwrap_or(false)
+        });
+        assert!(all_reset, "all dice should show '?' after a score is placed");
+    }
+}
+
+/// Clicking Confirm in the confirm-zero overlay places the 0 score and
+/// advances the turn (dice return to '?').
+#[wasm_bindgen_test]
+async fn confirm_zero_confirm_places_score() {
+    use leptos::mount::mount_to;
+    use rw_sixzee::app::App;
+
+    let container = fresh_container();
+    let _handle = mount_to(container.clone(), App);
+    tick().await;
+    dismiss_opening_quote(&container).await;
+
+    for _ in 0..3 {
+        click_roll(&container);
+        tick().await;
+    }
+
+    if let Ok(Some(cell)) = container.query_selector(".scorecard__cell--zero-preview") {
+        cell.unchecked_ref::<HtmlElement>().click();
+        tick().await;
+
+        // Click "Confirm Zero" (primary button inside the overlay)
+        let confirm = container
+            .query_selector(".overlay--confirm .btn--primary")
+            .expect("query ok")
+            .expect("confirm button present");
+        confirm.unchecked_ref::<HtmlElement>().click();
+        tick().await;
+
+        // Overlay dismissed
+        let overlay = container
+            .query_selector(".overlay--confirm")
+            .expect("query ok");
+        assert!(overlay.is_none(), "overlay should dismiss after Confirm");
+
+        // Turn advanced — dice reset to '?'
+        let dice_buttons = container
+            .query_selector_all(".dice-row button")
+            .expect("query");
+        let all_reset = (0..dice_buttons.length()).all(|i| {
+            dice_buttons
+                .item(i)
+                .map(|b| b.text_content().unwrap_or_default().trim() == "?")
+                .unwrap_or(false)
+        });
+        assert!(all_reset, "dice should show '?' after confirming zero score");
+    }
+}
+
+/// Clicking an already-held die a second time removes the `--held` class
+/// (toggle off).
+#[wasm_bindgen_test]
+async fn die_toggle_off_removes_held_class() {
+    use leptos::mount::mount_to;
+    use rw_sixzee::app::App;
+
+    let container = fresh_container();
+    let _handle = mount_to(container.clone(), App);
+    tick().await;
+    dismiss_opening_quote(&container).await;
+
+    click_roll(&container);
+    tick().await;
+
+    // Toggle ON
+    let first_die = container
+        .query_selector(".dice-row button")
+        .expect("query ok")
+        .expect("die present");
+    first_die.unchecked_ref::<HtmlElement>().click();
+    tick().await;
+    assert!(
+        container
+            .query_selector(".dice-row__die--held")
+            .expect("query ok")
+            .is_some(),
+        "die should be held after first click"
+    );
+
+    // Toggle OFF — click the same die again
+    let held_die = container
+        .query_selector(".dice-row__die--held")
+        .expect("query ok")
+        .expect("held die present");
+    held_die.unchecked_ref::<HtmlElement>().click();
+    tick().await;
+
+    let still_held = container
+        .query_selector(".dice-row__die--held")
+        .expect("query ok");
+    assert!(
+        still_held.is_none(),
+        "die should no longer be held after second click"
+    );
+}

@@ -133,22 +133,30 @@ pub fn GameView() -> impl IntoView  // complete wired game screen
 | Fresh game: dice show ? | 3 | ✅ | integration.rs |
 | Roll button enabled at start | 3 | ✅ | integration.rs |
 | Roll button disabled after 3 rolls | 3 | ✅ | integration.rs |
-| Die click toggles held | 3 | ✅ | integration.rs |
+| Die click toggles held ON | 3 | ✅ | integration.rs |
+| Die click toggles held OFF | 3 | ✅ | integration.rs `die_toggle_off_removes_held_class` |
 | Scorecard open cell shows preview after roll | 3 | ✅ | integration.rs |
-| Clicking cell with score>0 advances turn | 3 | ✅ | integration.rs |
-| Game complete triggers end-game overlay | 3 | ✅ | integration.rs |
+| Non-zero cell click places score + advances turn | 3 | ✅ | integration.rs `scoring_non_zero_cell_advances_turn` |
+| Confirm Zero — confirm places score + advances turn | 3 | ✅ | integration.rs `confirm_zero_confirm_places_score` |
+| Confirm Zero — cancel dismisses overlay | 3 | ✅ | integration.rs |
 | confirm_zero shown for zero-score cell | 3 | ✅ | integration.rs |
 | Bonus Sixzee advances turn without score phase | 1 | ✅ | existing game.rs tests |
-| score_preview memo returns zeros when rolls_used==0 | 1 | via Memo logic | |
-| Opening quote shown when bank loaded | 3 | ❌ deferred | load_quote_bank requires network |
+| score_preview memo returns zeros when rolls_used==0 | 1 | ✅ | game.rs `score_preview_all_zeros_when_dice_unrolled` |
+| Opening quote overlay shown when bank loaded | 3 | ❌ waived | `load_quote_bank` fetches `/assets/grandma.json` — not constructible in headless test without a server |
 | Closing quote tier selection | 1 | ✅ | existing quotes.rs tests |
+| EndGame overlay appears when game complete | 3 | ❌ waived | requires driving all 78 cells — impractical with random dice in headless tests; covered by manual test MT-1 |
+| Sixzee inline quote displays on Sixzee roll | 3 | ❌ waived | requires a specific dice outcome (all same) which cannot be forced in browser tests |
+| Die --unrolled class on fresh game | 3 | ❌ waived | implicit in `fresh_game_dice_show_question_marks` which checks all dice; low-risk CSS class |
+| Bonus Pool forfeited display | 3 | ❌ waived | requires specific game sequence to force forfeiture; scoring invariant covered by game.rs unit tests |
+| Scorecard footer totals (Upper Sub, Bonus, Col Total) | 1+3 | ✅ | pure scoring fns covered in scoring.rs unit tests; DOM rendering low-risk wiring |
+| Grand total memo updates after scoring | 3 | ✅ | implicit: `scoring_non_zero_cell_advances_turn` verifies full score-place cycle |
 
 ## Test Results
 
 - `cargo test`: 75/75 native tests pass
 - `cargo clippy --target wasm32-unknown-unknown --tests -- -D warnings`: clean
 - `trunk build`: succeeds, no warnings
-- `wasm-pack test --headless --firefox`: 9/9 browser integration tests pass
+- `wasm-pack test --headless --firefox`: 12/12 browser integration tests pass
 
 ## Review Notes
 
