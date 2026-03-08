@@ -1,7 +1,7 @@
 # Task M2-T1: Game State & Scoring Engine
 
 **Milestone:** M2 — Game State & Scoring Engine
-**Status:** 🔄 In Progress
+**Status:** ✅ Done
 
 ## Restatement
 
@@ -114,12 +114,19 @@ pub fn score_preview_all(state: &GameState) -> [[u8; 13]; 6]
 
 ## Test Results
 
-(filled after Phase 6)
+`cargo test`: 56 passed, 0 failed (52 new tests added by M2, 4 pre-existing router tests).
+`cargo clippy --target wasm32-unknown-unknown --tests -- -D warnings`: clean.
+`trunk build`: success.
 
 ## Review Notes
 
-(filled after Phase 7)
+Code-review agent found no bugs or logic errors. All 7 constraint checks passed.
+
+The `detect_bonus_sixzee` bonus_turn flag is set and then immediately cleared by `start_turn`. The UI (M5) will read `bonus_pool` delta to surface the bonus message, which is consistent with the tech spec §5.3.
 
 ## Callouts / Gotchas
 
-(filled after completion)
+- `score_full_house` uses `value_counts` which returns per-value frequency counts [1..6]. The check `contains(&3) && contains(&2)` correctly returns 0 for 5-of-a-kind (counts = [5,0,...] — no 2 present).
+- `score_small_straight` iterates `start in 1..=3` (starts 1, 2, 3) checking runs of 4. This correctly covers `{1,2,3,4}`, `{2,3,4,5}`, `{3,4,5,6}`.
+- `current_iso8601()` on native target returns a fixed sentinel. This is intentional and documented — `started_at` is cosmetic and only displayed in history (M6).
+- `detect_bonus_sixzee` resets dice via `start_turn` immediately after crediting the bonus pool. The bonus pool increment happens before the reset, so no value is lost.

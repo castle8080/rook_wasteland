@@ -1,9 +1,9 @@
 # M2 — Game State & Scoring Engine
 
 <!-- MILESTONE: M2 -->
-<!-- STATUS: NOT_STARTED -->
+<!-- STATUS: DONE -->
 
-**Status:** 🔲 NOT STARTED
+**Status:** ✅ DONE
 **Depends on:** [M1 — Project Bootstrap](m1-bootstrap.md)
 **Required by:** M4, M5, M6, M7
 
