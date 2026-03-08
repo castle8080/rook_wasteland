@@ -7,7 +7,7 @@ rw_sixzee is a client-side-only, solitaire 6-column Sixzee game built with
 Rook Wasteland monorepo and follows the identical project structure, build
 toolchain, and conventions used by sibling apps (e.g. rw_teleidoscope).
 
-All game logic, persistence, and advisor computation run entirely in the
+All game logic, persistence, and Ask Grandma computation run entirely in the
 browser. No server is required beyond static file hosting.
 
 ---
@@ -29,12 +29,13 @@ apps/rw_sixzee/
 │   │   ├── game.rs         # GameState struct + all game logic
 │   │   ├── scoring.rs      # scoring functions (pure, no Leptos)
 │   │   └── storage.rs      # localStorage read/write (serde_json)
+│   │   └── quotes.rs       # QuoteBank loading, tier computation, random selection
 │   ├── components/
 │   │   ├── mod.rs
 │   │   ├── game_view.rs    # full game screen
 │   │   ├── dice_row.rs     # 5-die strip with hold toggle
 │   │   ├── scorecard.rs    # 6-column scorecard grid
-│   │   ├── advisor.rs      # advisor overlay + Worker bridge
+│   │   ├── grandma.rs      # Ask Grandma overlay + Worker bridge
 │   │   ├── confirm_zero.rs # zero-score / Sixzee-forfeit prompt
 │   │   ├── end_game.rs     # game-complete summary overlay
 │   │   ├── resume.rs       # resume-vs-new-game prompt
@@ -43,6 +44,7 @@ apps/rw_sixzee/
 │   │   ├── settings.rs     # theme picker screen
 │   │   ├── error_banner.rs # dismissible degraded-error banner
 │   │   └── error_overlay.rs # fatal-error full-screen overlay
+│   │   └── grandma_quote.rs # opening overlay + inline quote display
 │   ├── dice_svg/
 │   │   ├── mod.rs          # DiceFace component dispatch
 │   │   ├── devil_rock.rs   # 6 face SVGs for Devil Rock theme
@@ -53,9 +55,11 @@ apps/rw_sixzee/
 │   │   └── pacific_northwest.rs
 │   ├── worker/
 │   │   ├── mod.rs          # Worker spawn + message bridge
-│   │   ├── advisor_worker.rs  # Web Worker entry (wasm_bindgen)
-│   │   └── messages.rs     # AdvisorRequest / AdvisorResponse types
+│   │   ├── grandma_worker.rs  # Web Worker entry (wasm_bindgen)
+│   │   └── messages.rs     # GrandmaRequest / GrandmaResponse types
 │   └── router.rs           # hash-based route parsing + Route enum
+├── assets/
+│   └── grandma_quotes.json # Grandma's quotes by scenario/tier; fetched at runtime
 ├── style/
 │   └── main.css            # single flat BEM stylesheet (+ theme vars)
 ├── tests/
@@ -79,11 +83,27 @@ Identical to other monorepo apps:
 | `python make.py build` | `trunk build` (debug WASM) |
 | `python make.py dist` | `trunk build --release` → `dist/` |
 | `python make.py lint` | `cargo clippy --target wasm32-unknown-unknown` |
-| `python make.py test` | `cargo test` (native) + `wasm-pack test --headless --chrome` |
+| `python make.py test` | `cargo test` (native) + `wasm-pack test --headless --firefox` |
+
+`make.py` follows the same structure used across all Rook Wasteland apps
+(see `apps/rw_teleidoscope/make.py` as the canonical reference). It is a
+plain Python 3 script with a `ROOT = Path(__file__).parent` anchor, a `_run()`
+helper that calls `subprocess.run(..., cwd=ROOT, check=True)`, and one
+zero-argument function per target dispatched via `globals().get(target)`.
+
+The `test` target passes `--features wasm-test` to `wasm-pack test` so the
+library's `#[wasm_bindgen(start)]` entry point is excluded from the test
+binary (prevents duplicate symbol errors — see §17 open questions and
+repository lessons).
 
 The `offline/` crate is a standalone workspace member. Its output
 (`generated/v_col.rs`) is committed to the repo and included at compile time
 via `include!(...)` in the Worker.
+
+`assets/grandma_quotes.json` is served as a static file via Trunk's copy-dir
+mechanism (see §14.1). It is available at `/rw_sixzee/assets/grandma_quotes.json`
+in production and at `http://localhost:8080/assets/grandma_quotes.json` in
+development.
 
 ---
 
@@ -120,7 +140,7 @@ matching screen component. No `leptos_router` dependency.
 ### 4.3 Tab Bar Visibility
 
 The tab bar is rendered in `App` and hidden (CSS `display: none`) during the
-following overlays: Resume prompt, Advisor panel, Zero-Score confirmation.
+following overlays: Resume prompt, Ask Grandma panel, Zero-Score confirmation.
 The End-of-Game summary overlay does **not** hide the tab bar — it renders
 above the completed scorecard with the tab bar remaining accessible beneath.
 
@@ -256,8 +276,8 @@ pub struct CompletedGame {
 `completed_at` older than 365 days are removed.
 
 **Unavailability**: if `localStorage` is not available (e.g. private browsing),
-storage calls return `AppError::Storage`. The app-level error signal (§15.7)
-receives this as a `Degraded` error and the `ErrorBanner` component (§15.8)
+storage calls return `AppError::Storage`. The app-level error signal (§16.7)
+receives this as a `Degraded` error and the `ErrorBanner` component (§16.8)
 informs the player that state will not be saved. Gameplay continues normally.
 
 ---
@@ -300,7 +320,7 @@ Key blocks:
 - `.scorecard` / `.scorecard__cell` / `.scorecard__cell--open` / `.scorecard__cell--preview` / `.scorecard__cell--zero-preview`
 - `.scorecard__cell--preview` shows score preview in brackets
 - `.tab-bar` / `.tab-bar__item` / `.tab-bar__item--active`
-- `.overlay` / `.overlay--advisor` / `.overlay--end-game` / `.overlay--confirm`
+- `.overlay` / `.overlay--grandma` / `.overlay--end-game` / `.overlay--confirm`
 - `.history-list` / `.history-list__row`
 - `.settings` / `.settings__theme-grid` / `.settings__theme-card` / `.settings__theme-card--active`
 - `.error-banner` / `.error-banner__message` / `.error-banner__dismiss` / `.error-banner__details`
@@ -384,26 +404,26 @@ faces theme-agnostic.
 
 ---
 
-## 10. Move Advisor
+## 10. Ask Grandma
 
 ### 10.1 Architecture
 
 ```
 Main Thread (Leptos)                   Web Worker
 ──────────────────                     ───────────
-AdvisorComponent                       advisor_worker.rs
+GrandmaComponent                       grandma_worker.rs
   │                                       │
-  ├─ on mount: spawn_worker()             │
-  │   → Worker::new("./advisor_worker.js")│
+  ├─ on mount: spawn_grandma()            │
+  │   → Worker::new("./grandma_worker.js")│
   │                                       │
-  ├─ on Advisor btn click:                │
-  │   → postMessage(AdvisorRequest)  ───→ receive AdvisorRequest
+  ├─ on Ask Grandma btn click:            │
+  │   → postMessage(GrandmaRequest)  ───→ receive GrandmaRequest
   │                                       │  generate candidate actions
   │                                       │  score each via DP table + MC
   │                                       │  sort top 5
-  │   ← postMessage(AdvisorResponse) ←─── postMessage(AdvisorResponse)
+  │   ← postMessage(GrandmaResponse) ←─── postMessage(GrandmaResponse)
   │
-  └─ update AdvisorPanel signal
+  └─ update GrandmaPanel signal
 ```
 
 The Web Worker is a separate WASM binary (`wasm_bindgen` entry) bundled by
@@ -416,7 +436,7 @@ Trunk as a side target. Message passing uses `postMessage` with
 // worker/messages.rs
 
 #[derive(Serialize, Deserialize)]
-pub struct AdvisorRequest {
+pub struct GrandmaRequest {
     pub cells: [[Option<u8>; 13]; 6],
     pub dice: [Option<u8>; 5],
     pub held: [bool; 5],
@@ -426,12 +446,12 @@ pub struct AdvisorRequest {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct AdvisorResponse {
-    pub actions: Vec<AdvisorAction>,   // up to 5, sorted by est_final_score desc
+pub struct GrandmaResponse {
+    pub actions: Vec<GrandmaAction>,   // up to 5, sorted by est_final_score desc
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct AdvisorAction {
+pub struct GrandmaAction {
     pub kind: ActionKind,
     pub description: String,           // e.g. "Hold [5, 5, 5] — reroll 2 dice"
     pub detail: String,                // e.g. "Sixzee chance: ~3%  4-of-a-kind: ~22%"
@@ -447,7 +467,7 @@ pub enum ActionKind {
 
 ### 10.3 Value Function — Single-Column DP Table
 
-The advisor uses a precomputed **exact dynamic programming value table** as its
+Ask Grandma uses a precomputed **exact dynamic programming value table** as its
 value function. For a single column with `n` cells remaining, `V_col(fill_pattern)`
 is the expected total future score from that column assuming optimal play and
 fresh random dice each turn.
@@ -506,7 +526,7 @@ const (7 values × 2 forfeiture states).
 
 ### 10.5 Candidate Action Generation and Ranking
 
-For each advisor request:
+For each Ask Grandma request:
 
 1. **Score-now candidates**: iterate all 78 cells; collect open ones.
    For each `(col, row)`:
@@ -532,16 +552,132 @@ For each advisor request:
 
 ### 10.6 Probability Estimates (Reroll Display)
 
-For reroll actions shown in the advisor panel (e.g. "Sixzee chance: ~3%"),
+For reroll actions shown in Grandma's Advice panel (e.g. "Sixzee chance: ~3%"),
 probabilities are computed analytically — exact multinomial counts over all
 6^k outcomes for the un-held dice — independently of the value table.
 Displayed as `~X%` rounded to the nearest integer.
 
 ---
 
-## 11. Offline DP Precomputation
+## 11. Grandma Quotes
 
-### 11.1 Solver (`offline/src/main.rs`)
+### 11.1 Quote Moments
+
+Grandma speaks at four moments in the game, each drawing from a dedicated pool in
+`assets/grandma_quotes.json`:
+
+| Moment | Trigger | Pool key | Display |
+|--------|---------|----------|---------|
+| Opening | New game starts (before first roll) | `opening` | Full-screen overlay; dismissed to begin |
+| Closing | All 78 cells filled | `closing.<tier>` | Inside end-of-game summary overlay |
+| Sixzee  | Player rolls all-same dice | `sixzee` | Inline banner near dice row |
+| Scratch | Player places a zero | `scratch` | Inside zero-score confirmation prompt |
+
+### 11.2 Performance Tiers
+
+The closing quote tier is computed from the player's final grand total:
+
+```
+tier = grand_total / THEORETICAL_MAX_SCORE
+```
+
+`THEORETICAL_MAX_SCORE` is a `const u32` in `src/state/quotes.rs`, initially set to
+**1200** as a placeholder and calibrated during M3 through playtesting.
+
+| Tier | Score range |
+|------|-------------|
+| `great` | ≥ 80% |
+| `good` | 60–80% |
+| `ok` | 40–60% |
+| `bad` | 20–40% |
+| `really_bad` | < 20% |
+
+### 11.3 JSON Asset Schema
+
+File: `assets/grandma_quotes.json` — fetched once on app load. Cached in-memory as `QuoteBank`.
+
+```json
+{
+  "version": 1,
+  "opening": ["...", "..."],
+  "closing": {
+    "really_bad": ["...", "..."],
+    "bad":        ["...", "..."],
+    "ok":         ["...", "..."],
+    "good":       ["...", "..."],
+    "great":      ["...", "..."]
+  },
+  "sixzee":  ["...", "..."],
+  "scratch": ["...", "..."]
+}
+```
+
+Minimum pool sizes: `opening` ≥ 15; each `closing.*` tier ≥ 8; `sixzee` and `scratch` ≥ 10.
+
+### 11.4 QuoteBank (`src/state/quotes.rs`)
+
+```rust
+#[derive(Deserialize, Clone)]
+pub struct QuoteBank {
+    pub version:  u32,
+    pub opening:  Vec<String>,
+    pub closing:  ClosingQuotes,
+    pub sixzee:   Vec<String>,
+    pub scratch:  Vec<String>,
+}
+
+#[derive(Deserialize, Clone)]
+pub struct ClosingQuotes {
+    pub really_bad: Vec<String>,
+    pub bad:        Vec<String>,
+    pub ok:         Vec<String>,
+    pub good:       Vec<String>,
+    pub great:      Vec<String>,
+}
+
+pub enum PerformanceTier { ReallyBad, Bad, Ok, Good, Great }
+
+pub const THEORETICAL_MAX_SCORE: u32 = 1200; // placeholder; calibrated in M3
+
+pub fn compute_tier(grand_total: u32) -> PerformanceTier { ... }
+pub fn pick_quote(pool: &[String]) -> Option<&str>  // random selection; None if pool empty
+pub async fn load_quote_bank() -> AppResult<QuoteBank>
+```
+
+`load_quote_bank()` fetches `/rw_sixzee/assets/grandma_quotes.json` using `gloo-net`
+(or `wasm-bindgen-futures` + `web_sys::fetch`), parses JSON via `serde_json`.
+On any failure it returns `AppError::GrandmaQuotes(String)`.
+
+### 11.5 GrandmaQuote Component (`src/components/grandma_quote.rs`)
+
+Two variants:
+
+```rust
+/// Full-screen opening quote overlay
+#[component]
+pub fn GrandmaQuoteOverlay(quote: String, on_dismiss: Callback<()>) -> impl IntoView
+
+/// Small inline quote block (Sixzee / scratch)
+#[component]
+pub fn GrandmaQuoteInline(quote: String) -> impl IntoView
+```
+
+BEM classes: `.grandma-quote-overlay`, `.grandma-quote-inline`, `.grandma-quote__text`,
+`.grandma-quote__attribution` ("— Grandma").
+
+### 11.6 Error Handling
+
+`AppError::GrandmaQuotes(String)` has `Degraded` severity. On load failure:
+- `RwSignal<Option<QuoteBank>>` stays `None`
+- All quote display components render nothing when bank is `None`
+- No error banner shown to player (silent omission per PRD Req 39)
+- Error logged to console via `web_sys::console::warn_1`
+
+---
+
+## 12. Offline DP Precomputation
+
+### 12.1 Solver (`offline/src/main.rs`)
 
 Pure Rust binary. No ML, no simulation — pure backward-induction DP.
 
@@ -563,7 +699,7 @@ pub const YZ_BONUS_CORRECTION: [f32; 14] = [ /* 14 values */ ];
 This file is committed to the repository. It is included in the Worker crate
 via `include!(concat!(env!("CARGO_MANIFEST_DIR"), "/generated/v_col.rs"))`.
 
-### 11.2 Regenerating the Table
+### 12.2 Regenerating the Table
 
 ```
 cd offline && cargo run --release
@@ -574,9 +710,9 @@ so the main app build has no dependency on running the offline tool.
 
 ---
 
-## 12. Testing Strategy
+## 13. Testing Strategy
 
-### 12.1 Unit Tests (native `cargo test`)
+### 13.1 Unit Tests (native `cargo test`)
 
 Located in `src/state/scoring.rs` (inline `#[cfg(test)]` blocks) and
 `src/state/game.rs`. No WASM target needed.
@@ -592,7 +728,7 @@ Coverage targets:
   `serde_json::to_string` / `from_str` without WASM)
 - Hash router `parse_hash` for all valid and invalid inputs
 
-### 12.2 WASM Integration Tests (`wasm-pack test`)
+### 13.2 WASM Integration Tests (`wasm-pack test`)
 
 Located in `tests/integration.rs`. Must include
 `wasm_bindgen_test_configure!(run_in_browser)` at file top.
@@ -601,13 +737,13 @@ Coverage targets:
 - A complete mini-game (stub 6 turns, verify grand total)
 - Zero-score confirmation trigger (cells with score == 0)
 - Resume: serialise a `GameState`, reload, verify restoration
-- Advisor Worker: postMessage round-trip returns 5 actions with valid structure
+- Ask Grandma Worker: postMessage round-trip returns 5 actions with valid structure
 - DP table sanity check: `V_col(0b1_1111_1111_1111)` == 0.0; fully-empty column
   value is within the known theoretical range (~254 for optimal single-column play)
 
 ---
 
-## 13. Key Dependencies
+## 14. Key Dependencies
 
 | Crate | Role |
 |-------|------|
@@ -617,6 +753,7 @@ Coverage targets:
 | `serde` + `serde_json` | GameState serialization |
 | `serde-wasm-bindgen` | Worker message serialization |
 | `gloo-events` | Event listener wrappers |
+| `gloo-net` | HTTP fetch for `grandma_quotes.json` (WASM-compatible) |
 | `rand` | Dice RNG (`wasm-bindgen` feature for WASM entropy) |
 | `thiserror` | `AppError` derive macro |
 | `uuid` | Game IDs for history records |
@@ -625,24 +762,94 @@ Coverage targets:
 
 ---
 
-## 14. Deployment
+## 15. Deployment
 
-The app is deployed as static files. Trunk's `dist/` output is served under
-`/rw_sixzee/` (or the configured base path). No server-side routing rules are
-required because the hash router handles all navigation client-side.
+The app is deployed as static files served under the path prefix `/rw_sixzee/`.
+No server-side routing rules are required because the hash router handles all
+navigation client-side.
+
+### 15.1 Trunk Configuration (`Trunk.toml`)
+
+```toml
+[build]
+target     = "index.html"
+dist       = "dist"
+# IMPORTANT: must match the deployment subdirectory exactly so Trunk injects
+# correct absolute paths for the WASM binary, JS glue, and CSS.
+public_url = "/rw_sixzee/"
+
+[watch]
+ignore = ["dist", "doc"]
+
+# Copy the assets/ directory into the dist output so grandma_quotes.json
+# (and any future static assets) are served alongside the WASM bundle.
+[[copy-dir]]
+path = "assets"
+```
+
+Setting `public_url` causes Trunk to:
+- Inject `<base href="/rw_sixzee/">` into `index.html`
+- Rewrite all asset `src`/`href` attributes in the emitted HTML to use absolute
+  paths rooted at `/rw_sixzee/`
+
+Without this setting, all asset references are relative (e.g. `./index-abc123.js`)
+and the app will fail to load when served from a subdirectory.
+
+### 15.2 Effect on the Web Worker
+
+The Worker is spawned with a relative URL (`./grandma_worker.js`). Because the
+browser resolves Worker URLs against the document's base URL (set by
+`<base href="/rw_sixzee/">`), this resolves correctly to
+`/rw_sixzee/grandma_worker.js` — no hard-coded absolute path is needed in the
+Rust code.
+
+### 15.3 No App-Level Base URL Constant
+
+The Rust/WASM code does **not** need to know the base path at runtime:
+
+- The hash router operates on `window.location.hash`, which is path-agnostic.
+- `localStorage` keys are prefixed with `rw_sixzee.` (namespace, not path).
+- All other resource URLs are either inlined (SVG) or handled by Trunk (assets).
 
 The DP value table (`generated/v_col.rs`) is compiled directly into the Worker
 WASM binary as a `const` array — no runtime asset fetch, no extra hosting.
 
+### 15.4 rw_index Registration
+
+`rw_sixzee` must be registered in the sibling launcher app at
+`apps/rw_index/apps.json`. This file is a JSON array consumed by `rw_index` to
+populate its app grid. Each entry has the following shape (all fields required):
+
+```json
+{
+  "name":        "Sixzee",
+  "slug":        "rw_sixzee",
+  "path":        "/rw_sixzee/index.html",
+  "icon":        "🎲",
+  "tagline":     "Stop trying to force luck on the dice.",
+  "description": "Six-column solitaire Sixzee. Seventy-eight cells, each one permanent. The dice don't negotiate. When you're stuck, Ask Grandma — she knows exactly what to do. She always has.",
+  "status":      "coming_soon"
+}
+```
+
+**`status` lifecycle:**
+- Set to `"coming_soon"` during development (M1 bootstrap).
+- Change to `"live"` when the app is deployed and publicly accessible.
+
+This update is made directly to `apps/rw_index/apps.json` in the monorepo.
+No rebuild of `rw_index` is needed for the JSON change to take effect if
+`rw_index` fetches `apps.json` at runtime; if it is compiled in, `rw_index`
+must be rebuilt and redeployed.
+
 ---
 
-## 15. Error Handling
+## 16. Error Handling
 
-### 15.1 Core Types (`src/error.rs`)
+### 16.1 Core Types (`src/error.rs`)
 
 All fallible operations return `AppResult<T>`, a type alias over a single
 app-wide error enum. No operation should call `panic!()`, `unwrap()`, or
-`expect()` unless it meets the criteria in §15.4.
+`expect()` unless it meets the criteria in §16.4.
 
 ```rust
 pub type AppResult<T> = Result<T, AppError>;
@@ -658,8 +865,12 @@ pub enum AppError {
     Json(String),
 
     /// Web Worker initialisation or postMessage failure.
-    #[error("Advisor worker error: {0}")]
+    #[error("Ask Grandma worker error: {0}")]
     Worker(String),
+
+    /// Grandma quotes JSON fetch or parse failure.
+    #[error("Grandma quotes unavailable: {0}")]
+    GrandmaQuotes(String),
 
     /// A web-sys / DOM API returned an error JsValue.
     #[error("DOM error: {0}")]
@@ -674,7 +885,7 @@ pub enum AppError {
 `AppError` is `Clone` so it can be stored in a Leptos `RwSignal`. All
 string payloads are owned so the type is `'static`.
 
-### 15.2 `From` Implementations
+### 16.2 `From` Implementations
 
 ```rust
 // serde_json — used in storage.rs for GameState / CompletedGame round-trips
@@ -699,12 +910,12 @@ These two `From` impls cover the majority of fallible call sites via `?`.
 `AppError::Storage` and `AppError::Worker` are constructed manually with
 context-specific messages at their call sites.
 
-### 15.3 Error Severity
+### 16.3 Error Severity
 
 ```rust
 #[derive(Debug, Clone, PartialEq)]
 pub enum ErrorSeverity {
-    /// Feature degraded but game continues (e.g. storage unavailable, advisor
+    /// Feature degraded but game continues (e.g. storage unavailable, Ask Grandma
     /// worker failed to start). Show a non-blocking banner; do not interrupt play.
     Degraded,
 
@@ -716,17 +927,18 @@ pub enum ErrorSeverity {
 impl AppError {
     pub fn severity(&self) -> ErrorSeverity {
         match self {
-            AppError::Storage(_) => ErrorSeverity::Degraded,
-            AppError::Worker(_)  => ErrorSeverity::Degraded,
-            AppError::Json(_)    => ErrorSeverity::Fatal,
-            AppError::Dom(_)     => ErrorSeverity::Fatal,
-            AppError::Internal(_)=> ErrorSeverity::Fatal,
+            AppError::Storage(_)       => ErrorSeverity::Degraded,
+            AppError::Worker(_)        => ErrorSeverity::Degraded,
+            AppError::GrandmaQuotes(_) => ErrorSeverity::Degraded,
+            AppError::Json(_)          => ErrorSeverity::Fatal,
+            AppError::Dom(_)           => ErrorSeverity::Fatal,
+            AppError::Internal(_)      => ErrorSeverity::Fatal,
         }
     }
 }
 ```
 
-### 15.4 Panic Policy
+### 16.4 Panic Policy
 
 `unwrap()` is **banned** project-wide. `expect("reason")` is permitted only
 at the sites listed below, and must carry a message explaining why the panic
@@ -751,7 +963,7 @@ unwrap_used = "deny"
 above without per-site `#[allow]` noise; code review enforces the policy
 for any new `expect()` call.
 
-### 15.5 Functions That Must Return `AppResult`
+### 16.5 Functions That Must Return `AppResult`
 
 #### `state/storage.rs`
 All public functions return `AppResult`:
@@ -780,11 +992,11 @@ no I/O; they return `()`.
 #### `worker/mod.rs`
 
 ```rust
-pub fn spawn_worker() -> AppResult<Worker>
-pub fn post_request(worker: &Worker, req: &AdvisorRequest) -> AppResult<()>
+pub fn spawn_grandma() -> AppResult<Worker>
+pub fn post_grandma_request(worker: &Worker, req: &GrandmaRequest) -> AppResult<()>
 ```
 
-### 15.6 Error Propagation Boundaries
+### 16.6 Error Propagation Boundaries
 
 These are the points where `?`-chains terminate and errors are handled rather
 than propagated:
@@ -796,10 +1008,10 @@ than propagated:
 | `App` `on_mount` — `load_theme()` | Failure → use default theme; post Degraded banner. |
 | `roll()` / `place_score()` — `persist()` failure | Game state in memory remains valid; post Degraded banner ("State won't be saved"). Do **not** abort the roll or score placement. |
 | Resume prompt — `load_in_progress()` returns corrupt JSON | Post `AppError::Json` (Fatal); discard the corrupt save; offer "Start New" with an explanatory modal. |
-| `spawn_worker()` failure | Disable the Advisor button; show tooltip "Advisor unavailable". Never blocks gameplay. |
+| `spawn_grandma()` failure | Disable the Ask Grandma button; show tooltip "Ask Grandma unavailable". Never blocks gameplay. |
 | Any unhandled `AppError::Fatal` in a component | Post to the app-level fatal error signal → `ErrorOverlay` replaces the game screen. |
 
-### 15.7 App-Level Error Signal
+### 16.7 App-Level Error Signal
 
 A single `RwSignal<Option<AppError>>` is created in `App` and provided via
 context. Components write to it via `use_context::<RwSignal<Option<AppError>>>()`.
@@ -822,7 +1034,7 @@ pub fn report_error(err: AppError) {
 }
 ```
 
-### 15.8 Visual Error Display
+### 16.8 Visual Error Display
 
 #### `ErrorBanner` (Degraded)
 
@@ -867,23 +1079,23 @@ Full-screen overlay (same visual level as the end-game overlay) shown when
   It shows the full `{:#?}` debug output of the `AppError` value in a
   `<pre>` block, making it easy to copy for bug reports.
 
-#### Advisor Panel Error State
+#### Ask Grandma Panel Error State
 
-If the Worker is unavailable (spawn failed), the Advisor button renders in a
-disabled state with a tooltip: "Advisor unavailable". No overlay is shown —
+If the Worker is unavailable (spawn failed), the Ask Grandma button renders in a
+disabled state with a tooltip: "Ask Grandma unavailable". No overlay is shown —
 gameplay is fully unaffected.
 
-If a `post_request` fails mid-session, the advisor panel shows an inline
-message ("Could not reach the advisor — please try again.") with a retry
+If a `post_grandma_request` fails mid-session, Grandma's Advice panel shows an inline
+message ("Could not reach Grandma — please try again.") with a retry
 button. The error is also posted to `report_error` for console logging but
-does not affect the app-level error signal (it is scoped to the advisor).
+does not affect the app-level error signal (it is scoped to Ask Grandma).
 
 ---
 
-## 16. Open Questions
+## 17. Open Questions
 
 - **Worker bundling with Trunk**: Trunk's multi-target support for a separate
-  Worker WASM binary needs validation. The Worker JS shim (`advisor_worker.js`)
+  Worker WASM binary needs validation. The Worker JS shim (`grandma_worker.js`)
   must be generated and placed in `dist/`. Investigate Trunk `[[bin]]` entries
   or a manual post-build step.
 - **Reroll deduplication edge cases**: confirm the held-value-tuple deduplication

@@ -6,9 +6,43 @@ shown in real UI via CSS, represented here by plain cells for readability.
 
 ---
 
+## Screen 0: Opening Quote Overlay
+
+Shown at the start of every new game, before the first roll. Grandma delivers an oracular
+opening line. Player dismisses to begin. Tab bar is not shown.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│                         SIXZEE                             │
+│                                                             │
+│                                                             │
+│         ┌───────────────────────────────────────┐          │
+│         │  👵                                   │          │
+│         │                                       │          │
+│         │  "The rice knows when it is ready     │          │
+│         │   to be eaten. Do you?"               │          │
+│         │                                       │          │
+│         │                    — Grandma          │          │
+│         └───────────────────────────────────────┘          │
+│                                                             │
+│                    [ Let's play. ]                         │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Notes:**
+- Quote is selected randomly from the `opening` pool in `grandma_quotes.json`; different each game
+- Tab bar is NOT shown on this screen
+- Tapping "Let's play." (or anywhere outside the card) dismisses the overlay and begins the game
+- If `QuoteBank` failed to load, this overlay is skipped entirely and the game starts directly
+- No dice, no scorecard visible yet
+
+---
+
 ## Screen 1: Game Screen — Between Turns (no dice rolled yet)
 
-The default state at the start of a fresh turn. Roll button is active; Advisor
+The default state at the start of a fresh turn. Roll button is active; Ask Grandma
 button is disabled until the first roll.
 
 ```
@@ -22,7 +56,7 @@ button is disabled until the first roll.
 │   │   │   │   │   │   │   │   │   │   │                   │
 │   └───┘   └───┘   └───┘   └───┘   └───┘                   │
 │                                                             │
-│           [ 🎲  ROLL ]        [ 💡 ADVISOR ░░ ]            │
+│           [ 🎲  ROLL ]        [ 👵 ASK GRANDMA ░░ ]           │
 │                                ^^^^ disabled until rolled   │
 ├─────────────────────────────────────────────────────────────┤
 │            ── SCORECARD ──                                  │
@@ -73,7 +107,7 @@ button is disabled until the first roll.
 ## Screen 2: Game Screen — After Rolling (score preview mode)
 
 After the first roll, open cells show the score the current dice would yield in
-brackets. Held dice shown with double border. Advisor button now enabled.
+brackets. Held dice shown with double border. Ask Grandma button now enabled.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -87,7 +121,7 @@ brackets. Held dice shown with double border. Advisor button now enabled.
 │   └───┘   ╚═══╝   ╚═══╝   └───┘   ╚═══╝                   │
 │           HELD     HELD            HELD    tap to hold/unhold│
 │                                                             │
-│           [ 🎲  ROLL ]        [ 💡 ADVISOR ]               │
+│           [ 🎲  ROLL ]        [ 👵 ASK GRANDMA ]              │
 ├─────────────────────────────────────────────────────────────┤
 │            ── SCORECARD ──                                  │
 │                  │ C1  │ C2  │ C3  │ C4  │ C5  │ C6  │     │
@@ -129,12 +163,26 @@ brackets. Held dice shown with double border. Advisor button now enabled.
   zero-score confirmation prompt.
 - Filled cells (plain numbers) are not clickable.
 - Held dice use double-border (╔═══╗). Tap/click a die to toggle held state.
+- **Sixzee inline quote:** If the current dice all show the same value (a Sixzee),
+  a Grandma quote appears in a small banner below the dice row, above the Roll/Ask
+  Grandma buttons:
+
+  ```
+  │           [ 🎲 ROLL ]     [ 👵 ASK GRANDMA ]          │
+  │                                                         │
+  │  👵 "Five of one mind. Rare. Do not waste it."         │
+  │                                                         │
+  ├─────────────────────────────────────────────────────────┤
+  ```
+
+  - Quote selected randomly from `sixzee` pool on each such roll
+  - Omitted if QuoteBank unavailable
 
 ---
 
-## Screen 3: Advisor Panel Overlay
+## Screen 3: Ask Grandma Panel Overlay
 
-Opens over the game screen when the Advisor button is pressed after a roll.
+Opens over the game screen when the Ask Grandma button is pressed after a roll.
 Shows top 5 actions ranked by estimated end-game score.
 
 ```
@@ -143,7 +191,7 @@ Shows top 5 actions ranked by estimated end-game score.
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
 │  ╔═════════════════════════════════════════════════════╗   │
-│  ║  💡 ADVISOR — Top 5 Moves              [ ✕ close ] ║   │
+│  ║  👵 GRANDMA'S ADVICE — Top 5 Moves          [ ✕ close ] ║   │
 │  ╠═════════════════════════════════════════════════════╣   │
 │  ║                                                     ║   │
 │  ║  #1  Hold [5, 5, 5] — reroll 2 dice                ║   │
@@ -171,14 +219,12 @@ Shows top 5 actions ranked by estimated end-game score.
 │  ║  Based on DP value table + MC sampling               ║   │
 │  ╚═════════════════════════════════════════════════════╝   │
 │                                                             │
-├─────────────────────────────────────────────────────────────┤
-│      [ 🎮 Game ]      [ 📋 History ]    [ ⚙️ Settings ]   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 **Notes:**
+- Tab bar is **hidden** while Grandma's Advice panel is open (per PRD Req 53).
 - Reroll actions show probability estimates for the most likely target outcomes.
-- Score-now actions show exact points but no probability (it's deterministic).
 - Every action shows an estimated final game score via DP value table + Monte Carlo sampling.
 - "Apply this move" sets held dice (reroll) or places score (score-now) and closes
   the panel. Score-now that would place 0 still triggers the confirmation prompt.
@@ -198,14 +244,23 @@ Shown when the player clicks a cell that would score 0. Normal row.
         │  This cell would score  0 points      │
         │  with your current dice.              │
         │                                       │
+        │  👵 "Sometimes you give back          │
+        │     what was never yours."            │
+        │                                       │
         │   [ Cancel ]      [ Confirm Zero ]   │
         │                                       │
         └───────────────────────────────────────┘
 ```
 
+**Notes:**
+- Scratch quote appears between the score text and the action buttons
+- Quote is random from `scratch` pool; shown whenever the prompt appears
+- If QuoteBank unavailable, the quote area is simply omitted
+
 ## Screen 4b: Zero-Score Confirmation — Sixzee Cell Warning
 
 Same prompt, but when the cell being scratched is a Sixzee cell.
+Grandma scratch quote appears above the forfeit warning.
 
 ```
         ┌───────────────────────────────────────┐
@@ -214,6 +269,9 @@ Same prompt, but when the cell being scratched is a Sixzee cell.
         │                                       │
         │   This cell would score  0 points     │
         │   with your current dice.             │
+        │                                       │
+        │  👵 "Sometimes you give back          │
+        │     what was never yours."            │
         │                                       │
         │  ┌─────────────────────────────────┐  │
         │  │ ⚠️  WARNING                     │  │
@@ -250,6 +308,9 @@ Shown when all 78 cells are filled. Appears over the completed scorecard.
 │  ║                                                     ║   │
 │  ║   ⭐  Best Column: Column 4  —  278 pts             ║   │
 │  ║                                                     ║   │
+│  ║   👵 "You did not embarrass the family.             ║   │
+│  ║      I have seen worse."                            ║   │
+│  ║                                                     ║   │
 │  ║   [ 🎮  New Game ]   [ 📋  View Full Scorecard ]   ║   │
 │  ║                                                     ║   │
 │  ╚═════════════════════════════════════════════════════╝   │
@@ -263,6 +324,9 @@ Shown when all 78 cells are filled. Appears over the completed scorecard.
 - "View Full Scorecard" navigates to the History detail view for this game.
 - "New Game" dismisses the overlay and resets everything.
 - If the Sixzee bonus was forfeited, the pool line shows "+0 (forfeited)".
+- Closing quote placed between the best-column line and the action buttons.
+- Quote tier determined by final grand total vs theoretical max (see §11.2 in tech_spec.md).
+- Example above is a `good` tier quote. Omitted if QuoteBank unavailable.
 
 ---
 
@@ -383,7 +447,7 @@ active scorecard but all cells are filled and no score previews are shown.
 - `0` cells are scratched placements (player chose zero). Distinguished visually
   from empty cells in the active game (here all cells are filled).
 - The back arrow (`← History`) returns to the History list.
-- No dice, no roll button, no advisor — purely read-only.
+- No dice, no roll button, no Ask Grandma button — purely read-only.
 
 ---
 
@@ -455,7 +519,7 @@ smaller. Tab bar remains pinned at the bottom.
 │ │ 3│ │ 2│ ║ 5║ │ 2│ ║ 5║ │
 │ └──┘ └──┘ ╚══╝ └──┘ ╚══╝ │
 │          HELD      HELD   │
-│  [ 🎲 ROLL ]  [ 💡 ADV ] │
+│  [ 🎲 ROLL ]  [ 👵 GRAN ] │
 ├───────────────────────────┤
 │     │C1 │C2 │C3 │C4 │C5│C6│
 │─────┼───┼───┼───┼───┼──┼──│

@@ -17,7 +17,9 @@ updating the doc first.
 |---|---|---|
 | `doc/prd.md` | Product Requirements Document — user stories, functional requirements, UI layout, success criteria. | Before implementing any user-facing feature. |
 | `doc/tech_spec.md` | Technical Specification — stack, module layout, state architecture, component responsibilities. | Before writing any code. |
+| `doc/wireframes.md` | Screen-by-screen UI wireframes — layout, component hierarchy, navigation flows, tab bar visibility rules. | Before implementing any UI component or screen. |
 | `doc/project_plan.md` | Milestone overview — milestones in dependency order, status summary. | To understand overall project progress. |
+| `doc/milestones/m<N>-*.md` | Per-milestone detail — deliverables, acceptance criteria, task checklist, implementation notes. Files: `m1-bootstrap.md` through `m10-polish-mobile.md`. | Before starting any task within a milestone; after completing a task — update the checklist and add implementation notes. |
 | `doc/lessons.md` | Living record of non-obvious bugs, browser/crate quirks, and hard-won insights discovered during development. | **Before starting work in any area.** **After resolving any non-trivial issue** — add a new lesson. |
 
 ---
@@ -226,7 +228,10 @@ Before writing code for any non-trivial task:
 7. Every public `fn`/`struct`/`trait` needs a `///` doc comment; magic numbers need named constants.
 8. Stage changes and run the `code-review` agent — fix every flagged bug/logic error.
 9. Mark the task complete in the milestone doc.
-10. Commit.
+10. Summarize highlights in the milestone doc about implementation.
+11. Consider if there were any interesting new lessons during implementation and if important add to doc/lessons.md.
+12. Commit.
+13. Suggest a set of basic smoke tests to run to test the milestone.
 
 ### Commit message format
 

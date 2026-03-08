@@ -1,61 +1,137 @@
-# rw_teleidoscope — Copilot Instructions
+# Rook Wasteland Monorepo — Copilot Instructions
 
-A Leptos 0.8 (CSR) + Trunk WASM app. Client-side only; deployed as static files with no server-side rendering or backend API. Part of the Rook Wasteland monorepo but developed independently.
+A collection of independent, client-side WASM web apps deployed as a unified static file hosting solution. All apps are built with Rust, use hash-based routing, and ship with no server-side rendering or backend API requirement.
+
+---
+
+## Monorepo Structure
+
+```
+rook_wasteland/
+├── apps/
+│   ├── rw_chess/         # Chess game vs. 3 AI personalities (Leptos 0.8)
+│   ├── rw_defender/      # Arcade vertical shooter (Canvas 2D, pure web-sys)
+│   ├── rw_index/         # Landing page / app launcher (static)
+│   ├── rw_mixit/         # DJ dual-deck audio mixer (Leptos 0.8, Web Audio API)
+│   ├── rw_poetry/        # Poetry reader + voice journal (Leptos 0.8, IndexedDB)
+│   ├── rw_teleidoscope/  # Interactive kaleidoscope with WebGL (Leptos 0.8)
+│   └── [others]/
+├── rw_serve/             # Native Rust HTTP/HTTPS server (Axum + Tokio)
+├── doc/                  # Monorepo-level documentation
+└── make.py               # [optional] top-level build orchestration
+```
+
+Each app under `apps/` is independently developed and builds its own `dist/` directory. All are deployed together under a single domain with `rw_serve` or a static file server; `rw_index` acts as the root landing page.
 
 ---
 
 ## Build, Test, and Lint
 
-Commands run from the **`apps/rw_teleidoscope/` directory**:
+### Running from an app directory
+
+Every app has a **`make.py`** in its root; commands are standardized:
 
 ```bash
-python make.py build    # debug WASM build (trunk build)
-python make.py test     # cargo test (native) [+ wasm-pack test if configured]
+cd apps/<app_name>
+python make.py build    # debug WASM build (or appropriate tool)
+python make.py test     # run native tests (+ browser tests if configured)
 python make.py dist     # release build → dist/
-python make.py lint     # cargo clippy --target wasm32-unknown-unknown
+python make.py lint     # linting for WASM target (if applicable)
 ```
 
-Run a single unit test by name:
+Each app may support different targets (see specific app instructions).
+
+### Required toolchain
+
+For WASM apps (all Leptos or web-sys apps):
 ```bash
-cargo test <test_name>
+rustup target add wasm32-unknown-unknown
+cargo install trunk
 ```
 
-Lint with zero-warnings policy:
+For testing WASM with a browser:
 ```bash
-cargo clippy --target wasm32-unknown-unknown -- -D warnings
+cargo install wasm-pack
 ```
-
-Required toolchain: `rustup target add wasm32-unknown-unknown`, `cargo install trunk`.
-
-`Trunk.toml`: the `public_url` must match the deployment subdirectory path exactly (`/rw_teleidoscope/`) so Trunk injects correct absolute paths for the WASM binary, JS glue, and CSS into `index.html`.
 
 ---
 
-## Architecture
+## App Types & Technology Stack
 
+### **WASM CSR Apps (Leptos 0.8)**
+
+- **rw_chess**: Browser-based chess game with three AI personalities
+- **rw_mixit**: Dual-deck DJ mixer using Web Audio API
+- **rw_poetry**: Poetry reader with voice journaling via IndexedDB
+- **rw_teleidoscope**: Interactive kaleidoscope with WebGL effects
+
+**Common traits:**
+- Client-side rendering (CSR); no server dependency
+- Hash-based routing (`#/route`) for static hosting
+- `Cargo.toml` crate type: `["cdylib", "rlib"]` for WASM output + native testing
+- `Trunk.toml` with `public_url = "/<app_name>/"` (exact match for subdirectory path)
+- `cargo test` for pure-logic unit tests; `wasm-pack test` for browser integration tests
+
+### **WASM Canvas App (Pure web-sys)**
+
+- **rw_defender**: Arcade vertical shooter with raw Canvas 2D rendering
+
+**Traits:**
+- No Leptos framework; uses web-sys and `js-sys` directly
+- Game loop via recursive `requestAnimationFrame`
+- Minimal crate type: `["cdylib"]` (no native testing framework)
+
+### **Static App**
+
+- **rw_index**: HTML landing page / app navigator
+- Deployed to the root path; other apps mounted at `/<app_name>/`
+
+### **Native Deployment Server**
+
+- **rw_serve** (binary crate, not WASM)
+- Serves combined app distribution as static files with SPA fallback per app subdirectory
+- Supports HTTP and HTTPS (pure-Rust TLS via `rustls`)
+- Structured request logging (method, path, status, latency, IP, bytes, user-agent)
+- Optional; static file servers (GitHub Pages, Netlify, Cloudflare Pages, S3) work equally well
+
+---
+
+## Deployment Model
+
+**No backend required.** All apps are deployed as **static files** (HTML, JS, CSS, WASM binary, assets). Routing is **hash-based** (`#/route`) so URLs never reach the server—unknown paths remain in the browser, enabling fallback to `index.html` for SPA navigation.
+
+**Deployment options:**
+- **rw_serve**: Local development or internal-network serving with HTTPS support and structured logging
+- **Static file hosts**: GitHub Pages, Netlify, Cloudflare Pages, AWS S3 + CloudFront, nginx, Apache (any static-files-only host works)
+
+All apps' `dist/` directories are combined into a single tree:
 ```
-src/
-├── lib.rs          # WASM entry point; crate-level lint attrs; #[wasm_bindgen(start)]
-├── app.rs          # root App component; provides RwSignal<Route> via context
-├── routing.rs      # hand-coded hash routing (Route enum)
-├── state/          # Leptos RwSignals for UI-visible state
-├── components/     # #[component] functions
+dist/
+├── index.html          # from rw_index (root landing page)
+├── [rw_index assets]
+├── rw_chess/
+│   ├── index.html
+│   ├── [assets]
+│   └── rw_chess_bg.wasm
+├── rw_defender/
+│   ├── index.html
+│   ├── [assets]
+│   └── rw_defender_bg.wasm
+├── rw_mixit/
+│   ├── index.html
+│   ├── [assets]
+│   └── rw_mixit_bg.wasm
 └── ...
 ```
 
-**`Cargo.toml` crate type:**
-```toml
-[lib]
-crate-type = ["cdylib", "rlib"]
-```
-The `rlib` enables `cargo test` on the native host for pure-logic unit tests. The `cdylib` is the WASM output. Run clippy against the `wasm32` target specifically — the two targets can diverge.
+Exact `public_url` in `Trunk.toml` is critical—Trunk injects this into all asset paths in `index.html`.
 
 ---
 
-## Rust / Error Handling
+## Rust / Error Handling (All Apps)
 
 - **Never `.unwrap()`** in non-test code. Use `.expect("reason why this cannot fail")` for programmer-error invariants. `.unwrap()` is only acceptable inside `#[test]` functions.
-- The reason string in `.expect()` must explain *why* the failure is impossible — not just what failed. `"AudioContext.createGain() is infallible per Web Audio spec"` is a reason; `"create gain"` is not.
+- The reason string in `.expect()` must explain *why* the failure is impossible — not just what failed. Example: `"AudioContext.createGain() is infallible per Web Audio spec"` ✓; `"create gain"` ✗.
 - When an error cannot be propagated (e.g. inside a `spawn_local` callback), log to the browser console rather than panicking:
   ```rust
   web_sys::console::error_1(&format!("Failed: {:?}", e).into())
@@ -69,7 +145,9 @@ The `rlib` enables `cargo test` on the native host for pure-logic unit tests. Th
 
 ---
 
-## Leptos 0.8 Patterns
+## Leptos 0.8 Patterns (CSR Apps)
+
+For apps using Leptos (rw_chess, rw_mixit, rw_poetry, rw_teleidoscope):
 
 ### Signals
 
@@ -147,9 +225,9 @@ Effect::new(move |_| {
 });
 ```
 
-### Async
+### Async (WASM is single-threaded)
 
-Use `spawn_local` — WASM is single-threaded, `tokio::spawn` does not apply:
+Use `spawn_local` — `tokio::spawn` does not apply in WASM:
 ```rust
 use leptos::task::spawn_local;
 spawn_local(async move { ... });
@@ -157,9 +235,11 @@ spawn_local(async move { ... });
 
 ---
 
-## Routing
+## Hash-Based Routing (All Apps)
 
 Use **hand-coded hash-based routing** — do not use `leptos_router`. Hash routing (`#/route`) keeps navigation in the URL fragment, which is never sent to the server. This is required for static file hosting with no URL-rewrite rules.
+
+### Leptos apps (recommended pattern):
 
 ```rust
 // src/routing.rs
@@ -187,14 +267,18 @@ In the root `App`: read initial hash, create `RwSignal<Route>`, listen for `hash
 
 Use plain `<a href="#/route">` links; no special component needed.
 
+### Canvas apps (rw_defender pattern):
+
+Read `window.location.hash()` in the game loop; handle routing separately from game logic.
+
 ---
 
-## WASM Entry Point
+## WASM Module Entry Point
+
+Leptos apps (CSR): `#[wasm_bindgen(start)]` is load-bearing. Without it the module starts silently (no error, no app). Exclude during `wasm-pack test` to avoid duplicate start symbols.
 
 ```rust
-// lib.rs — #[wasm_bindgen(start)] is load-bearing.
-// Without it the module starts silently (no error, no app).
-// Exclude during wasm-pack test to avoid a duplicate start symbol.
+// lib.rs
 #[cfg(not(test))]
 #[wasm_bindgen(start)]
 fn main() {
@@ -202,15 +286,16 @@ fn main() {
     leptos::mount::mount_to_body(App);
 }
 
-// Allow dead-code lints on the native test target
 #![cfg_attr(any(not(target_arch = "wasm32"), test), allow(dead_code, unused_imports))]
 ```
 
+Canvas apps: Use `spawn_local` to wrap the game loop initialization so DOM references (NodeRef canvas) are available after the first render.
+
 ---
 
-## Canvas / rAF Loop
+## Canvas / requestAnimationFrame Loop
 
-The recursive `requestAnimationFrame` loop pattern:
+The recursive `requestAnimationFrame` pattern (for canvas apps like rw_defender):
 
 ```rust
 // Must be wrapped in spawn_local so NodeRef canvas elements are available after first render
@@ -230,9 +315,9 @@ Two `on:` handlers on the same element cannot share a single Rust closure. Wrap 
 
 ---
 
-## Clippy
+## Clippy Standards (All Apps)
 
-- `#[allow(clippy::...)]` suppressions always require an explanatory comment.
+- `#[allow(clippy::...)]` suppressions always require an explanatory comment—never silent suppressions.
 - State structs with `fn new()` must also `impl Default` (delegating to `Self::new()`) — clippy `-D warnings` will reject them otherwise.
 - `clippy::too_many_arguments` — if suppressed, add a comment; refactor into a struct if count keeps growing.
 
@@ -247,14 +332,21 @@ Two `on:` handlers on the same element cannot share a single Rust closure. Wrap 
 
 ---
 
-## Testing
+## Testing Strategy (All WASM Apps)
 
 - **Pure functions** (math, routing logic, state transitions) → `#[cfg(test)]` module in the same file, run with `cargo test`. No browser needed.
 - **Browser-dependent code** (Web Audio nodes, canvas, WebGL) → `#[wasm_bindgen_test]` in `tests/`, run with `wasm-pack test --headless --firefox`.
 - **Component-level integration** (signal → DOM reactive wiring, multi-component pipelines) → `#[wasm_bindgen_test]` in `tests/integration.rs`, mounting real components in a headless browser.
 - Extract math helpers as standalone pure functions specifically so they can be unit-tested natively.
 - `.unwrap()` is fine inside `#[test]` functions — a panic is a test failure.
-- "At least one test" is a floor. After implementing, explicitly audit coverage: list every meaningful behaviour (happy path, edge cases, error paths, reactive wiring) and confirm each is tested or document why it is waived.
+- **Coverage audit:** After implementing, explicitly list every meaningful behaviour (happy path, edge cases, error paths, reactive wiring) and confirm each is tested or document why it is waived. Undocumented gaps are bugs in the test suite.
+
+**Common test setup:**
+```bash
+cd apps/<app_name>
+cargo test                                                    # native unit tests
+wasm-pack test --headless --firefox                          # WASM integration tests
+```
 
 ---
 
@@ -267,10 +359,10 @@ Before writing code for any non-trivial task:
 3. Critique the design (correctness, simplicity, coupling, performance, testability)
 4. Implement + tests
 5. **Coverage audit:** for every public function or component added/modified, list each meaningful behaviour and confirm it is tested or document why it is waived. Undocumented gaps are bugs in the test suite.
-6. `cargo test` + `cargo clippy --target wasm32-unknown-unknown --tests -- -D warnings` + `trunk build` — all must pass
+6. Run all checks: `cargo test` + `cargo clippy --target wasm32-unknown-unknown --tests -- -D warnings` + `trunk build` — all must pass
 7. Self-review: every public `fn`/`struct`/`trait` needs a `///` doc comment; magic numbers need named constants
-8. Stage changes and run the `code-review` agent — fix every flagged bug/logic error; waive findings that don't apply by noting the reason in the task doc
-9. Commit, then mark task doc ✅ Done
+8. Stage changes and self-review for logic errors and edge cases
+9. Commit with proper message format (see below), then mark task doc ✅ Done
 
 ### Commit message format
 
@@ -281,3 +373,34 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
 ```
 
 Imperative mood, task ID prefix, Co-authored-by trailer on every commit.
+
+---
+
+## Common File Organization (WASM Apps)
+
+```
+apps/<name>/
+├── src/
+│   ├── lib.rs              # WASM entry point; crate-level lint attrs
+│   ├── app.rs or main.rs   # root App component (Leptos) or game loop (canvas)
+│   ├── routing.rs          # hash-based routing enum
+│   └── [domain logic, components, utilities]
+├── tests/
+│   └── integration.rs      # #[wasm_bindgen_test] integration tests
+├── Cargo.toml              # crate-type = ["cdylib", "rlib"] for WASM + native testing
+├── Trunk.toml              # public_url = "/<app_name>/"
+├── make.py                 # build/test/dist/lint targets
+├── index.html              # Trunk input HTML (mounted by rw_serve)
+├── doc/                    # spec, design docs, PRDs, lessons learned
+├── tasks/                  # per-task design/status documents
+└── dist/                   # build output (git-ignored)
+```
+
+---
+
+## Related Documentation
+
+- **Monorepo overview:** See [doc/rook_wasteland_spec.md](doc/rook_wasteland_spec.md) for governance, naming, and overall vision
+- **Deployment server:** See [rw_serve/doc/rw_serve_spec.md](rw_serve/doc/rw_serve_spec.md) for HTTP/HTTPS configuration and logging
+- **rw_index landing page:** See [apps/rw_index/doc/rw_index_spec.md](apps/rw_index/doc/rw_index_spec.md) for app navigation structure
+- **App-specific guidance:** Each app may have a `README.md` or `doc/` folder with additional technical patterns (e.g., Web Audio usage in rw_mixit, WebGL in rw_teleidoscope, Canvas in rw_defender)

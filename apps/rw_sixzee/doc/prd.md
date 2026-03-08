@@ -84,13 +84,18 @@ as a clean, solitaire experience focused on score maximization.
 - As a returning player, I want my chosen theme remembered so that I don't have
   to reselect it every session.
 
-**Advisor:**
-- As a player who is unsure what to do on a turn, I want to open an advisor panel
+**Ask Grandma:**
+- As a player who is unsure what to do on a turn, I want to open Ask Grandma
   and see the top 5 recommended actions with probability estimates and projected
   end-game scores so that I can make a more informed decision.
-- As a player who agrees with a recommendation, I want to click it in the advisor
-  panel to apply it immediately (hold dice or place a score) so that I don't have
+- As a player who agrees with a recommendation, I want to click it in Ask Grandma
+  to apply it immediately (hold dice or place a score) so that I don't have
   to manually replicate the advice.
+
+**Grandma Quotes:**
+- As a player, I want Grandma to offer a fragment of unwanted wisdom at the start
+  of each game, and have an opinion about how I played at the end, so that the game
+  feels like it has personality even when I'm playing alone.
 
 **Edge cases:**
 - As a player, I want to place a zero in any open cell so that I can strategically
@@ -318,9 +323,11 @@ the current game permanently).
 12. The first 6 Sixzee rolls a player achieves during a game fill the Sixzee
     cell in one column each (50 pts per cell); no bonus points are awarded for
     these rolls.
-13. From the **7th Sixzee roll onward**, if every Sixzee cell across all 6
-    columns is filled with 50 (none scratched), 100 points are added to a shared
-    "Sixzee Bonus" pool for each such roll.
+13. From the **7th Sixzee roll onward**, the app auto-detects a bonus Sixzee whenever
+    all 6 Sixzee cells are already filled (with any value, including a scratch of 0).
+    **If the Sixzee Bonus Pool has not been forfeited**, 100 points are added to the
+    pool for each such roll. If the pool has been forfeited, no points are awarded but
+    the auto-detection still fires and the turn ends automatically (see Req 14–15).
 14. **If any Sixzee cell was ever scratched (scored as 0), the bonus pool is
     permanently forfeited for the rest of that game** — no bonus points are
     awarded on any subsequent Sixzee roll, and the pool displays 0.
@@ -359,7 +366,7 @@ the current game permanently).
 22. The layout shall be responsive: on viewports narrower than 600 px the scorecard
     shall render in a condensed grid that fits within the screen width without
     horizontal scrolling, using smaller cell sizes and abbreviated row labels.
-23. All interactive targets (dice, scorecard cells, Roll button, Advisor button,
+23. All interactive targets (dice, scorecard cells, Roll button, Ask Grandma button,
     navigation links) shall have a minimum touch target size of 44 × 44 px on
     mobile viewports.
 24. Tapping a die shall toggle its held state, identical in effect to clicking on
@@ -367,16 +374,16 @@ the current game permanently).
 25. The app shall not rely on hover states to convey essential information; all
     potential-score previews and held indicators must be visible via tap/click
     state or always-visible UI elements.
-26. The advisor panel and the zero-score confirmation prompt shall be displayed as
+26. Grandma's Advice panel and the zero-score confirmation prompt shall be displayed as
     full-screen or near-full-screen overlays on mobile viewports, ensuring they
     are readable and dismissible without precise pointer control.
 
-**Move advisor**
+**Ask Grandma**
 
-27. The app shall display an "Advisor" button during a player's turn, available
+27. The app shall display an "Ask Grandma" button during a player's turn, available
     after any roll (1st, 2nd, or 3rd). Before the first roll of a turn the button
     shall be disabled.
-28. Pressing the Advisor button shall open an on-demand panel or overlay showing
+28. Pressing the Ask Grandma button shall open Grandma's Advice panel showing
     the top 5 recommended actions for the current dice and scorecard state, ranked
     by estimated end-game score (highest first).
 29. Each recommended action shall be one of two types:
@@ -394,12 +401,12 @@ the current game permanently).
       remaining open cells and turns.
 31. Probabilities shall be displayed as rounded approximations (e.g. "~28%"), not
     exact decimals.
-32. Clicking a recommended action in the advisor panel shall apply it immediately:
+32. Clicking a recommended action in Grandma's Advice panel shall apply it immediately:
     - A reroll action sets the held dice accordingly and closes the panel; the
       player then presses Roll as normal.
     - A score-now action places the score in the specified cell (subject to the
       same zero-score confirmation prompt if applicable) and closes the panel.
-33. The advisor computation shall run entirely client-side (no network requests)
+33. Ask Grandma's computation shall run entirely client-side (no network requests)
     using a precomputed **dynamic programming value table** (one 32 KB table
     covering all single-column states, embedded in the WASM binary) combined
     with Monte Carlo sampling for reroll candidates where exact enumeration is
@@ -407,11 +414,35 @@ the current game permanently).
     lookup per cell; reroll candidates with 3 or more dice unheld sample 300
     random outcomes. If computation takes more than ~200 ms the panel shall
     show a loading indicator.
-34. The advisor panel shall be dismissible without taking any action.
+34. Grandma's Advice panel shall be dismissible without taking any action.
+
+**Grandma Quotes**
+
+35. On every new game start, a full-screen opening quote overlay shall appear before
+    the player's first roll. It shall display a random quote from the `opening` pool
+    and a single dismiss button ("Let's play." or similar). Tapping the dismiss button
+    (or anywhere outside the card) closes the overlay and begins the game.
+36. At game end, the end-of-game summary overlay shall include a Grandma closing quote
+    keyed to the player's performance tier. The tier is determined by final grand total
+    as a percentage of a theoretical maximum score: `great` (≥ 80%), `good` (60–80%),
+    `ok` (40–60%), `bad` (20–40%), `really_bad` (< 20%). A random quote from the
+    matching tier pool is displayed.
+37. When the player rolls a Sixzee (all 5 dice showing the same value), a brief inline
+    Grandma quote shall appear in or near the dice area. The quote is selected randomly
+    from the `sixzee` pool.
+38. The zero-score confirmation prompt shall include a Grandma scratch quote drawn
+    randomly from the `scratch` pool, displayed between the score text and the action
+    buttons.
+39. All Grandma quotes shall be loaded from `assets/grandma_quotes.json` at app startup
+    via a `fetch` request. If the file is unavailable or unparseable, all quote displays
+    shall be silently omitted — no errors are shown to the player and gameplay is
+    unaffected.
+40. Each quote pool (`opening`, `sixzee`, `scratch`, and each closing tier) shall contain
+    a minimum of 10 quotes to ensure variety across sessions.
 
 **Themes & settings**
 
-35. The app shall offer 6 selectable visual themes, each applying a coordinated
+41. The app shall offer 6 selectable visual themes, each applying a coordinated
     color palette, typography style, and custom SVG dice face art throughout the
     entire UI. The 6 themes are:
 
@@ -424,68 +455,68 @@ the current game permanently).
     | 5 | **Nordic Minimal** | Northern European design / Scandinavian | Clean geometric dots arranged as runes or snowflakes, stark and precise | Off-white, slate grey, single muted accent colour (moss or rust), sans-serif |
     | 6 | **Pacific Northwest** | PNW nature / coastal forest | Cedar rings, salal leaves, salmon silhouettes, mountain outlines | Forest green, driftwood tan, slate river-stone, earthy ink-wash textures |
 
-36. Each theme shall provide a complete set of 6 SVG die face designs (faces
+42. Each theme shall provide a complete set of 6 SVG die face designs (faces
     showing 1 through 6), where pips are replaced by theme-specific symbols
     scaled and arranged to communicate the pip count clearly.
-37. The app shall provide a Settings screen accessible via navigation from the
+43. The app shall provide a Settings screen accessible via navigation from the
     main game view. The Settings screen shall display a preview of each theme
     (showing a sample die face and a colour swatch) and allow the player to
     select their preferred theme.
-38. The active theme shall apply immediately on selection without requiring a
+44. The active theme shall apply immediately on selection without requiring a
     page reload.
-39. The selected theme shall be persisted in `localStorage` and restored on every
+45. The selected theme shall be persisted in `localStorage` and restored on every
     subsequent app load. If no preference is stored, the app shall default to
     **Nordic Minimal** (theme 5).
 
 **Persistence**
 
-40. The app shall auto-save the full game state to `localStorage` after every roll
+46. The app shall auto-save the full game state to `localStorage` after every roll
     and after every score placement. The saved state shall include: all 78 cell
     values (filled or empty), current dice values, which dice are held, current
     roll count (0–3), current turn number, whether the current turn is a bonus
     Sixzee turn, and Sixzee bonus pool (accumulated
     total and forfeited flag).
-41. On completion of every game (all 78 cells filled), the app shall move the
+47. On completion of every game (all 78 cells filled), the app shall move the
     finished game out of the in-progress slot and append a completed game record
     to the history list. The completed record shall contain: timestamp (ISO 8601),
     final grand total score, and the full scorecard snapshot.
-42. Game records in the completed history older than 365 days shall be pruned from
+48. Game records in the completed history older than 365 days shall be pruned from
     `localStorage` automatically on app load and after each game is saved. The
     in-progress game slot is not subject to pruning.
-43. The app shall handle `localStorage` being unavailable (e.g. private browsing
+49. The app shall handle `localStorage` being unavailable (e.g. private browsing
     with storage blocked) gracefully — the game remains fully playable; a non-
     blocking notice informs the player that state will not be saved or resumed.
 
 **Resume on load**
 
-44. On app load, if an in-progress game is found in `localStorage`, the app shall
+50. On app load, if an in-progress game is found in `localStorage`, the app shall
     present the player with a choice: **Resume** the saved game or **Start New**
     (discarding the saved game).
-45. Selecting Resume shall restore the game exactly as it was left — scorecard
+51. Selecting Resume shall restore the game exactly as it was left — scorecard
     cells, dice values, held state, roll count, and turn number all restored.
-46. Selecting Start New shall discard the in-progress save and begin a fresh game.
+52. Selecting Start New shall discard the in-progress save and begin a fresh game.
 
 **Navigation**
 
-47. The app shall display a persistent tab bar at the bottom of the screen with
+53. The app shall display a persistent tab bar at the bottom of the screen with
     three destinations: **Game**, **History**, and **Settings**. The tab bar
     shall be visible on all screens except the following full-screen overlays:
-    advisor panel, zero-score confirmation, and resume prompt. The end-of-game
+    Grandma's Advice panel, zero-score confirmation, and resume prompt. The end-of-game
     summary overlay keeps the tab bar visible so the player can navigate freely.
-48. Navigating away from the Game tab and back shall not reset or interrupt an
+54. Navigating away from the Game tab and back shall not reset or interrupt an
     in-progress game.
 
 **History screen**
 
-49. The History screen (reachable via the History tab) shall list all stored
+55. The History screen (reachable via the History tab) shall list all stored
     completed game records sorted by final score descending (highest score first).
     Each row shall show: rank, date played, final score, and Sixzee bonus pool amount.
-50. Clicking a game record shall display that game's full scorecard snapshot in a
+56. Clicking a game record shall display that game's full scorecard snapshot in a
     read-only view showing all 6 columns and every cell value, identical in layout
     to the active scorecard.
-51. The player shall be able to navigate back from the scorecard snapshot to the
+57. The player shall be able to navigate back from the scorecard snapshot to the
     History list via a back button or swipe gesture.
-52. If no completed history exists yet, the History screen shall show an appropriate
+58. If no completed history exists yet, the History screen shall show an appropriate
     empty-state message.
 
 ---
