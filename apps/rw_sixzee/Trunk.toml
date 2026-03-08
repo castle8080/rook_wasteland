@@ -6,7 +6,7 @@ dist       = "dist"
 public_url = "/rw_sixzee/"
 
 [watch]
-ignore = ["dist", "doc", "test-results", "node_modules", "e2e"]
+ignore = ["dist", "doc", "node_modules", "e2e"]
 
 # Copy the assets/ directory into the dist output so grandma_quotes.json
 # (and any future static assets) are served alongside the WASM bundle.
