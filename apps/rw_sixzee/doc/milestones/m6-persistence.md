@@ -120,16 +120,43 @@ After this milestone, closing and reopening the browser preserves an in-progress
   and called it at the start of every app-mounting test to prevent cross-test contamination from
   storage tests leaving keys in localStorage
 
-## Notes & Risks
+---
 
-- **localStorage in private browsing:** `window.localStorage` property access throws a `SecurityError`
-  in some browsers when in private mode. Wrap the initial `window.local_storage()` call in a try/catch
-  and short-circuit all storage functions if unavailable, returning `AppError::Storage`.
-- **JSON corruption:** If `rw_sixzee.in_progress` contains corrupted JSON (e.g. partial write due to
-  crash), `serde_json::from_str` returns an error. Treat this as Fatal — it's an unexpected failure.
-  Offer the user a clear escape via the Fatal overlay's "Start New Game" action.
-- **History sort order:** History is always stored sorted descending. On load, no re-sort is required
-  unless entries are added. Always sort before saving to keep the invariant.
-- **`started_at` parsing:** Use `js_sys::Date::now()` (milliseconds) for `started_at` generation in
-  `GameState::new()` and convert to ISO 8601 string. For pruning, parse back via `js_sys::Date`
-  constructor from the string. In native tests, you can use a hardcoded timestamp string.
+## Implementation Summary
+
+### What was built
+
+M6 added full localStorage persistence to rw_sixzee. The app now auto-saves after every roll and every score placement, detects a saved game on startup and prompts the user to resume or discard it, appends completed games to a persistent history, prunes entries older than 365 days, and restores the last-used theme.
+
+### Architecture decisions
+
+**Pure helpers live in `game.rs`, not `storage.rs`.** `sort_history_by_score` and `prune_old_entries` are pure Rust with no browser dependencies. Keeping them in `game.rs` lets `cargo test` (native) exercise them with no browser harness — 20+ unit tests run in milliseconds.
+
+**`persist_after_score` is a free function in `game_view.rs`.** Rather than duplicating the "is the game complete? save history : save in-progress" logic in three separate handlers (`on_roll`, `on_cell_click`, `on_confirm_zero`), it is factored into a single non-public free function that each handler calls after mutating state.
+
+**`pending_resume: RwSignal<Option<GameState>>` bridges the load sequence and the component.** The App load sequence runs synchronously during component initialization. It saves the parsed `GameState` to `pending_resume` and sets `show_resume = true`. `ResumePrompt` reads the snapshot once on mount (via `get_untracked()`) so the display is stable even if the signal is later cleared.
+
+**Theme and history pruning are best-effort, fire-and-forget.** On any storage failure at load time, the app falls back to the default theme and skips pruning — neither is fatal to gameplay. Persistence errors during play are reported as `Degraded` banners. Only a corrupt `in_progress` save (which implies unknown game state) is escalated to `Fatal`.
+
+### Key technical discoveries
+
+**Leptos context resolves by `TypeId` — same-type signals silently collide (L13).** This was the root cause of the most difficult bug in this milestone. `show_resume`, `show_opening_quote`, and `hide_tab_bar` are all `RwSignal<bool>`. When all three were provided to context, only the last one (`hide_tab_bar`) was retrievable via `use_context::<RwSignal<bool>>()`. Child components (`ResumePrompt`, `GameView`, `TabBar`) were all writing to `hide_tab_bar` when they intended to write to different signals — the resume prompt never dismissed. Fixed by introducing three newtype wrappers (`ShowResume`, `ShowOpeningQuote`, `HideTabBar`) in `state/mod.rs`, giving each a unique `TypeId`.
+
+**Setting signals inside a `view!` reactive closure is an anti-pattern (L14).** `hide_tab_bar.set(true)` was placed inside the `move || {}` content closure that also controlled which overlay to render. This caused a secondary reactive flush on every evaluation — observable as intermittent E2E failures where the opening-quote overlay persisted after dismissal. Fixed by moving the `hide_tab_bar` write into a `leptos::Effect`, which is the correct reactive primitive for "write a signal when other signals change."
+
+**`js_sys::Date::new_with_str` does not exist.** The correct js-sys 0.3 API for constructing a `Date` from an ISO 8601 string is `js_sys::Date::new(&JsValue::from_str(s))`. The `new_with_str` variant (which would have been the obvious name) is absent from the bindings.
+
+**WASM browser tests share localStorage — app-mount tests must clear storage first (L15).** All `#[wasm_bindgen_test]` tests run sequentially in the same browser page with a shared `localStorage`. The 12 M6 storage tests leave `rw_sixzee.*` keys populated. Any subsequent test that mounts `App` runs the M6 load sequence, finds those keys, and shows the `ResumePrompt` instead of the normal game view — causing unrelated tests to fail with 0 dice buttons. Fixed by adding a `clear_game_storage()` helper called at the top of every app-mounting test.
+
+**E2E point-in-time `isVisible()` is not safe for WASM timing.** The original "Start New" E2E test used `if (await locator.isVisible())` after a fixed `waitForTimeout(300)` to decide whether to dismiss the opening-quote overlay. The WASM reactive system may schedule DOM updates after that 300ms window, so the check could pass while the overlay was absent, then the overlay appeared moments later and permanently blocked the game view (dice count stayed at 0 for the full 5-second `toHaveCount` timeout). Fixed by replacing `isVisible()` with `waitFor({ state: "visible", timeout: 3000 })`, which polls until the condition is met.
+
+### Test coverage achieved
+
+| Layer | Count | What's covered |
+|---|---|---|
+| Native unit (`cargo test`) | 85 | All pure-Rust state, scoring, routing, game helpers, M6 helpers |
+| WASM browser (`wasm-pack test`) | 32 | Storage round-trips, all 7 storage functions, app load sequence, ResumePrompt callbacks, roll persistence, theme application, history pruning on load, corrupt save error path |
+| E2E Playwright | 9 | Smoke: page load, WASM init, dice render; M6: resume prompt after refresh, correct turn count, Start New restarts game |
+
+The one explicitly waived gap is `persist_after_score`'s game-completion branch (calling `save_history` + `clear_in_progress` when all cells are filled). Driving the app to game completion programmatically through the DOM requires 42 separate score-placement interactions; the risk is low because the same `save_history` / `clear_in_progress` functions are exercised by storage tests and the branch logic is a simple conditional.
+
