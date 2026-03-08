@@ -309,11 +309,445 @@ button {
   margin-top: 1.5rem;
 }
 
+/* ── Game Header ─────────────────────────────────────────────────────────── */
+
+.game-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 1rem;
+  background-color: var(--color-surface);
+  border-bottom: 1px solid var(--color-accent);
+  font-family: var(--font-display);
+  font-weight: 600;
+}
+
+.game-header__title {
+  font-size: 1.1rem;
+  letter-spacing: 0.05em;
+}
+
+.game-header__turn-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.roll-pips {
+  letter-spacing: 0.1em;
+  font-size: 0.9rem;
+}
+
+/* ── Dice Row ────────────────────────────────────────────────────────────── */
+
+.dice-row {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1rem 0.5rem;
+}
+
+.dice-row__die {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  min-height: 48px;
+  width: 56px;
+  height: 56px;
+  border: 2px solid var(--color-accent);
+  border-radius: 6px;
+  background-color: var(--color-surface);
+  font-size: 1.4rem;
+  font-family: var(--font-display);
+  font-weight: 700;
+  cursor: pointer;
+  user-select: none;
+  transition: border-color 0.1s, background-color 0.1s;
+}
+
+.dice-row__die:hover {
+  opacity: 0.85;
+}
+
+.dice-row__die--held {
+  border: 4px double var(--color-held-border);
+  background-color: var(--color-bg);
+}
+
+.dice-row__die--unrolled {
+  color: var(--color-accent);
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ── Sixzee Inline Quote ─────────────────────────────────────────────────── */
+
+.grandma-quote-inline {
+  text-align: center;
+  padding: 0.5rem 1rem;
+  font-style: italic;
+  color: var(--color-accent);
+  font-size: 0.9rem;
+}
+
+/* ── Action Buttons ──────────────────────────────────────────────────────── */
+
+.action-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  padding: 0.5rem 1rem;
+}
+
+.btn {
+  padding: 0.6rem 1.2rem;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border: none;
+  transition: opacity 0.15s;
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn--primary {
+  background-color: var(--color-accent);
+  color: var(--color-bg);
+}
+
+.btn--primary:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.btn--secondary {
+  background-color: transparent;
+  color: var(--color-text);
+  border: 1px solid var(--color-accent);
+}
+
+.btn--secondary:hover:not(:disabled) {
+  background-color: var(--color-accent);
+  color: var(--color-bg);
+}
+
+/* ── Scorecard ───────────────────────────────────────────────────────────── */
+
+.scorecard-wrapper {
+  overflow-x: auto;
+  padding: 0 0.5rem;
+}
+
+.scorecard {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  table-layout: fixed;
+}
+
+.scorecard th,
+.scorecard td {
+  border: 1px solid var(--color-accent);
+  text-align: center;
+  padding: 0.25rem 0.2rem;
+  min-width: 2.4rem;
+}
+
+.scorecard th {
+  background-color: var(--color-surface);
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+
+/* Row label column is wider */
+.scorecard td:first-child,
+.scorecard th:first-child {
+  text-align: left;
+  padding-left: 0.4rem;
+  min-width: 7rem;
+  font-weight: 500;
+}
+
+/* Alternating column tones */
+.scorecard td:nth-child(even),
+.scorecard th:nth-child(even) {
+  background-color: color-mix(in srgb, var(--color-surface) 85%, var(--color-bg));
+}
+
+/* Separator rows */
+.scorecard__row--separator td {
+  background-color: var(--color-bg);
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+
+/* Cell states */
+.scorecard__cell {
+  cursor: default;
+}
+
+.scorecard__cell--open {
+  cursor: pointer;
+  color: var(--color-text);
+  opacity: 0.45;
+}
+
+.scorecard__cell--open:hover {
+  opacity: 0.7;
+  background-color: color-mix(in srgb, var(--color-accent) 15%, var(--color-surface));
+}
+
+.scorecard__cell--preview {
+  cursor: pointer;
+  color: var(--color-preview);
+  font-style: italic;
+}
+
+.scorecard__cell--preview:hover {
+  background-color: color-mix(in srgb, var(--color-preview) 15%, var(--color-surface));
+}
+
+.scorecard__cell--zero-preview {
+  cursor: pointer;
+  color: var(--color-text);
+  opacity: 0.45;
+  font-style: italic;
+}
+
+.scorecard__cell--zero-preview:hover {
+  opacity: 0.7;
+}
+
+.scorecard__cell--filled {
+  cursor: default;
+  font-weight: 600;
+}
+
+/* ── Bonus Pool & Grand Total ────────────────────────────────────────────── */
+
+.scorecard-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.bonus-pool {
+  border: 1px solid var(--color-accent);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+  background-color: var(--color-surface);
+}
+
+.bonus-pool__label {
+  font-weight: 600;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.bonus-pool__value {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--color-accent);
+}
+
+.bonus-pool__forfeited {
+  font-size: 0.7rem;
+  color: var(--color-text);
+  opacity: 0.6;
+}
+
+.grand-total {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  text-align: right;
+}
+
+.grand-total__label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.7;
+}
+
+/* ── Zero-Score Confirmation Overlay ─────────────────────────────────────── */
+
+.overlay--confirm .overlay__box {
+  text-align: center;
+}
+
+.overlay--confirm h3 {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  margin-bottom: 0.75rem;
+}
+
+.overlay--confirm p {
+  margin-bottom: 1rem;
+  color: var(--color-text);
+  line-height: 1.5;
+}
+
+.overlay--confirm .overlay__actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+.forfeit-warning {
+  background-color: color-mix(in srgb, #ef4444 15%, var(--color-surface));
+  border: 1px solid #ef4444;
+  border-radius: 4px;
+  padding: 0.6rem 0.75rem;
+  margin: 0.75rem 0;
+  font-size: 0.85rem;
+  text-align: left;
+}
+
+.forfeit-warning strong {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+/* ── Grandma Quote Overlay ───────────────────────────────────────────────── */
+
+.grandma-quote-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: var(--color-bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 250;
+  padding: 2rem;
+}
+
+.grandma-quote-overlay__title {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  margin-bottom: 2rem;
+  color: var(--color-accent);
+}
+
+.grandma-quote-overlay__card {
+  background-color: var(--color-surface);
+  border-radius: 8px;
+  padding: 2rem;
+  max-width: 480px;
+  width: 100%;
+  margin-bottom: 2rem;
+}
+
+.grandma-quote__text {
+  font-size: 1.15rem;
+  font-style: italic;
+  line-height: 1.6;
+  margin-bottom: 1rem;
+  color: var(--color-text);
+}
+
+.grandma-quote__attribution {
+  text-align: right;
+  font-size: 0.9rem;
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+/* ── End-of-Game Overlay ─────────────────────────────────────────────────── */
+
+.overlay--end-game {
+  align-items: flex-start;
+  padding-top: 3rem;
+}
+
+.overlay--end-game .overlay__box {
+  max-width: 520px;
+}
+
+.end-game__title {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 1.5rem;
+  color: var(--color-accent);
+}
+
+.end-game__scores {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.end-game__scores td {
+  padding: 0.3rem 0.5rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+
+.end-game__scores td:last-child {
+  text-align: right;
+  font-weight: 600;
+}
+
+.end-game__final-score {
+  font-size: 1.5rem;
+  font-weight: 700;
+  text-align: center;
+  padding: 0.75rem 0;
+  color: var(--color-accent);
+}
+
+.end-game__best-col {
+  text-align: center;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+  opacity: 0.8;
+}
+
+.end-game__actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  margin-top: 1.5rem;
+  flex-wrap: wrap;
+}
+
 /* ── Mobile Responsive ───────────────────────────────────────────────────── */
 
 @media (max-width: 599px) {
   .tab-bar__item {
     padding: 0.5rem 1rem;
     min-height: 44px;
+  }
+
+  .dice-row__die {
+    width: 48px;
+    height: 48px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .scorecard {
+    font-size: 0.72rem;
+  }
+
+  .scorecard td:first-child,
+  .scorecard th:first-child {
+    min-width: 5.5rem;
   }
 }

@@ -36,6 +36,23 @@ pub const ROW_CHANCE: usize = 12;
 /// Total number of scoreable rows per column.
 pub const ROW_COUNT: usize = 13;
 
+/// Human-readable row labels in row-index order (0 = Ones … 12 = Chance).
+pub const ROW_LABELS: [&str; ROW_COUNT] = [
+    "Ones",
+    "Twos",
+    "Threes",
+    "Fours",
+    "Fives",
+    "Sixes",
+    "3 of a Kind",
+    "4 of a Kind",
+    "Full House",
+    "Sm. Straight",
+    "Lg. Straight",
+    "SIXZEE",
+    "Chance",
+];
+
 /// Upper section bonus threshold (sum of rows 0–5 must reach this to earn the bonus).
 const UPPER_BONUS_THRESHOLD: u16 = 63;
 /// Value of the upper section bonus.
@@ -456,7 +473,7 @@ mod tests {
         let mut col = [None; 13];
         col[ROW_SIXES] = Some(12); // upper = 12, no bonus
         col[ROW_CHANCE] = Some(20); // lower = 20
-        assert_eq!(column_total(&col), 12 + 0 + 20);
+        assert_eq!(column_total(&col), 12 + 20); // upper=12, no bonus, lower=20
     }
 
     #[test]
