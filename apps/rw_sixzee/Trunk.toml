@@ -8,14 +8,10 @@ public_url = "/rw_sixzee/"
 [watch]
 ignore = ["dist", "doc", "node_modules", "e2e"]
 
-# Copy the assets/ directory into the dist output so grandma_quotes.json
-# (and any future static assets) are served alongside the WASM bundle.
+# Copy the assets/ directory into the dist output so grandma_quotes.json,
+# grandma_worker.js, and the pre-built grandma_worker_core.* files are served
+# alongside the WASM bundle.  The worker core files are built into assets/ by
+# `python make.py build` (or `make.py worker`) before trunk runs, so [[copy-dir]]
+# picks them up naturally during staging.
 [[copy-dir]]
 path = "assets"
-
-# After every trunk build (including trunk serve rebuilds), build the grandma
-# worker binary and place it alongside the other assets so Worker::new() works.
-[[hooks]]
-stage = "post_build"
-command = "python"
-command_arguments = ["make.py", "worker"]

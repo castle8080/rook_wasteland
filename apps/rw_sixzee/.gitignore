@@ -3,6 +3,11 @@
 /dist/
 /pkg/
 
+# Grandma worker WASM binary (built into assets/ by make.py so Trunk's
+# [[copy-dir]] picks them up; they are build artifacts, not source files).
+/assets/grandma_worker_core.js
+/assets/grandma_worker_core_bg.wasm
+
 # Trunk
 /.trunk/
 

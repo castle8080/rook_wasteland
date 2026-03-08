@@ -6,10 +6,12 @@ Usage:
     python make.py <target>
 
 Targets:
-    build   Debug WASM build (trunk build + worker build)
+    build   Debug WASM build (worker build -> trunk build)
+    serve   Pre-build worker then start trunk serve (use instead of bare trunk serve)
     test    Run unit tests (cargo test) + WASM tests (wasm-pack test --headless --firefox)
-    dist    Release WASM build (trunk build --release + worker build --release)
+    dist    Release WASM build (worker build -> trunk build --release)
     lint    Run clippy for the WASM target (zero warnings enforced)
+    worker  Build only the grandma worker WASM binary (debug)
     help    Show this message
 """
 
@@ -28,9 +30,10 @@ def _run(*cmd):
 def _build_worker(release: bool = False):
     """Build the grandma_worker WASM binary via cargo + wasm-bindgen.
 
-    Produces dist/grandma_worker_core.js and dist/grandma_worker_core_bg.wasm.
-    The JS loader assets/grandma_worker.js is copied by Trunk; these two files
-    must also land in dist/ so the loader can importScripts + wasm_bindgen them.
+    Outputs grandma_worker_core.js and grandma_worker_core_bg.wasm into the
+    SOURCE assets/ directory (not dist/).  Trunk's [[copy-dir]] then picks
+    them up during its staging step so they survive the atomic distribution
+    swap.  Call this BEFORE trunk build/serve, not after.
     """
     target_dir = ROOT / "target" / "wasm32-unknown-unknown"
     profile = "release" if release else "debug"
@@ -46,31 +49,44 @@ def _build_worker(release: bool = False):
 
     wasm_path = target_dir / profile / "rw_sixzee.wasm"
 
-    # wasm-bindgen produces a no-modules shim that works inside a Web Worker.
-    # Output into dist/assets/ so it is co-located with the grandma_worker.js
-    # loader that Trunk copies there from assets/.
-    dist_dir = ROOT / "dist" / "assets"
-    dist_dir.mkdir(parents=True, exist_ok=True)
+    # Write into source assets/ so Trunk's [[copy-dir]] stages these files
+    # alongside grandma_worker.js and grandma_quotes.json.  They are
+    # gitignored (see .gitignore) since they are build artifacts.
+    assets_dir = ROOT / "assets"
+    assets_dir.mkdir(parents=True, exist_ok=True)
     _run(
         "wasm-bindgen",
         str(wasm_path),
-        "--out-dir", str(dist_dir),
+        "--out-dir", str(assets_dir),
         "--target", "no-modules",
         "--no-typescript",
         "--out-name", "grandma_worker_core",
     )
-    print("[grandma worker] built -> dist/grandma_worker_core.js + .wasm")
+    print("[grandma worker] built -> assets/grandma_worker_core.js + .wasm")
 
 
 def worker():
-    """Build the grandma worker WASM binary (debug). Called by Trunk post_build hook."""
+    """Build the grandma worker WASM binary (debug) into assets/."""
     _build_worker(release=False)
 
 
 def build():
-    # Trunk's post_build hook (see Trunk.toml) runs _build_worker after the
-    # main app build, so no explicit call is needed here.
+    # Build the worker INTO source assets/ first so Trunk's [[copy-dir]]
+    # stages it during the distribution swap (see doc/lessons.md L17).
+    _build_worker()
     _run("trunk", "build")
+
+
+def serve():
+    """Pre-build the grandma worker then start trunk serve.
+
+    Always use this instead of bare `trunk serve` — Trunk's post_build hooks
+    run before the atomic distribution swap and cannot reliably place files
+    into dist/.  Pre-building the worker into assets/ ensures [[copy-dir]]
+    includes it in every subsequent staged build.
+    """
+    _build_worker()
+    _run("trunk", "serve", "--no-autoreload")
 
 
 def test():
@@ -82,8 +98,9 @@ def test():
 
 
 def dist():
-    _run("trunk", "build", "--release")
+    # Same pre-build pattern: worker into assets/ before trunk stages.
     _build_worker(release=True)
+    _run("trunk", "build", "--release")
 
 
 def e2e():
