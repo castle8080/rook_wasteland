@@ -15,6 +15,7 @@ Targets:
 
 import sys
 import subprocess
+import shutil
 from pathlib import Path
 
 ROOT = Path(__file__).parent
@@ -38,6 +39,11 @@ def test():
 
 def dist():
     _run("trunk", "build", "--release")
+
+
+def e2e():
+    npx = shutil.which("npx") or "npx"
+    _run(npx, "playwright", "test")
 
 
 def lint():

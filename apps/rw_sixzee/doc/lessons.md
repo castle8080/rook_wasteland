@@ -276,3 +276,22 @@ cells are filled. Bonus turns require all six cells filled, so the forfeiture fl
 **Fix / Workaround:** No fix needed. Document this invariant when reviewing scoring code.
 **Watch out for:** Any future code path that could set `bonus_forfeited = true` *after* `bonus_pool`
 has been credited (e.g. an undo feature). If undo is ever added, this invariant must be re-evaluated.
+
+## L12: Playwright E2E against `trunk serve` — two setup gotchas
+
+**Milestone:** E2E bootstrap
+**Area:** Playwright + Trunk
+**Symptom 1:** `trunk serve` exits with code 1: "error taking the canonical path to the watch ignore
+path". All ignore paths in `Trunk.toml [watch]` must exist on disk at startup — Trunk resolves them
+eagerly. Creating the directories (e.g., `mkdir test-results`) before starting trunk fixes it.
+**Symptom 2:** Tests that wait for Leptos-rendered elements (e.g., `.game-header`) sporadically
+time out. The WASM binary is fetched via a dynamic import *after* the HTML `load` event, so
+`page.goto()` returns before the WASM is downloaded or JIT-compiled. Using
+`page.goto(url, { waitUntil: "networkidle", timeout: 45_000 })` waits for the WASM fetch + the
+`grandma_quotes.json` fetch to complete before asserting on Leptos-rendered DOM.
+**Symptom 3:** Trunk's live-reload WebSocket causes pages to reload mid-test when Playwright writes
+`test-results/` files, causing tests to fail intermittently. Fix: add `--no-autoreload` to
+`trunk serve` in the Playwright `webServer` config.
+**Watch out for:** If `show_opening_quote` is true, `App` returns the `GrandmaQuoteOverlay` early
+and `.game-header` is NOT in the DOM. Smoke tests must check for `(.grandma-quote-overlay || .game-header)`
+rather than `.game-header` alone.
