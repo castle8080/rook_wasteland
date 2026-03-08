@@ -713,6 +713,15 @@ so the main app build has no dependency on running the offline tool.
 
 ## 13. Testing Strategy
 
+There are three independent test layers. Every task must include at least one
+test from the appropriate tier. All three layers must pass before merging.
+
+| Tier | Runner | Command | What it covers |
+|---|---|---|---|
+| 1 — Native unit | `cargo test` | `python make.py test` | Pure Rust logic, no WASM |
+| 2 — Browser unit | `wasm-pack test --headless --firefox` | `python make.py test` | DOM wiring, reactive signals, component rendering |
+| 3 — E2E smoke | Playwright / Chromium | `python make.py e2e` | Full asset pipeline, real browser boot, app-level flows |
+
 ### 13.1 Unit Tests (native `cargo test`)
 
 Located in `src/state/scoring.rs` (inline `#[cfg(test)]` blocks) and
@@ -742,6 +751,56 @@ Coverage targets:
 - DP table sanity check: `V_col(0b1_1111_1111_1111)` == 0.0; fully-empty column
   value is within the known theoretical range (~254 for optimal single-column play)
 
+### 13.3 Playwright E2E Smoke Tests
+
+Located in `e2e/`. Run with `python make.py e2e`. Playwright starts
+`trunk serve --no-autoreload` automatically (via `webServer` in
+`playwright.config.ts`) then runs all tests against Chromium.
+
+**Purpose:** Playwright tests cover what wasm-pack tests cannot — the full
+production asset pipeline end-to-end: WASM compile → Trunk bundle → JS glue →
+`grandma_quotes.json` fetch → Leptos hydration → real browser interaction.
+They are smoke tests, not exhaustive behaviour tests. Keep them coarse-grained.
+
+**What belongs here:**
+- App loads without HTTP errors or uncaught JS exceptions
+- WASM initialises and Leptos mounts within a reasonable time
+- The full quote-bank fetch pipeline works (`grandma_quotes.json` loads and
+  the opening overlay appears)
+- Top-level navigation (hash routes render the right screen)
+- End-to-end game flows that require the full asset pipeline (e.g., a
+  complete game triggering the end-game overlay)
+
+**What does NOT belong here** (use wasm-pack tests instead):
+- Individual component signal wiring
+- Scorecard cell click behaviour
+- Confirm-zero / hold-toggle mechanics
+- Anything that can be tested without a running server
+
+**Key implementation rules:**
+
+1. Always use `waitUntil: "networkidle"` on `page.goto()`:
+   ```typescript
+   await page.goto("/rw_sixzee/", { waitUntil: "networkidle", timeout: 45_000 });
+   ```
+   The WASM binary is fetched via a dynamic import *after* the HTML `load`
+   event. Bare `page.goto()` returns before the WASM is downloaded, causing
+   flaky timeouts on first cold load.
+
+2. When checking for Leptos-rendered elements after app boot, account for
+   the opening-quote overlay: when `show_opening_quote && bank_ready`, `App`
+   renders `GrandmaQuoteOverlay` and returns early — `.game-header` is **not**
+   in the DOM. Check for `(.grandma-quote-overlay || .game-header)`.
+
+3. Never add the following to Trunk's watch ignore list unless the directory
+   already exists on disk — Trunk resolves ignore paths eagerly at startup
+   and exits with an error if a path is missing. Create the directory first
+   (`mkdir test-results`) or add the `mkdir` step to CI setup.
+
+4. The `webServer` uses `reuseExistingServer: true` so you can run
+   `trunk serve` in a terminal during development and Playwright reuses it,
+   avoiding a cold WASM compile on every `python make.py e2e` invocation.
+
 ---
 
 ## 14. Key Dependencies
@@ -758,7 +817,8 @@ Coverage targets:
 | `rand` | Dice RNG (`wasm-bindgen` feature for WASM entropy) |
 | `thiserror` | `AppError` derive macro |
 | `uuid` | Game IDs for history records |
-| **offline only** | |
+| **dev / test only** | |
+| `@playwright/test` | E2E smoke tests (Chromium, via `npm`) |
 | *(std only, no extra deps)* | DP solver uses only the Rust standard library |
 
 ---
