@@ -13,6 +13,12 @@ crate-type = ["cdylib", "rlib"]
 # browser integration tests. See doc/lessons.md L5.
 wasm-test = []
 
+# When set, the WASM binary's entry point is the grandma_worker start function
+# instead of the Leptos app mount.  Used to build the separate worker binary:
+#   cargo build --target wasm32-unknown-unknown --features worker
+# followed by wasm-bindgen to produce grandma_worker_core.js + .wasm.
+worker = []
+
 [lints.clippy]
 unwrap_used = "deny"
 
@@ -35,6 +41,10 @@ web-sys              = { version = "0.3", features = [
   "EventTarget",
   "Storage",
   "console",
+  "Worker",
+  "MessageEvent",
+  "DedicatedWorkerGlobalScope",
+  "WorkerGlobalScope",
 ] }
 js-sys               = "0.3"
 serde                = { version = "1", features = ["derive"] }

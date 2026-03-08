@@ -18,6 +18,8 @@ use crate::state::quotes::{pick_quote, QuoteBank};
 use crate::state::scoring::score_sixzee;
 use crate::state::storage;
 use crate::state::{HideTabBar, ShowOpeningQuote};
+use crate::worker::messages::GrandmaRequest;
+use crate::worker::{post_grandma_request, GrandmaPanelState};
 
 /// Called after every `place_score` invocation to handle localStorage persistence.
 ///
@@ -63,6 +65,12 @@ pub fn GameView() -> impl IntoView {
         use_context::<HideTabBar>().expect("hide_tab_bar context must be provided").0;
     let show_opening_quote =
         use_context::<ShowOpeningQuote>().expect("show_opening_quote context must be provided").0;
+
+    // ── M7: Ask Grandma ──────────────────────────────────────────────────────
+    let grandma_worker =
+        use_context::<RwSignal<Option<web_sys::Worker>>>().expect("grandma_worker in context");
+    let grandma_panel_state =
+        use_context::<RwSignal<GrandmaPanelState>>().expect("grandma_panel_state in context");
 
     // ── Local overlay state ──────────────────────────────────────────────────
 
@@ -190,6 +198,47 @@ pub fn GameView() -> impl IntoView {
         show_opening_quote.set(true);
     });
 
+    // ── Ask Grandma handler ───────────────────────────────────────────────────
+
+    let on_ask_grandma = move |_| {
+        let state = game_signal.get_untracked();
+
+        // Require at least one roll before asking.
+        if state.rolls_used == 0 {
+            return;
+        }
+        let all_rolled = state.dice.iter().all(|d| d.is_some());
+        if !all_rolled {
+            return;
+        }
+        let dice = [
+            state.dice[0].expect("dice Some after roll"),
+            state.dice[1].expect("dice Some after roll"),
+            state.dice[2].expect("dice Some after roll"),
+            state.dice[3].expect("dice Some after roll"),
+            state.dice[4].expect("dice Some after roll"),
+        ];
+
+        let req = GrandmaRequest {
+            cells: state.cells,
+            dice,
+            held: state.held,
+            rolls_used: state.rolls_used,
+            bonus_pool: state.bonus_pool,
+            bonus_forfeited: state.bonus_forfeited,
+        };
+
+        if let Some(worker) = grandma_worker.get_untracked() {
+            grandma_panel_state.set(GrandmaPanelState::Loading);
+            if let Err(e) = post_grandma_request(&worker, &req) {
+                report_error(e);
+                grandma_panel_state.set(GrandmaPanelState::Error(
+                    "Could not reach Grandma — please try again".to_string(),
+                ));
+            }
+        }
+    };
+
     view! {
         // ── Active overlays ──────────────────────────────────────────────────
         {move || {
@@ -245,11 +294,14 @@ pub fn GameView() -> impl IntoView {
             </button>
             <button
                 class="btn btn--secondary"
+                on:click=on_ask_grandma
                 disabled=move || {
                     let s = game_signal.get();
-                    s.rolls_used == 0 || is_game_complete(&s)
+                    s.rolls_used == 0
+                        || is_game_complete(&s)
+                        || grandma_worker.get().is_none()
                 }
-                title="Ask Grandma for advice — coming in a future update"
+                title="Ask Grandma for advice on the best move"
             >
                 "👵 ASK GRANDMA"
             </button>

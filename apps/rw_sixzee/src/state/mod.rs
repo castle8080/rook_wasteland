@@ -25,6 +25,6 @@ pub struct ShowResume(pub RwSignal<bool>);
 pub struct ShowOpeningQuote(pub RwSignal<bool>);
 
 /// Newtype for the `hide_tab_bar` signal — `true` while ANY overlay that
-/// must obscure the tab bar (confirm-zero, opening-quote) is open.
+/// must obscure the tab bar (confirm-zero, opening-quote, grandma panel) is open.
 #[derive(Clone, Copy)]
 pub struct HideTabBar(pub RwSignal<bool>);

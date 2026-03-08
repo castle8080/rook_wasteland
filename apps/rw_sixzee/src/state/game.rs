@@ -229,7 +229,7 @@ pub fn score_preview_all(state: &GameState) -> [[u8; ROW_COUNT]; 6] {
 // ─── Private helpers ──────────────────────────────────────────────────────────
 
 /// Returns `Some([u8; 5])` if all dice are rolled, else `None`.
-fn current_dice(state: &GameState) -> Option<[u8; 5]> {
+pub fn current_dice(state: &GameState) -> Option<[u8; 5]> {
     let d0 = state.dice[0]?;
     let d1 = state.dice[1]?;
     let d2 = state.dice[2]?;

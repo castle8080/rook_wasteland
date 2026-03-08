@@ -6,9 +6,9 @@ Usage:
     python make.py <target>
 
 Targets:
-    build   Debug WASM build (trunk build)
+    build   Debug WASM build (trunk build + worker build)
     test    Run unit tests (cargo test) + WASM tests (wasm-pack test --headless --firefox)
-    dist    Release WASM build (trunk build --release)
+    dist    Release WASM build (trunk build --release + worker build --release)
     lint    Run clippy for the WASM target (zero warnings enforced)
     help    Show this message
 """
@@ -25,8 +25,44 @@ def _run(*cmd):
     subprocess.run(cmd, cwd=ROOT, check=True)
 
 
+def _build_worker(release: bool = False):
+    """Build the grandma_worker WASM binary via cargo + wasm-bindgen.
+
+    Produces dist/grandma_worker_core.js and dist/grandma_worker_core_bg.wasm.
+    The JS loader assets/grandma_worker.js is copied by Trunk; these two files
+    must also land in dist/ so the loader can importScripts + wasm_bindgen them.
+    """
+    target_dir = ROOT / "target" / "wasm32-unknown-unknown"
+    profile = "release" if release else "debug"
+
+    cargo_cmd = [
+        "cargo", "build",
+        "--target", "wasm32-unknown-unknown",
+        "--features", "worker",
+    ]
+    if release:
+        cargo_cmd.append("--release")
+    _run(*cargo_cmd)
+
+    wasm_path = target_dir / profile / "rw_sixzee.wasm"
+
+    # wasm-bindgen produces a no-modules shim that works inside a Web Worker.
+    dist_dir = ROOT / "dist"
+    dist_dir.mkdir(exist_ok=True)
+    _run(
+        "wasm-bindgen",
+        str(wasm_path),
+        "--out-dir", str(dist_dir),
+        "--target", "no-modules",
+        "--no-typescript",
+        "--out-name", "grandma_worker_core",
+    )
+    print(f"[grandma worker] built → dist/grandma_worker_core.js + .wasm")
+
+
 def build():
     _run("trunk", "build")
+    _build_worker(release=False)
 
 
 def test():
@@ -39,6 +75,7 @@ def test():
 
 def dist():
     _run("trunk", "build", "--release")
+    _build_worker(release=True)
 
 
 def e2e():

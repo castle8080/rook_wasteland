@@ -6,6 +6,7 @@ use crate::components::{
     error_banner::ErrorBanner,
     error_overlay::ErrorOverlay,
     game_view::GameView,
+    grandma::GrandmaPanel,
     grandma_quote::GrandmaQuoteOverlay,
     history::HistoryView,
     resume::ResumePrompt,
@@ -19,6 +20,7 @@ use crate::state::quotes::{load_quote_bank, QuoteBank};
 use crate::state::scoring::grand_total as compute_grand_total;
 use crate::state::storage;
 use crate::state::{HideTabBar, ShowOpeningQuote, ShowResume};
+use crate::worker::{spawn_grandma_worker, GrandmaPanelState};
 
 fn get_initial_route() -> Route {
     web_sys::window()
@@ -68,6 +70,11 @@ pub fn App() -> impl IntoView {
     // ── M6: saved game state waiting for resume decision ──────────────────
     let pending_resume: RwSignal<Option<GameState>> = RwSignal::new(None);
 
+    // ── M7: Ask Grandma worker + panel state ──────────────────────────────
+    let grandma_worker: RwSignal<Option<web_sys::Worker>> = RwSignal::new(None);
+    let grandma_panel_state: RwSignal<GrandmaPanelState> =
+        RwSignal::new(GrandmaPanelState::Closed);
+
     provide_context(route);
     provide_context(app_error);
     provide_context(ShowResume(show_resume));
@@ -78,6 +85,8 @@ pub fn App() -> impl IntoView {
     provide_context(ShowOpeningQuote(show_opening_quote));
     provide_context(HideTabBar(hide_tab_bar));
     provide_context(pending_resume);
+    provide_context(grandma_worker);
+    provide_context(grandma_panel_state);
 
     // ── M6: App load sequence ─────────────────────────────────────────────
     // 1. Load and apply theme (best-effort; storage failure → Degraded).
@@ -125,8 +134,14 @@ pub fn App() -> impl IntoView {
     // that can cause the opening-quote overlay to persist after dismissal.
     Effect::new(move |_| {
         let quote_visible = show_opening_quote.get() && quote_bank.get().is_some();
-        hide_tab_bar.set(quote_visible || show_resume.get());
+        let grandma_open = !matches!(grandma_panel_state.get(), GrandmaPanelState::Closed);
+        hide_tab_bar.set(quote_visible || show_resume.get() || grandma_open);
     });
+
+    // ── M7: Spawn the grandma worker eagerly (best-effort; failure → Degraded) ─
+    if let Err(e) = spawn_grandma_worker(grandma_worker, grandma_panel_state) {
+        report_error(e);
+    }
 
     // Register the hashchange listener using a raw wasm-bindgen Closure so
     // we avoid the Send+Sync requirement that on_cleanup imposes. App is
@@ -154,6 +169,7 @@ pub fn App() -> impl IntoView {
     view! {
         <div class="app">
             <ErrorBanner />
+            <GrandmaPanel />
             {move || {
                 // Opening-quote overlay: shown when a new game starts AND the
                 // quote bank is loaded. If the bank hasn't loaded yet, the

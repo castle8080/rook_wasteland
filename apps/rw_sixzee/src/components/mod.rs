@@ -4,6 +4,7 @@ pub mod end_game;
 pub mod error_banner;
 pub mod error_overlay;
 pub mod game_view;
+pub mod grandma;
 pub mod grandma_quote;
 pub mod history;
 pub mod resume;

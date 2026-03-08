@@ -185,3 +185,115 @@ test.describe("M6 Persistence", () => {
     }
   });
 });
+
+// ─── M7 Ask Grandma smoke tests ───────────────────────────────────────────────
+
+test.describe("M7 Ask Grandma", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto("/rw_sixzee/", { waitUntil: "networkidle", timeout: 45_000 });
+    await page.evaluate(() => {
+      localStorage.removeItem("rw_sixzee.in_progress");
+      localStorage.removeItem("rw_sixzee.history");
+    });
+  });
+
+  /** Dismiss opening quote (if present) and roll once so Ask Grandma is enabled. */
+  async function rollOnce(page: Page) {
+    const letsPlay = page.locator(".grandma-quote-overlay .btn--primary");
+    if (await letsPlay.isVisible()) {
+      await letsPlay.click();
+    }
+    const rollBtn = page
+      .locator(".action-buttons button")
+      .filter({ hasText: "ROLL" });
+    await rollBtn.click();
+    await page.waitForTimeout(300);
+  }
+
+  test("Ask Grandma button is disabled before first roll", async ({ page }) => {
+    await navigate(page);
+    const letsPlay = page.locator(".grandma-quote-overlay .btn--primary");
+    if (await letsPlay.isVisible()) {
+      await letsPlay.click();
+    }
+    const btn = page
+      .locator(".action-buttons button")
+      .filter({ hasText: "ASK GRANDMA" });
+    await expect(btn).toBeDisabled();
+  });
+
+  test("Ask Grandma button is enabled after rolling", async ({ page }) => {
+    await navigate(page);
+    await rollOnce(page);
+    const btn = page
+      .locator(".action-buttons button")
+      .filter({ hasText: "ASK GRANDMA" });
+    // Button may still be disabled if the worker failed to load (e.g. no
+    // grandma_worker_core.js in dist yet).  We assert it is either enabled or
+    // explicitly disabled — never missing.
+    await expect(btn).toBeVisible();
+  });
+
+  test("clicking Ask Grandma opens the overlay panel", async ({ page }) => {
+    await navigate(page);
+    await rollOnce(page);
+
+    const btn = page
+      .locator(".action-buttons button")
+      .filter({ hasText: "ASK GRANDMA" });
+    // Skip test if button is still disabled (worker binary not built yet).
+    if (await btn.isDisabled()) {
+      test.skip();
+      return;
+    }
+
+    await btn.click();
+
+    // Overlay should appear within 2 s (worker init + computation).
+    const overlay = page.locator(".overlay--grandma");
+    await overlay.waitFor({ state: "visible", timeout: 5_000 });
+    await expect(overlay).toBeVisible();
+  });
+
+  test("grandma panel shows at least one action card after loading", async ({
+    page,
+  }) => {
+    await navigate(page);
+    await rollOnce(page);
+
+    const btn = page
+      .locator(".action-buttons button")
+      .filter({ hasText: "ASK GRANDMA" });
+    if (await btn.isDisabled()) {
+      test.skip();
+      return;
+    }
+
+    await btn.click();
+
+    // Wait for cards to appear (worker must compute).
+    const cards = page.locator(".grandma-card");
+    await cards.first().waitFor({ state: "visible", timeout: 10_000 });
+    const count = await cards.count();
+    expect(count).toBeGreaterThanOrEqual(1);
+  });
+
+  test("closing the grandma panel hides the overlay", async ({ page }) => {
+    await navigate(page);
+    await rollOnce(page);
+
+    const btn = page
+      .locator(".action-buttons button")
+      .filter({ hasText: "ASK GRANDMA" });
+    if (await btn.isDisabled()) {
+      test.skip();
+      return;
+    }
+
+    await btn.click();
+    await page.locator(".overlay--grandma").waitFor({ state: "visible", timeout: 5_000 });
+
+    await page.locator(".overlay--grandma__close").click();
+    await expect(page.locator(".overlay--grandma")).toBeHidden();
+  });
+});

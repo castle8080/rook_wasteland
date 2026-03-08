@@ -785,3 +785,164 @@ button {
     min-width: 5.5rem;
   }
 }
+
+/* ── Ask Grandma Panel Overlay ──────────────────────────────────────────── */
+
+.overlay--grandma {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  overflow-y: auto;
+  z-index: 300;
+  padding: 1.5rem 0.75rem;
+}
+
+.overlay--grandma__panel {
+  background-color: var(--color-surface);
+  border-radius: 10px;
+  width: 100%;
+  max-width: 520px;
+  padding: 1.25rem;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+}
+
+.overlay--grandma__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  gap: 0.5rem;
+}
+
+.overlay--grandma__title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text);
+  flex: 1;
+}
+
+.overlay--grandma__close {
+  flex-shrink: 0;
+  padding: 0.25rem 0.6rem;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+/* ── Loading / Error states ─────────────────────────────────────────────── */
+
+.grandma-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.95rem;
+  color: var(--color-text);
+  padding: 1.5rem 0;
+  justify-content: center;
+}
+
+.grandma-spinner {
+  display: inline-block;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 3px solid var(--color-accent);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: grandma-spin 0.7s linear infinite;
+}
+
+@keyframes grandma-spin {
+  to { transform: rotate(360deg); }
+}
+
+.grandma-error {
+  text-align: center;
+  padding: 1rem 0;
+}
+
+.grandma-error__msg {
+  color: #e53e3e;
+  margin-bottom: 0.75rem;
+  font-size: 0.9rem;
+}
+
+/* ── Action cards ───────────────────────────────────────────────────────── */
+
+.grandma-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.grandma-card {
+  border: 1px solid var(--color-accent);
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  background-color: var(--color-bg);
+  display: grid;
+  grid-template-columns: 2rem 1fr;
+  grid-template-rows: auto auto auto;
+  column-gap: 0.75rem;
+  row-gap: 0.25rem;
+}
+
+.grandma-card__rank {
+  grid-row: 1 / 4;
+  align-self: center;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-accent);
+  text-align: center;
+}
+
+.grandma-card__description {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.grandma-card__detail {
+  font-size: 0.8rem;
+  color: var(--color-text);
+  opacity: 0.8;
+}
+
+.grandma-card__score {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-preview);
+}
+
+.grandma-card__apply {
+  grid-column: 1 / 3;
+  margin-top: 0.5rem;
+  width: fit-content;
+  justify-self: end;
+  padding: 0.35rem 0.9rem;
+  font-size: 0.85rem;
+}
+
+.grandma-footer {
+  margin-top: 0.75rem;
+  font-size: 0.72rem;
+  text-align: center;
+  opacity: 0.55;
+  color: var(--color-text);
+}
+
+/* Mobile tweaks */
+@media (max-width: 599px) {
+  .overlay--grandma {
+    padding: 0.75rem 0.5rem;
+  }
+
+  .overlay--grandma__panel {
+    padding: 1rem 0.875rem;
+  }
+
+  .grandma-card {
+    padding: 0.65rem 0.75rem;
+  }
+}
