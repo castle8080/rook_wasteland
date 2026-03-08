@@ -465,17 +465,27 @@ let worker = web_sys::Worker::new("./assets/grandma_worker.js")?;
 The path is relative to the page URL, not the JS file. With `public_url = "/rw_sixzee/"` in
 `Trunk.toml` the correct path is `./assets/grandma_worker.js`.
 
-### 5. Trunk hook — so `trunk serve` just works
-Without this, the worker binary only gets built when you run `make.py build` explicitly.
-Add to `Trunk.toml`:
-```toml
-[[hooks]]
-stage = "post_build"
-command = "python"
-command_arguments = ["make.py", "worker"]
+### 5. Pre-build the worker before trunk runs
+Do NOT use a Trunk `post_build` hook for this (see L17 — hooks run before the
+atomic distribution swap and their output is discarded). Instead, build the worker
+into the **source** `assets/` directory before invoking `trunk build`. Add the
+generated files to `.gitignore`. Trunk's `[[copy-dir]]` then picks them up during
+staging automatically:
+```python
+# make.py
+def build():
+    _build_worker()        # writes to assets/ FIRST
+    _run("trunk", "build") # [[copy-dir]] stages assets/ including worker core
 ```
-The hook fires after every `trunk build` and every `trunk serve` rebuild, keeping the
-worker binary in sync with code changes automatically.
+For `trunk serve`, use a `make.py serve()` wrapper that does the same pre-build
+step. With the worker pre-built in `assets/`, all subsequent trunk serve
+hot-reloads also pick up the files correctly via `[[copy-dir]]`.
+
+```toml
+# .gitignore (in app root)
+/assets/grandma_worker_core.js
+/assets/grandma_worker_core_bg.wasm
+```
 
 ### 6. Suppress lints on generated files
 `wasm-bindgen`-generated files (and `include!`-d DP tables) trigger
@@ -497,3 +507,47 @@ the `Worker::new()` URL must both use `./assets/`.
 **Watch out for:** The `→` character (U+2192) in Python print strings causes a
 `UnicodeEncodeError` when Trunk spawns the hook subprocess on Windows (cp1252 terminal).
 Use ASCII `->` in hook script output.
+
+---
+
+## L17: Trunk `post_build` hooks run before the atomic distribution swap — they cannot write to `dist/`
+
+**Milestone:** M7 / bug_001
+**Area:** Build / Trunk
+
+Trunk's build pipeline works in three phases:
+1. **Compile** — builds the WASM binary and any assets.
+2. **Stage** — assembles all outputs (including `[[copy-dir]]` contents) into a
+   **temp directory**. This is the future `dist/`.
+3. **Hook + distribute** — fires `post_build` hooks, then atomically renames the
+   temp directory onto `dist/` ("applying new distribution").
+
+The hook fires *after* staging but *before* the rename. This means:
+- The hook's working directory is the **previous** `dist/` — not the temp directory
+  about to become `dist/`.
+- Anything the hook writes to `dist/` is silently discarded when the rename overwrites it.
+- There is no `post_distribution` hook stage in Trunk.
+
+**Rule:** A `post_build` hook is appropriate for side-effects that do not need to
+place files in `dist/` (e.g., sending a notification, printing a summary, uploading
+to an external service). It is **wrong** for producing files that should appear in
+the final build output.
+
+**The correct pattern for external build artifacts** (files produced by a separate
+compilation step, such as a second WASM binary via `wasm-bindgen`):
+- Write the artifact into a **source** directory that is referenced by a
+  `[[copy-dir]]` or `[[copy-file]]` directive in `Trunk.toml`.
+- Run that build step **before** `trunk build`, not inside a hook.
+- Gitignore the generated files in the source directory since they are artifacts.
+
+```python
+# make.py — correct pattern
+def build():
+    _build_worker()        # produces assets/grandma_worker_core.{js,wasm}
+    _run("trunk", "build") # [[copy-dir]] stages assets/ → dist/assets/ ✓
+```
+
+**Watch out for:** This is easy to miss during development because `dist/` often
+has leftover files from previous manual builds. A hook that "doesn't work" can
+appear to work perfectly on a developer machine that already has the files, only
+breaking on CI or a fresh checkout.
