@@ -127,7 +127,11 @@ pub fn pick_quote(pool: &[String]) -> Option<&str> {
 /// without quotes when the bank is unavailable.
 #[cfg(target_arch = "wasm32")]
 pub async fn load_quote_bank() -> AppResult<QuoteBank> {
-    let resp = gloo_net::http::Request::get("/rw_sixzee/assets/grandma_quotes.json")
+    let url = concat!(
+        "/rw_sixzee/assets/grandma_quotes.json?v=",
+        env!("GRANDMA_QUOTES_HASH")
+    );
+    let resp = gloo_net::http::Request::get(url)
         .send()
         .await
         .map_err(|e| AppError::GrandmaQuotes(e.to_string()))?;
