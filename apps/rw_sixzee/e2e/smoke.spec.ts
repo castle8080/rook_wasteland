@@ -281,3 +281,84 @@ test.describe("M7 Ask Grandma", () => {
     await expect(page.locator(".overlay--grandma")).toBeHidden();
   });
 });
+
+// ─── M8 Theme smoke tests ─────────────────────────────────────────────────────
+
+test.describe("M8 Themes", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto("/rw_sixzee/", { waitUntil: "networkidle", timeout: 45_000 });
+    await page.evaluate(() => {
+      localStorage.removeItem("rw_sixzee.theme");
+    });
+  });
+
+  test("settings screen renders theme grid with 6 cards", async ({ page }) => {
+    await navigate(page);
+    await page.goto("/rw_sixzee/#/settings", { waitUntil: "networkidle" });
+    await page.waitForTimeout(500);
+
+    const cards = page.locator(".settings__theme-card");
+    await expect(cards).toHaveCount(6);
+  });
+
+  test("clicking a theme card updates data-theme on body", async ({ page }) => {
+    await navigate(page);
+    await page.goto("/rw_sixzee/#/settings", { waitUntil: "networkidle" });
+    await page.waitForTimeout(500);
+
+    // Find and click the Devil Rock card (known data-theme value)
+    const devilRockCard = page
+      .locator(".settings__theme-card[data-theme='devil_rock']");
+    await devilRockCard.waitFor({ state: "visible", timeout: 5_000 });
+    await devilRockCard.click();
+    await page.waitForTimeout(300);
+
+    const bodyTheme = await page.evaluate(
+      () => document.body.getAttribute("data-theme")
+    );
+    expect(bodyTheme).toBe("devil_rock");
+  });
+
+  test("selected theme persists across page reload", async ({ page }) => {
+    await navigate(page);
+    await page.goto("/rw_sixzee/#/settings", { waitUntil: "networkidle" });
+    await page.waitForTimeout(500);
+
+    // Select Borg theme
+    const borgCard = page.locator(".settings__theme-card[data-theme='borg']");
+    await borgCard.waitFor({ state: "visible", timeout: 5_000 });
+    await borgCard.click();
+    await page.waitForTimeout(300);
+
+    // Verify applied
+    let bodyTheme = await page.evaluate(
+      () => document.body.getAttribute("data-theme")
+    );
+    expect(bodyTheme).toBe("borg");
+
+    // Reload and verify persistence
+    await page.reload({ waitUntil: "networkidle" });
+    bodyTheme = await page.evaluate(
+      () => document.body.getAttribute("data-theme")
+    );
+    expect(bodyTheme).toBe("borg");
+  });
+
+  test("active theme card shows checkmark indicator", async ({ page }) => {
+    await navigate(page);
+    await page.goto("/rw_sixzee/#/settings", { waitUntil: "networkidle" });
+    await page.waitForTimeout(500);
+
+    // Click Renaissance
+    const renCard = page.locator(
+      ".settings__theme-card[data-theme='renaissance']"
+    );
+    await renCard.waitFor({ state: "visible", timeout: 5_000 });
+    await renCard.click();
+    await page.waitForTimeout(300);
+
+    // The active card should have --active class and a checkmark
+    await expect(renCard).toHaveClass(/settings__theme-card--active/);
+    await expect(renCard.locator(".settings__theme-card__check")).toBeVisible();
+  });
+});

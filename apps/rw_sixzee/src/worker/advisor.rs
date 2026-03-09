@@ -498,6 +498,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::assertions_on_constants)]
     fn dp_sanity_empty_board_in_expected_range() {
         // V_COL[0] = expected score from a fresh column, should be ~200–300.
         assert!(

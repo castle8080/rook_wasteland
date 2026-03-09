@@ -34,7 +34,7 @@
   --color-held-border: #ff4040;
   --color-preview:     #ff6060;
   --font-body:         sans-serif;
-  --font-display:      sans-serif;
+  --font-display:      'Metal Mania', cursive;
 }
 
 [data-theme="borg"] {
@@ -56,7 +56,7 @@
   --color-held-border: #aa1100;
   --color-preview:     #ff4422;
   --font-body:         serif;
-  --font-display:      serif;
+  --font-display:      'MedievalSharp', serif;
 }
 
 [data-theme="renaissance"] {
@@ -67,7 +67,7 @@
   --color-held-border: #6b3410;
   --color-preview:     #a0522d;
   --font-body:         serif;
-  --font-display:      serif;
+  --font-display:      'Cinzel', serif;
 }
 
 [data-theme="pacific_northwest"] {
@@ -945,4 +945,107 @@ button {
   .grandma-card {
     padding: 0.65rem 0.75rem;
   }
+}
+
+/* ── SVG Die Face sizing ─────────────────────────────────────────────────── */
+
+/* Make SVG faces fill their button container exactly. */
+.dice-row__die > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* ── Settings Screen ─────────────────────────────────────────────────────── */
+
+.settings {
+  padding: 1.25rem 1rem;
+  flex: 1;
+}
+
+.settings__section-title {
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+  margin-bottom: 0.4rem;
+}
+
+.settings__hint {
+  font-size: 0.8rem;
+  color: var(--color-text);
+  opacity: 0.6;
+  margin-bottom: 1rem;
+}
+
+.settings__theme-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+
+@media (min-width: 520px) {
+  .settings__theme-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.settings__theme-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 120px;
+  padding: 0.6rem 0.5rem;
+  background-color: var(--color-surface);
+  border: 2px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  position: relative;
+  transition: border-color 0.15s;
+  /* Use the card's own data-theme colours */
+  color: var(--color-text);
+}
+
+.settings__theme-card:hover {
+  border-color: var(--color-accent);
+  opacity: 0.9;
+}
+
+.settings__theme-card--active {
+  border-color: var(--color-accent);
+}
+
+.settings__theme-card__die {
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+}
+
+.settings__theme-card__swatch {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-accent);
+  opacity: 0.6;
+}
+
+.settings__theme-card__label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.2;
+  color: var(--color-text);
+}
+
+.settings__theme-card__check {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--color-accent);
+  font-weight: 700;
 }

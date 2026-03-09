@@ -1,10 +1,13 @@
-//! Game state management — implemented across milestones M2–M6.
+//! Game state management — implemented across milestones M2–M8.
 
 pub mod game;
 pub mod quotes;
 pub mod scoring;
+pub mod theme;
 #[cfg(target_arch = "wasm32")]
 pub mod storage;
+
+pub use theme::Theme;
 
 // ── Context-signal newtypes ────────────────────────────────────────────────
 //
@@ -28,3 +31,10 @@ pub struct ShowOpeningQuote(pub RwSignal<bool>);
 /// must obscure the tab bar (confirm-zero, opening-quote, grandma panel) is open.
 #[derive(Clone, Copy)]
 pub struct HideTabBar(pub RwSignal<bool>);
+
+/// Newtype for the active `Theme` signal — the currently selected visual theme.
+///
+/// Provided at the `App` root; read by `DiceRow`, `SettingsView`, and any
+/// component that needs theme-aware rendering.
+#[derive(Clone, Copy)]
+pub struct ActiveTheme(pub RwSignal<Theme>);

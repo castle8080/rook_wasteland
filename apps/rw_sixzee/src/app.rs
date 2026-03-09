@@ -19,7 +19,8 @@ use crate::state::game::{new_game, prune_old_entries, score_preview_all, GameSta
 use crate::state::quotes::{load_quote_bank, QuoteBank};
 use crate::state::scoring::grand_total as compute_grand_total;
 use crate::state::storage;
-use crate::state::{HideTabBar, ShowOpeningQuote, ShowResume};
+use crate::state::Theme;
+use crate::state::{ActiveTheme, HideTabBar, ShowOpeningQuote, ShowResume};
 use crate::worker::{spawn_grandma_worker, GrandmaPanelState};
 
 fn get_initial_route() -> Route {
@@ -75,6 +76,20 @@ pub fn App() -> impl IntoView {
     let grandma_panel_state: RwSignal<GrandmaPanelState> =
         RwSignal::new(GrandmaPanelState::Closed);
 
+    // ── M8: Theme signal — load from storage, default to NordicMinimal ────
+    let initial_theme = match storage::load_theme() {
+        Ok(Some(ref s)) => Theme::from_data_attr(s).unwrap_or_default(),
+        Ok(None) => Theme::default(),
+        Err(e) => {
+            report_error(e);
+            Theme::default()
+        }
+    };
+    // Apply the initial theme synchronously so the first render uses the
+    // correct CSS custom properties before any reactive Effect fires.
+    set_body_theme(initial_theme.as_data_attr_value());
+    let theme_signal: RwSignal<Theme> = RwSignal::new(initial_theme);
+
     provide_context(route);
     provide_context(app_error);
     provide_context(ShowResume(show_resume));
@@ -87,17 +102,10 @@ pub fn App() -> impl IntoView {
     provide_context(pending_resume);
     provide_context(grandma_worker);
     provide_context(grandma_panel_state);
+    provide_context(ActiveTheme(theme_signal));
 
     // ── M6: App load sequence ─────────────────────────────────────────────
-    // 1. Load and apply theme (best-effort; storage failure → Degraded).
-    match storage::load_theme() {
-        Ok(Some(theme)) => set_body_theme(&theme),
-        Ok(None) => set_body_theme("nordic_minimal"),
-        Err(e) => {
-            set_body_theme("nordic_minimal");
-            report_error(e);
-        }
-    }
+    // (Theme is loaded above in the M8 block.)
 
     // 2. Prune history on load (best-effort, fire-and-forget).
     if let Ok(history) = storage::load_history() {
@@ -136,6 +144,18 @@ pub fn App() -> impl IntoView {
         let quote_visible = show_opening_quote.get() && quote_bank.get().is_some();
         let grandma_open = !matches!(grandma_panel_state.get(), GrandmaPanelState::Closed);
         hide_tab_bar.set(quote_visible || show_resume.get() || grandma_open);
+    });
+
+    // ── M8: Persist theme changes and update <body data-theme="..."> ──────
+    // Runs on every theme change (and once on mount).  The initial mount run
+    // is harmless — it re-applies the same theme that was set synchronously
+    // above and saves it back to storage (idempotent).
+    Effect::new(move |_| {
+        let t = theme_signal.get();
+        set_body_theme(t.as_data_attr_value());
+        if let Err(e) = storage::save_theme(t.as_data_attr_value()) {
+            report_error(e);
+        }
     });
 
     // ── M7: Spawn the grandma worker eagerly (best-effort; failure → Degraded) ─

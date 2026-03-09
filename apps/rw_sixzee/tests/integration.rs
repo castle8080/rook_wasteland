@@ -150,7 +150,7 @@ async fn roll_button_enabled_before_first_roll() {
     assert!(!roll_btn.disabled(), "Roll button should be enabled initially");
 }
 
-/// After clicking Roll, dice show numeric values 1–6.
+/// After clicking Roll, dice show SVG faces (aria-label carries the value).
 #[wasm_bindgen_test]
 async fn roll_reveals_dice_values() {
     use leptos::mount::mount_to;
@@ -172,13 +172,31 @@ async fn roll_reveals_dice_values() {
     let dice_buttons = dice_row.query_selector_all("button").expect("query");
     assert_eq!(dice_buttons.length(), 5);
 
+    // M8: dice show SVG faces — the die value is in the aria-label attribute
+    // ("Die N value V [held]").  Verify every die has a value 1–6.
     for i in 0..5 {
         let btn = dice_buttons.item(i).expect("item");
-        let text = btn.text_content().unwrap_or_default();
-        let text = text.trim();
-        assert_ne!(text, "?", "die {i} should have a value after roll");
-        let val: u8 = text.parse().expect("should be numeric");
-        assert!((1..=6).contains(&val), "die {i} value {val} out of range");
+        // Cast Node → Element to access get_attribute.
+        let aria = btn
+            .unchecked_ref::<web_sys::Element>()
+            .get_attribute("aria-label")
+            .unwrap_or_default();
+        // After a roll, aria-label should NOT contain "?"
+        assert!(
+            !aria.contains('?'),
+            "die {i} aria-label should not contain '?' after roll, got: {aria:?}"
+        );
+        // Extract the value token from "Die N value V [held]"
+        let parts: Vec<&str> = aria.split_whitespace().collect();
+        // parts: ["Die", "N", "value", "V", ...]
+        let val_str = parts.get(3).copied().unwrap_or("");
+        let val: u8 = val_str
+            .parse()
+            .unwrap_or_else(|_| panic!("die {i} value token {val_str:?} not numeric"));
+        assert!(
+            (1..=6).contains(&val),
+            "die {i} value {val} out of range"
+        );
     }
 }
 
@@ -561,7 +579,6 @@ fn storage_load_in_progress_returns_json_error_on_corrupt_data() {
 #[wasm_bindgen_test]
 fn storage_save_preserves_bonus_pool_and_cells() {
     use rw_sixzee::state::game::new_game;
-    use rw_sixzee::state::scoring::ROW_COUNT;
     use rw_sixzee::state::storage;
 
     ls_remove("rw_sixzee.in_progress");
@@ -957,9 +974,9 @@ async fn app_load_applies_saved_theme_to_body() {
     use rw_sixzee::state::storage;
 
     clear_game_storage();
-    // Use a non-default value so we distinguish "loaded from storage" from
+    // Use a non-default theme so we can distinguish "loaded from storage" from
     // "fell back to the nordic_minimal default".
-    storage::save_theme("sixzee_dark").expect("save ok");
+    storage::save_theme("devil_rock").expect("save ok");
 
     let _handle = mount_to(fresh_container(), App);
     tick().await;
@@ -970,8 +987,115 @@ async fn app_load_applies_saved_theme_to_body() {
         .and_then(|b| b.get_attribute("data-theme"));
     assert_eq!(
         theme_attr.as_deref(),
-        Some("sixzee_dark"),
+        Some("devil_rock"),
         "body data-theme must match the theme saved in localStorage"
     );
+    ls_remove("rw_sixzee.theme");
+}
+
+// ─── M8 Theme integration tests ──────────────────────────────────────────────
+
+/// Settings screen renders 6 theme cards.
+#[wasm_bindgen_test]
+async fn settings_renders_six_theme_cards() {
+    use leptos::mount::mount_to;
+    use rw_sixzee::app::App;
+
+    clear_game_storage();
+    // Navigate to the settings route before mounting so App renders SettingsView.
+    if let Some(w) = web_sys::window() {
+        let _ = w.location().set_hash("/settings");
+    }
+
+    let container = fresh_container();
+    let _handle = mount_to(container.clone(), App);
+    tick().await;
+    tick().await;
+
+    let cards = container
+        .query_selector_all(".settings__theme-card")
+        .expect("query ok");
+    assert_eq!(cards.length(), 6, "settings grid must have exactly 6 theme cards");
+
+    // Restore hash so subsequent tests start at the default route.
+    if let Some(w) = web_sys::window() {
+        let _ = w.location().set_hash("/");
+    }
+}
+
+/// Clicking a theme card updates data-theme on document.body.
+#[wasm_bindgen_test]
+async fn settings_card_click_changes_body_theme() {
+    use leptos::mount::mount_to;
+    use rw_sixzee::app::App;
+
+    clear_game_storage();
+    if let Some(w) = web_sys::window() {
+        let _ = w.location().set_hash("/settings");
+    }
+
+    let container = fresh_container();
+    let _handle = mount_to(container.clone(), App);
+    tick().await;
+    tick().await;
+
+    // Find the Borg card and click it.
+    let borg_card = container
+        .query_selector(".settings__theme-card[data-theme='borg']")
+        .expect("query ok")
+        .expect("borg card must exist");
+    borg_card.unchecked_ref::<HtmlElement>().click();
+    tick().await;
+
+    let theme_attr = web_sys::window()
+        .and_then(|w| w.document())
+        .and_then(|d| d.body())
+        .and_then(|b| b.get_attribute("data-theme"));
+    assert_eq!(
+        theme_attr.as_deref(),
+        Some("borg"),
+        "body data-theme must update to 'borg' after clicking the Borg card"
+    );
+
+    if let Some(w) = web_sys::window() {
+        let _ = w.location().set_hash("/");
+    }
+    ls_remove("rw_sixzee.theme");
+}
+
+/// The active theme card has the --active modifier class.
+#[wasm_bindgen_test]
+async fn settings_active_card_has_active_class() {
+    use leptos::mount::mount_to;
+    use rw_sixzee::app::App;
+    use rw_sixzee::state::storage;
+
+    clear_game_storage();
+    storage::save_theme("renaissance").expect("save ok");
+
+    if let Some(w) = web_sys::window() {
+        let _ = w.location().set_hash("/settings");
+    }
+
+    let container = fresh_container();
+    let _handle = mount_to(container.clone(), App);
+    tick().await;
+    tick().await;
+
+    let active_card = container
+        .query_selector(".settings__theme-card--active")
+        .expect("query ok")
+        .expect("active card must exist");
+    let data_theme = active_card
+        .get_attribute("data-theme")
+        .unwrap_or_default();
+    assert_eq!(
+        data_theme, "renaissance",
+        "the renaissance card must be marked active when that theme is loaded"
+    );
+
+    if let Some(w) = web_sys::window() {
+        let _ = w.location().set_hash("/");
+    }
     ls_remove("rw_sixzee.theme");
 }
