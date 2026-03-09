@@ -1203,3 +1203,208 @@ async fn grandma_quote_inline_renders_quote_text() {
         "literal '{{quote}}' must NOT appear in rendered output; got: {text:?}"
     );
 }
+
+// ─── Feature 001: Quit Game ───────────────────────────────────────────────────
+
+/// Helper: click the game-menu ⋮ button.
+fn click_game_menu(container: &web_sys::HtmlElement) {
+    if let Ok(Some(btn)) = container.query_selector(".game-menu__btn") {
+        btn.unchecked_ref::<HtmlElement>().click();
+    }
+}
+
+/// Helper: click "Quit Game" inside the open game-menu panel.
+fn click_quit_game_in_panel(container: &web_sys::HtmlElement) {
+    if let Ok(Some(btn)) = container.query_selector(".game-menu__item--danger") {
+        btn.unchecked_ref::<HtmlElement>().click();
+    }
+}
+
+/// The game header contains the ⋮ game menu button (aria-label="Game menu")
+/// while an active game is in progress.
+#[wasm_bindgen_test]
+async fn game_menu_button_present_during_active_game() {
+    use leptos::mount::mount_to;
+    use rw_sixzee::app::App;
+
+    clear_game_storage();
+    let container = fresh_container();
+    let _handle = mount_to(container.clone(), App);
+    tick().await;
+    dismiss_opening_quote(&container).await;
+
+    let btn = container
+        .query_selector(".game-menu__btn[aria-label='Game menu']")
+        .expect("query ok");
+    assert!(btn.is_some(), "game-menu button should be in the header");
+}
+
+/// Clicking the ⋮ button opens the dropdown panel containing the "Quit Game"
+/// option.
+#[wasm_bindgen_test]
+async fn game_menu_panel_shows_on_click() {
+    use leptos::mount::mount_to;
+    use rw_sixzee::app::App;
+
+    clear_game_storage();
+    let container = fresh_container();
+    let _handle = mount_to(container.clone(), App);
+    tick().await;
+    dismiss_opening_quote(&container).await;
+
+    click_game_menu(&container);
+    tick().await;
+
+    let panel = container
+        .query_selector(".game-menu__panel")
+        .expect("query ok");
+    assert!(panel.is_some(), "game-menu panel should appear after clicking ⋮");
+
+    let quit_item = container
+        .query_selector(".game-menu__item--danger")
+        .expect("query ok");
+    assert!(quit_item.is_some(), "Quit Game item should be in the panel");
+}
+
+/// Tapping "Quit Game" in the panel shows the quit confirmation overlay.
+#[wasm_bindgen_test]
+async fn confirm_quit_overlay_shown_on_quit_tap() {
+    use leptos::mount::mount_to;
+    use rw_sixzee::app::App;
+
+    clear_game_storage();
+    let container = fresh_container();
+    let _handle = mount_to(container.clone(), App);
+    tick().await;
+    dismiss_opening_quote(&container).await;
+
+    click_game_menu(&container);
+    tick().await;
+    click_quit_game_in_panel(&container);
+    tick().await;
+
+    let overlay = container
+        .query_selector(".overlay--quit")
+        .expect("query ok");
+    assert!(overlay.is_some(), "quit confirmation overlay should be visible");
+}
+
+/// Tapping "Keep Playing" on the quit confirmation overlay dismisses it and
+/// leaves the game header intact.
+#[wasm_bindgen_test]
+async fn cancel_quit_returns_to_active_game() {
+    use leptos::mount::mount_to;
+    use rw_sixzee::app::App;
+
+    clear_game_storage();
+    let container = fresh_container();
+    let _handle = mount_to(container.clone(), App);
+    tick().await;
+    dismiss_opening_quote(&container).await;
+
+    click_game_menu(&container);
+    tick().await;
+    click_quit_game_in_panel(&container);
+    tick().await;
+
+    // Click "Keep Playing" (secondary button in overlay)
+    if let Ok(Some(keep)) = container.query_selector(".overlay--quit .btn--secondary") {
+        keep.unchecked_ref::<HtmlElement>().click();
+        tick().await;
+    }
+
+    let overlay = container
+        .query_selector(".overlay--quit")
+        .expect("query ok");
+    assert!(overlay.is_none(), "quit overlay should dismiss after Keep Playing");
+
+    let header = container
+        .query_selector(".game-header")
+        .expect("query ok");
+    assert!(header.is_some(), "game header should still be present after cancel");
+}
+
+/// Confirming quit hides the game content and shows the idle screen.
+#[wasm_bindgen_test]
+async fn confirm_quit_shows_idle_screen() {
+    use leptos::mount::mount_to;
+    use rw_sixzee::app::App;
+
+    clear_game_storage();
+    let container = fresh_container();
+    let _handle = mount_to(container.clone(), App);
+    tick().await;
+    dismiss_opening_quote(&container).await;
+
+    click_game_menu(&container);
+    tick().await;
+    click_quit_game_in_panel(&container);
+    tick().await;
+
+    // Click the destructive "Quit" button
+    if let Ok(Some(quit_btn)) = container.query_selector(".overlay--quit .btn--danger") {
+        quit_btn.unchecked_ref::<HtmlElement>().click();
+        tick().await;
+    }
+
+    let idle = container
+        .query_selector(".idle-screen")
+        .expect("query ok");
+    assert!(idle.is_some(), "idle screen should appear after confirming quit");
+
+    let header = container
+        .query_selector(".game-header")
+        .expect("query ok");
+    assert!(header.is_none(), "game header should NOT be present on idle screen");
+
+    let menu_btn = container
+        .query_selector(".game-menu__btn")
+        .expect("query ok");
+    assert!(menu_btn.is_none(), "game menu button should NOT be present on idle screen");
+}
+
+/// The idle screen "Start New Game" button transitions back to an active game
+/// (game header reappears).
+#[wasm_bindgen_test]
+async fn start_new_game_from_idle_returns_to_game() {
+    use leptos::mount::mount_to;
+    use rw_sixzee::app::App;
+
+    clear_game_storage();
+    let container = fresh_container();
+    let _handle = mount_to(container.clone(), App);
+    tick().await;
+    dismiss_opening_quote(&container).await;
+
+    // Quit the game
+    click_game_menu(&container);
+    tick().await;
+    click_quit_game_in_panel(&container);
+    tick().await;
+    if let Ok(Some(quit_btn)) = container.query_selector(".overlay--quit .btn--danger") {
+        quit_btn.unchecked_ref::<HtmlElement>().click();
+        tick().await;
+    }
+
+    // Tap "Start New Game"
+    if let Ok(Some(start_btn)) = container.query_selector(".idle-screen__start-btn") {
+        start_btn.unchecked_ref::<HtmlElement>().click();
+        tick().await;
+    }
+
+    // Dismiss the opening quote if the bank was available
+    dismiss_opening_quote(&container).await;
+
+    let header = container
+        .query_selector(".game-header")
+        .expect("query ok");
+    assert!(
+        header.is_some(),
+        "game header should be present after starting a new game from the idle screen"
+    );
+
+    let idle = container
+        .query_selector(".idle-screen")
+        .expect("query ok");
+    assert!(idle.is_none(), "idle screen should be gone after starting a new game");
+}

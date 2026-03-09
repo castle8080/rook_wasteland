@@ -1,14 +1,18 @@
 //! Full game screen — wires dice, scorecard, roll/score controls, and overlays.
 //!
 //! Reads all game-related signals from context and manages the local overlay
-//! state: zero-score confirmation and the Sixzee inline quote.
+//! state: zero-score confirmation, quit confirmation, and the Sixzee inline quote.
+//! When `GameActive` context is `false`, renders the `IdleScreen` instead.
 
 use leptos::prelude::*;
 
+use crate::components::confirm_quit::ConfirmQuit;
 use crate::components::confirm_zero::ConfirmZero;
 use crate::components::dice_row::DiceRow;
 use crate::components::end_game::EndGame;
+use crate::components::game_menu::GameMenu;
 use crate::components::grandma_quote::GrandmaQuoteInline;
+use crate::components::idle_screen::IdleScreen;
 use crate::components::scorecard::Scorecard;
 use crate::error::report_error;
 use crate::state::game::{
@@ -17,7 +21,7 @@ use crate::state::game::{
 use crate::state::quotes::{pick_quote, QuoteBank};
 use crate::state::scoring::score_sixzee;
 use crate::state::storage;
-use crate::state::{HideTabBar, ShowOpeningQuote};
+use crate::state::{GameActive, HideTabBar, ShowOpeningQuote};
 use crate::worker::messages::GrandmaRequest;
 use crate::worker::{post_grandma_request, GrandmaPanelState};
 
@@ -53,8 +57,10 @@ fn persist_after_score(state: &GameState) {
 
 /// The full game screen component.
 ///
-/// Renders the game header, dice row, Roll/Ask Grandma buttons, optional Sixzee
-/// inline quote, scorecard, and any active overlays (confirm_zero, end_game).
+/// When `GameActive` context signal is `false`, renders `IdleScreen`. When
+/// `true`, renders the game header, dice row, Roll/Ask Grandma buttons,
+/// optional Sixzee inline quote, scorecard, and any active overlays
+/// (confirm_quit, confirm_zero, end_game).
 #[component]
 pub fn GameView() -> impl IntoView {
     let game_signal =
@@ -65,6 +71,8 @@ pub fn GameView() -> impl IntoView {
         use_context::<HideTabBar>().expect("hide_tab_bar context must be provided").0;
     let show_opening_quote =
         use_context::<ShowOpeningQuote>().expect("show_opening_quote context must be provided").0;
+    let game_active =
+        use_context::<GameActive>().expect("game_active context must be provided").0;
 
     // ── M7: Ask Grandma ──────────────────────────────────────────────────────
     let grandma_worker =
@@ -80,6 +88,9 @@ pub fn GameView() -> impl IntoView {
     // Set to a picked Sixzee quote when the current dice all match.
     // Cleared on the next roll or score placement.
     let sixzee_inline_quote: RwSignal<Option<String>> = RwSignal::new(None);
+
+    // `true` while the quit-confirmation overlay is open.
+    let show_confirm_quit: RwSignal<bool> = RwSignal::new(false);
 
     // ── Roll handler ─────────────────────────────────────────────────────────
 
@@ -198,6 +209,36 @@ pub fn GameView() -> impl IntoView {
         show_opening_quote.set(true);
     });
 
+    // ── Quit game handlers ────────────────────────────────────────────────────
+
+    let on_quit_requested = Callback::new(move |_| {
+        show_confirm_quit.set(true);
+    });
+
+    let on_cancel_quit = Callback::new(move |_| {
+        show_confirm_quit.set(false);
+    });
+
+    let on_confirm_quit = Callback::new(move |_| {
+        show_confirm_quit.set(false);
+        pending_zero.set(None);
+        sixzee_inline_quote.set(None);
+        if let Err(e) = storage::clear_in_progress() {
+            report_error(e);
+        }
+        game_active.set(false);
+    });
+
+    // ── Idle-screen "Start New Game" handler ──────────────────────────────────
+
+    let on_start_game = Callback::new(move |_| {
+        game_signal.set(new_game());
+        pending_zero.set(None);
+        sixzee_inline_quote.set(None);
+        game_active.set(true);
+        show_opening_quote.set(true);
+    });
+
     // ── Ask Grandma handler ───────────────────────────────────────────────────
 
     let on_ask_grandma = move |_| {
@@ -240,80 +281,104 @@ pub fn GameView() -> impl IntoView {
     };
 
     view! {
-        // ── Active overlays ──────────────────────────────────────────────────
+        // ── Idle screen (shown when no active game) ──────────────────────────
         {move || {
-            let state = game_signal.get();
-            if is_game_complete(&state) {
-                return view! { <EndGame on_new_game=on_new_game /> }.into_any();
+            if !game_active.get() {
+                return view! { <IdleScreen on_start_game=on_start_game /> }.into_any();
             }
-            view! { <span /> }.into_any()
-        }}
 
-        {move || {
-            match pending_zero.get() {
-                Some((col, row)) => view! {
-                    <ConfirmZero
-                        col=col
-                        row=row
-                        on_cancel=on_cancel_zero
-                        on_confirm=on_confirm_zero
-                    />
-                }
-                .into_any(),
-                None => view! { <span /> }.into_any(),
-            }
-        }}
-
-        // ── Game screen ──────────────────────────────────────────────────────
-        <header class="game-header">
-            <span class="game-header__title">"SIXZEE"</span>
-            <div class="game-header__turn-info">
+            // ── Active overlays ──────────────────────────────────────────────
+            view! {
                 {move || {
-                    let s = game_signal.get();
-                    let turn_num = s.turn + 1;
-                    let remaining = 3u8.saturating_sub(s.rolls_used);
-                    let pips: String =
-                        "●".repeat(remaining as usize) + &"○".repeat(s.rolls_used as usize);
-                    format!("Turn {turn_num}  {pips} {remaining} rolls")
+                    let state = game_signal.get();
+                    if is_game_complete(&state) {
+                        return view! { <EndGame on_new_game=on_new_game /> }.into_any();
+                    }
+                    view! { <span /> }.into_any()
                 }}
-            </div>
-        </header>
 
-        <DiceRow />
+                {move || {
+                    match pending_zero.get() {
+                        Some((col, row)) => view! {
+                            <ConfirmZero
+                                col=col
+                                row=row
+                                on_cancel=on_cancel_zero
+                                on_confirm=on_confirm_zero
+                            />
+                        }
+                        .into_any(),
+                        None => view! { <span /> }.into_any(),
+                    }
+                }}
 
-        <div class="action-buttons">
-            <button
-                class="btn btn--primary"
-                on:click=on_roll
-                disabled=move || {
-                    let s = game_signal.get();
-                    s.rolls_used >= 3 || is_game_complete(&s)
-                }
-            >
-                "🎲  ROLL"
-            </button>
-            <button
-                class="btn btn--secondary"
-                on:click=on_ask_grandma
-                disabled=move || {
-                    let s = game_signal.get();
-                    s.rolls_used == 0
-                        || is_game_complete(&s)
-                        || grandma_worker.get().is_none()
-                }
-                title="Ask Grandma for advice on the best move"
-            >
-                "👵 ASK GRANDMA"
-            </button>
-        </div>
+                {move || {
+                    if show_confirm_quit.get() {
+                        return view! {
+                            <ConfirmQuit
+                                on_confirm=on_confirm_quit
+                                on_cancel=on_cancel_quit
+                            />
+                        }
+                        .into_any();
+                    }
+                    view! { <span /> }.into_any()
+                }}
 
-        {move || {
-            match sixzee_inline_quote.get() {
-                Some(q) => view! { <GrandmaQuoteInline quote=q /> }.into_any(),
-                None => view! { <span /> }.into_any(),
+                // ── Game screen ──────────────────────────────────────────────
+                <header class="game-header">
+                    <span class="game-header__title">"SIXZEE"</span>
+                    <div class="game-header__turn-info">
+                        {move || {
+                            let s = game_signal.get();
+                            let turn_num = s.turn + 1;
+                            let remaining = 3u8.saturating_sub(s.rolls_used);
+                            let pips: String =
+                                "●".repeat(remaining as usize) + &"○".repeat(s.rolls_used as usize);
+                            format!("Turn {turn_num}  {pips} {remaining} rolls")
+                        }}
+                    </div>
+                    <GameMenu on_quit_requested=on_quit_requested />
+                </header>
+
+                <DiceRow />
+
+                <div class="action-buttons">
+                    <button
+                        class="btn btn--primary"
+                        on:click=on_roll
+                        disabled=move || {
+                            let s = game_signal.get();
+                            s.rolls_used >= 3 || is_game_complete(&s)
+                        }
+                    >
+                        "🎲  ROLL"
+                    </button>
+                    <button
+                        class="btn btn--secondary"
+                        on:click=on_ask_grandma
+                        disabled=move || {
+                            let s = game_signal.get();
+                            s.rolls_used == 0
+                                || is_game_complete(&s)
+                                || grandma_worker.get().is_none()
+                        }
+                        title="Ask Grandma for advice on the best move"
+                    >
+                        "👵 ASK GRANDMA"
+                    </button>
+                </div>
+
+                {move || {
+                    match sixzee_inline_quote.get() {
+                        Some(q) => view! { <GrandmaQuoteInline quote=q /> }.into_any(),
+                        None => view! { <span /> }.into_any(),
+                    }
+                }}
+
+                <Scorecard on_cell_click=on_cell_click />
             }
+            .into_any()
         }}
-
-        <Scorecard on_cell_click=on_cell_click />
     }
 }

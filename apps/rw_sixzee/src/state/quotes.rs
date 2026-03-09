@@ -56,6 +56,7 @@ pub struct QuoteBank {
     pub closing: ClosingQuotes,
     pub sixzee:  Vec<String>,
     pub scratch: Vec<String>,
+    pub quit:    Vec<String>,
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -189,5 +190,22 @@ mod tests {
         assert!(q.is_some());
         let q = q.expect("pool is non-empty");
         assert!(pool.iter().any(|s| s.as_str() == q));
+    }
+
+    #[test]
+    fn pick_quote_from_quit_shaped_pool_returns_member() {
+        // Validates that pick_quote works correctly on a quit-pool shaped slice.
+        // The live JSON pool (25 entries) is an asset file; pool size is checked
+        // by the Python JSON validator in make.py.
+        let pool: Vec<String> = vec![
+            "You decided you were done. That's a decision.".to_string(),
+            "Not every game is worth finishing.".to_string(),
+            "Walking away is a choice. You made one.".to_string(),
+        ];
+        let q = pick_quote(&pool).expect("non-empty pool returns Some");
+        assert!(
+            pool.iter().any(|s| s.as_str() == q),
+            "pick_quote must return a member of the pool"
+        );
     }
 }

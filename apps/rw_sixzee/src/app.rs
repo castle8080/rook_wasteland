@@ -20,7 +20,7 @@ use crate::state::quotes::{load_quote_bank, QuoteBank};
 use crate::state::scoring::grand_total as compute_grand_total;
 use crate::state::storage;
 use crate::state::Theme;
-use crate::state::{ActiveTheme, HideTabBar, ShowOpeningQuote, ShowResume};
+use crate::state::{ActiveTheme, GameActive, HideTabBar, ShowOpeningQuote, ShowResume};
 use crate::worker::{spawn_grandma_worker, GrandmaPanelState};
 
 fn get_initial_route() -> Route {
@@ -48,6 +48,10 @@ pub fn App() -> impl IntoView {
 
     // ── M5: game state and derived signals ────────────────────────────────
     let game_signal: RwSignal<GameState> = RwSignal::new(new_game());
+
+    // `true` while an active game is in progress; `false` shows the idle screen.
+    // Starts `true` so the first launch goes straight to the opening-quote flow.
+    let game_active: RwSignal<bool> = RwSignal::new(true);
 
     let grand_total: Memo<u32> = Memo::new(move |_| {
         let s = game_signal.get();
@@ -93,6 +97,7 @@ pub fn App() -> impl IntoView {
     provide_context(route);
     provide_context(app_error);
     provide_context(ShowResume(show_resume));
+    provide_context(GameActive(game_active));
     provide_context(game_signal);
     provide_context(grand_total);
     provide_context(score_preview);

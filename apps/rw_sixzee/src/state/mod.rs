@@ -17,6 +17,12 @@ pub use theme::Theme;
 
 use leptos::prelude::RwSignal;
 
+/// Newtype for the `game_active` signal — `true` while an active game is in
+/// progress on the Game tab; `false` causes `GameView` to render the
+/// idle/pre-game screen instead.
+#[derive(Clone, Copy)]
+pub struct GameActive(pub RwSignal<bool>);
+
 /// Newtype for the `show_resume` overlay signal — `true` while the
 /// Resume-vs-New prompt is visible.
 #[derive(Clone, Copy)]

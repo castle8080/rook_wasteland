@@ -1,12 +1,15 @@
+pub mod confirm_quit;
 pub mod confirm_zero;
 pub mod dice_row;
 pub mod end_game;
 pub mod error_banner;
 pub mod error_overlay;
+pub mod game_menu;
 pub mod game_view;
 pub mod grandma;
 pub mod grandma_quote;
 pub mod history;
+pub mod idle_screen;
 pub mod resume;
 pub mod scorecard;
 pub mod settings;
