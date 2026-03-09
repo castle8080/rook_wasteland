@@ -1163,3 +1163,43 @@ async fn settings_card_aria_label_updates_on_theme_switch() {
     }
     ls_remove("rw_sixzee.theme");
 }
+
+// ─── Bug 003 — GrandmaQuoteInline rendering ───────────────────────────────────
+
+/// `GrandmaQuoteInline` must render the actual quote text, not the literal
+/// string `{quote}`.
+///
+/// Regression for bug_003: the `{quote}` Leptos dynamic-expression block was
+/// accidentally enclosed inside a Rust string literal, so the macro never
+/// evaluated the variable and the rendered DOM contained the literal characters
+/// `{`, `q`, `u`, `o`, `t`, `e`, `}`.
+#[wasm_bindgen_test]
+async fn grandma_quote_inline_renders_quote_text() {
+    use leptos::mount::mount_to;
+    use leptos::prelude::*;
+    use rw_sixzee::components::grandma_quote::GrandmaQuoteInline;
+
+    const TEST_QUOTE: &str = "Patience is not waiting. It is knowing.";
+
+    let container = fresh_container();
+    let _handle = mount_to(container.clone(), || {
+        view! { <GrandmaQuoteInline quote=TEST_QUOTE.to_string() /> }
+    });
+    tick().await;
+
+    let text_span = container
+        .query_selector(".grandma-quote__text")
+        .expect("query ok")
+        .expect(".grandma-quote__text must be present when quote is non-empty");
+
+    let text = text_span.text_content().unwrap_or_default();
+
+    assert!(
+        text.contains(TEST_QUOTE),
+        "quote text must appear verbatim in .grandma-quote__text; got: {text:?}"
+    );
+    assert!(
+        !text.contains("{quote}"),
+        "literal '{{quote}}' must NOT appear in rendered output; got: {text:?}"
+    );
+}

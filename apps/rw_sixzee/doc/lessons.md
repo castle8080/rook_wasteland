@@ -580,3 +580,32 @@ aria-label=move || format!("Select {} theme{}", label, if is_active() { " (activ
 `class=`. Common victims: `aria-label`, `title`, `placeholder`, `value` on inputs,
 and any custom `data-*` attribute derived from a signal. The compiler does not catch
 this — the only signal is the runtime console warning.
+
+## L19: Leptos `view!` string literal tokenization — `{expr}` inside a string literal is never evaluated
+
+**Milestone:** Bug 003
+**Area:** Leptos / view! macro
+**Symptom:** A dynamic expression (e.g., `{quote}`) appears as literal text in the DOM —
+the browser renders the characters `{`, `q`, `u`, `o`, `t`, `e`, `}` verbatim. No
+compile error and no runtime warning are emitted.
+**Cause:** The Rust tokenizer runs before the Leptos `view!` macro sees the source.
+If a `{expr}` block is placed *inside* a Rust string literal — even with surrounding
+whitespace — the macro never sees it as a dynamic expression: it is just bytes inside
+the string. The typical accident is trying to use typographic curly-quote characters
+(`"` / `"`) but accidentally mixing them with ASCII `"` delimiters:
+```rust
+// ❌ All six " are ASCII U+0022 — Rust sees THREE adjacent string literals.
+//    "{quote}" is the *second* string literal, not a dynamic block.
+"👵 "" {quote} """
+```
+The tokenizer parses this as `"👵 "` + `" {quote} "` + `""`. The `{quote}` variable
+is never evaluated.
+**Fix / Workaround:** Keep dynamic expression blocks **outside** all string literals.
+Use `\u{…}` Unicode escapes inside the adjacent string delimiters:
+```rust
+// ✅ {quote} is a standalone expression token between two string literals.
+"👵 \u{201C}" {quote} "\u{201D}"
+```
+**Watch out for:** Any time you want to embed a Unicode character that *looks like* a
+quote character adjacent to a dynamic block — especially curly/smart quotes. The
+compiler gives no warning; the only clue is seeing literal `{…}` text in the browser.

@@ -74,7 +74,10 @@ pub fn GrandmaQuoteInline(
     view! {
         <div class="grandma-quote-inline">
             <span class="grandma-quote__text">
-                "👵 "" {quote} """
+                // U+201C/U+201D are typographic curly-quote delimiters.
+                // `{quote}` must be a separate expression token — NOT inside
+                // a string literal — or the view! macro renders it literally.
+                "👵 \u{201C}" {quote} "\u{201D}"
             </span>
             <span class="grandma-quote__attribution">" — Grandma"</span>
         </div>
