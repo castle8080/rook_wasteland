@@ -306,9 +306,9 @@ test.describe("M8 Themes", () => {
     await page.goto("/rw_sixzee/#/settings", { waitUntil: "networkidle" });
     await page.waitForTimeout(500);
 
-    // Find and click the Devil Rock card (known data-theme value)
+    // Find and click the Abyssal Depths card (known data-theme value)
     const devilRockCard = page
-      .locator(".settings__theme-card[data-theme='devil_rock']");
+      .locator(".settings__theme-card[data-theme='abyssal_depths']");
     await devilRockCard.waitFor({ state: "visible", timeout: 5_000 });
     await devilRockCard.click();
     await page.waitForTimeout(300);
@@ -316,7 +316,7 @@ test.describe("M8 Themes", () => {
     const bodyTheme = await page.evaluate(
       () => document.body.getAttribute("data-theme")
     );
-    expect(bodyTheme).toBe("devil_rock");
+    expect(bodyTheme).toBe("abyssal_depths");
   });
 
   test("selected theme persists across page reload", async ({ page }) => {
