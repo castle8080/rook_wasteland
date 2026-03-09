@@ -1676,3 +1676,462 @@ async fn history_detail_back_button_navigates_to_history_list() {
         let _ = w.location().set_hash("/");
     }
 }
+
+// ─── M9 extended coverage ─────────────────────────────────────────────────────
+
+/// "View →" button on a History list row navigates to the detail view.
+#[wasm_bindgen_test]
+async fn history_view_view_button_navigates_to_detail() {
+    use leptos::mount::mount_to;
+    use rw_sixzee::app::App;
+    use rw_sixzee::state::game::CompletedGame;
+    use rw_sixzee::state::scoring::ROW_COUNT;
+    use rw_sixzee::state::storage;
+
+    clear_game_storage();
+
+    let game = CompletedGame {
+        id: "view-btn-nav-test".to_string(),
+        completed_at: "2026-03-01T10:00:00Z".to_string(),
+        final_score: 300,
+        bonus_pool: 0,
+        bonus_forfeited: false,
+        cells: [[None; ROW_COUNT]; 6],
+    };
+    storage::save_history(&[game]).expect("save ok");
+
+    if let Some(w) = web_sys::window() {
+        let _ = w.location().set_hash("/history");
+    }
+
+    let container = fresh_container();
+    let _handle = mount_to(container.clone(), App);
+    tick().await;
+    tick().await;
+
+    // Click the "View →" button.
+    let view_btn = container
+        .query_selector(".history-list__view-btn")
+        .expect("query ok")
+        .expect("View → button must exist in history list");
+    view_btn.unchecked_ref::<HtmlElement>().click();
+    tick().await;
+    tick().await;
+
+    // History list must be gone.
+    let history_list = container
+        .query_selector(".history-list")
+        .expect("query ok");
+    assert!(
+        history_list.is_none(),
+        "history list must be replaced by detail view after clicking View →"
+    );
+
+    // Detail view must be present.
+    let detail = container
+        .query_selector(".history-detail")
+        .expect("query ok");
+    assert!(
+        detail.is_some(),
+        "history detail view must appear after clicking View →"
+    );
+
+    // Scorecard must be present.
+    let scorecard = container
+        .query_selector(".scorecard")
+        .expect("query ok");
+    assert!(
+        scorecard.is_some(),
+        "scorecard must be visible on the detail view"
+    );
+
+    ls_remove("rw_sixzee.history");
+    if let Some(w) = web_sys::window() {
+        let _ = w.location().set_hash("/");
+    }
+}
+
+/// History detail view is read-only: no dice row, no roll button, no preview cells.
+#[wasm_bindgen_test]
+async fn history_detail_is_read_only() {
+    use leptos::mount::mount_to;
+    use rw_sixzee::app::App;
+    use rw_sixzee::state::game::CompletedGame;
+    use rw_sixzee::state::scoring::ROW_COUNT;
+    use rw_sixzee::state::storage;
+
+    clear_game_storage();
+
+    let game = CompletedGame {
+        id: "readonly-test".to_string(),
+        completed_at: "2026-03-01T10:00:00Z".to_string(),
+        final_score: 250,
+        bonus_pool: 0,
+        bonus_forfeited: false,
+        cells: [[None; ROW_COUNT]; 6],
+    };
+    storage::save_history(&[game]).expect("save ok");
+
+    if let Some(w) = web_sys::window() {
+        let _ = w.location().set_hash("/history/readonly-test");
+    }
+
+    let container = fresh_container();
+    let _handle = mount_to(container.clone(), App);
+    tick().await;
+    tick().await;
+
+    // No dice row.
+    let dice_row = container.query_selector(".dice-row").expect("query ok");
+    assert!(
+        dice_row.is_none(),
+        "history detail must NOT contain a dice row"
+    );
+
+    // No roll button.
+    let buttons = container
+        .query_selector_all(".action-buttons button")
+        .expect("query ok");
+    let has_roll = (0..buttons.length()).any(|i| {
+        buttons
+            .item(i)
+            .map(|b| b.text_content().unwrap_or_default().contains("ROLL"))
+            .unwrap_or(false)
+    });
+    assert!(!has_roll, "history detail must NOT contain a roll button");
+
+    // No preview cells (only appear in active game scorecard).
+    let preview_cells = container
+        .query_selector_all(".scorecard__cell--preview, .scorecard__cell--zero-preview")
+        .expect("query ok");
+    assert_eq!(
+        preview_cells.length(),
+        0,
+        "history detail scorecard must have zero preview cells"
+    );
+
+    ls_remove("rw_sixzee.history");
+    if let Some(w) = web_sys::window() {
+        let _ = w.location().set_hash("/");
+    }
+}
+
+/// History list applies --silver and --bronze medal classes to 2nd and 3rd entries.
+#[wasm_bindgen_test]
+async fn history_view_all_three_medal_classes_present() {
+    use leptos::mount::mount_to;
+    use rw_sixzee::app::App;
+    use rw_sixzee::state::game::CompletedGame;
+    use rw_sixzee::state::scoring::ROW_COUNT;
+    use rw_sixzee::state::storage;
+
+    clear_game_storage();
+
+    let entries = vec![
+        CompletedGame {
+            id: "medal-a".to_string(),
+            completed_at: "2026-03-01T00:00:00Z".to_string(),
+            final_score: 400,
+            bonus_pool: 0,
+            bonus_forfeited: false,
+            cells: [[None; ROW_COUNT]; 6],
+        },
+        CompletedGame {
+            id: "medal-b".to_string(),
+            completed_at: "2026-03-02T00:00:00Z".to_string(),
+            final_score: 300,
+            bonus_pool: 0,
+            bonus_forfeited: false,
+            cells: [[None; ROW_COUNT]; 6],
+        },
+        CompletedGame {
+            id: "medal-c".to_string(),
+            completed_at: "2026-03-03T00:00:00Z".to_string(),
+            final_score: 200,
+            bonus_pool: 0,
+            bonus_forfeited: false,
+            cells: [[None; ROW_COUNT]; 6],
+        },
+    ];
+    storage::save_history(&entries).expect("save ok");
+
+    if let Some(w) = web_sys::window() {
+        let _ = w.location().set_hash("/history");
+    }
+
+    let container = fresh_container();
+    let _handle = mount_to(container.clone(), App);
+    tick().await;
+    tick().await;
+
+    let gold = container
+        .query_selector(".history-list__row--gold")
+        .expect("query ok");
+    assert!(gold.is_some(), "gold medal row must exist");
+
+    let silver = container
+        .query_selector(".history-list__row--silver")
+        .expect("query ok");
+    assert!(silver.is_some(), "silver medal row must exist");
+
+    let bronze = container
+        .query_selector(".history-list__row--bronze")
+        .expect("query ok");
+    assert!(bronze.is_some(), "bronze medal row must exist");
+
+    ls_remove("rw_sixzee.history");
+    if let Some(w) = web_sys::window() {
+        let _ = w.location().set_hash("/");
+    }
+}
+
+/// 4th and beyond entries have no medal class (plain `.history-list__row` only).
+#[wasm_bindgen_test]
+async fn history_view_fourth_entry_has_no_medal_class() {
+    use leptos::mount::mount_to;
+    use rw_sixzee::app::App;
+    use rw_sixzee::state::game::CompletedGame;
+    use rw_sixzee::state::scoring::ROW_COUNT;
+    use rw_sixzee::state::storage;
+
+    clear_game_storage();
+
+    let entries: Vec<CompletedGame> = (0..4_u32)
+        .map(|i| CompletedGame {
+            id: format!("rank-{i}"),
+            completed_at: "2026-03-01T00:00:00Z".to_string(),
+            final_score: 400 - i * 50,
+            bonus_pool: 0,
+            bonus_forfeited: false,
+            cells: [[None; ROW_COUNT]; 6],
+        })
+        .collect();
+    storage::save_history(&entries).expect("save ok");
+
+    if let Some(w) = web_sys::window() {
+        let _ = w.location().set_hash("/history");
+    }
+
+    let container = fresh_container();
+    let _handle = mount_to(container.clone(), App);
+    tick().await;
+    tick().await;
+
+    let rows = container
+        .query_selector_all(".history-list__row")
+        .expect("query ok");
+    assert_eq!(rows.length(), 4, "four rows expected");
+
+    // 4th row (index 3) must not have any medal modifier.
+    let fourth_row = rows.item(3).expect("4th row must exist");
+    let class_attr = fourth_row
+        .unchecked_ref::<web_sys::Element>()
+        .get_attribute("class")
+        .unwrap_or_default();
+    assert!(
+        !class_attr.contains("--gold")
+            && !class_attr.contains("--silver")
+            && !class_attr.contains("--bronze"),
+        "4th entry must have no medal class, got: {class_attr}"
+    );
+
+    ls_remove("rw_sixzee.history");
+    if let Some(w) = web_sys::window() {
+        let _ = w.location().set_hash("/");
+    }
+}
+
+/// History list score cells are rendered in descending score order.
+#[wasm_bindgen_test]
+async fn history_view_score_cells_are_in_descending_order() {
+    use leptos::mount::mount_to;
+    use rw_sixzee::app::App;
+    use rw_sixzee::state::game::CompletedGame;
+    use rw_sixzee::state::scoring::ROW_COUNT;
+    use rw_sixzee::state::storage;
+
+    clear_game_storage();
+
+    // Insert in non-sorted order; save_history sorts descending.
+    let entries = vec![
+        CompletedGame {
+            id: "sort-low".to_string(),
+            completed_at: "2026-03-01T00:00:00Z".to_string(),
+            final_score: 150,
+            bonus_pool: 0,
+            bonus_forfeited: false,
+            cells: [[None; ROW_COUNT]; 6],
+        },
+        CompletedGame {
+            id: "sort-high".to_string(),
+            completed_at: "2026-03-02T00:00:00Z".to_string(),
+            final_score: 450,
+            bonus_pool: 0,
+            bonus_forfeited: false,
+            cells: [[None; ROW_COUNT]; 6],
+        },
+        CompletedGame {
+            id: "sort-mid".to_string(),
+            completed_at: "2026-03-03T00:00:00Z".to_string(),
+            final_score: 300,
+            bonus_pool: 0,
+            bonus_forfeited: false,
+            cells: [[None; ROW_COUNT]; 6],
+        },
+    ];
+    storage::save_history(&entries).expect("save ok");
+
+    if let Some(w) = web_sys::window() {
+        let _ = w.location().set_hash("/history");
+    }
+
+    let container = fresh_container();
+    let _handle = mount_to(container.clone(), App);
+    tick().await;
+    tick().await;
+
+    let score_cells = container
+        .query_selector_all(".history-list__score")
+        .expect("query ok");
+    assert_eq!(score_cells.length(), 3, "three score cells expected");
+
+    let scores: Vec<u32> = (0..score_cells.length())
+        .filter_map(|i| {
+            score_cells
+                .item(i)
+                .and_then(|n| n.text_content())
+                .and_then(|t| t.trim().parse().ok())
+        })
+        .collect();
+
+    assert_eq!(scores.len(), 3, "all score cells must have parseable text");
+    assert!(
+        scores[0] > scores[1] && scores[1] > scores[2],
+        "score cells must be in descending order, got: {scores:?}"
+    );
+
+    ls_remove("rw_sixzee.history");
+    if let Some(w) = web_sys::window() {
+        let _ = w.location().set_hash("/");
+    }
+}
+
+/// History list rows display the correct final score and `+N` bonus pool text.
+#[wasm_bindgen_test]
+async fn history_view_row_shows_score_and_bonus_text() {
+    use leptos::mount::mount_to;
+    use rw_sixzee::app::App;
+    use rw_sixzee::state::game::CompletedGame;
+    use rw_sixzee::state::scoring::ROW_COUNT;
+    use rw_sixzee::state::storage;
+
+    clear_game_storage();
+
+    let game = CompletedGame {
+        id: "content-test".to_string(),
+        completed_at: "2026-03-01T00:00:00Z".to_string(),
+        final_score: 375,
+        bonus_pool: 200,
+        bonus_forfeited: false,
+        cells: [[None; ROW_COUNT]; 6],
+    };
+    storage::save_history(&[game]).expect("save ok");
+
+    if let Some(w) = web_sys::window() {
+        let _ = w.location().set_hash("/history");
+    }
+
+    let container = fresh_container();
+    let _handle = mount_to(container.clone(), App);
+    tick().await;
+    tick().await;
+
+    let score_cell = container
+        .query_selector(".history-list__score")
+        .expect("query ok")
+        .expect("score cell must exist");
+    let score_text = score_cell.text_content().unwrap_or_default();
+    assert_eq!(
+        score_text.trim(),
+        "375",
+        "score cell must show final_score, got: {score_text:?}"
+    );
+
+    let bonus_cell = container
+        .query_selector(".history-list__bonus")
+        .expect("query ok")
+        .expect("bonus cell must exist");
+    let bonus_text = bonus_cell.text_content().unwrap_or_default();
+    assert_eq!(
+        bonus_text.trim(),
+        "+200",
+        "bonus cell must show '+N' format, got: {bonus_text:?}"
+    );
+
+    ls_remove("rw_sixzee.history");
+    if let Some(w) = web_sys::window() {
+        let _ = w.location().set_hash("/");
+    }
+}
+
+/// History detail header shows formatted date and final score.
+#[wasm_bindgen_test]
+async fn history_detail_header_shows_date_and_score() {
+    use leptos::mount::mount_to;
+    use rw_sixzee::app::App;
+    use rw_sixzee::state::game::CompletedGame;
+    use rw_sixzee::state::scoring::ROW_COUNT;
+    use rw_sixzee::state::storage;
+
+    clear_game_storage();
+
+    let game = CompletedGame {
+        id: "header-test".to_string(),
+        completed_at: "2026-03-07T12:00:00Z".to_string(),
+        final_score: 412,
+        bonus_pool: 0,
+        bonus_forfeited: false,
+        cells: [[None; ROW_COUNT]; 6],
+    };
+    storage::save_history(&[game]).expect("save ok");
+
+    if let Some(w) = web_sys::window() {
+        let _ = w.location().set_hash("/history/header-test");
+    }
+
+    let container = fresh_container();
+    let _handle = mount_to(container.clone(), App);
+    tick().await;
+    tick().await;
+
+    // Date element must contain the month abbreviation and year.
+    let date_el = container
+        .query_selector(".history-detail__date")
+        .expect("query ok")
+        .expect(".history-detail__date must be present");
+    let date_text = date_el.text_content().unwrap_or_default();
+    assert!(
+        date_text.contains("Mar"),
+        ".history-detail__date must show formatted month, got: {date_text:?}"
+    );
+    assert!(
+        date_text.contains("2026"),
+        ".history-detail__date must show year, got: {date_text:?}"
+    );
+
+    // Score element must contain the final score.
+    let score_el = container
+        .query_selector(".history-detail__score")
+        .expect("query ok")
+        .expect(".history-detail__score must be present");
+    let score_text = score_el.text_content().unwrap_or_default();
+    assert!(
+        score_text.contains("412"),
+        ".history-detail__score must show final score, got: {score_text:?}"
+    );
+
+    ls_remove("rw_sixzee.history");
+    if let Some(w) = web_sys::window() {
+        let _ = w.location().set_hash("/");
+    }
+}
