@@ -1,7 +1,7 @@
 # Task M10: Polish & Mobile
 
 **Milestone:** M10 — Polish & Mobile
-**Status:** 🔄 In Progress
+**Status:** ✅ Done
 
 ---
 
@@ -130,7 +130,12 @@ pub struct PendingZero(pub RwSignal<Option<(usize, usize)>>);
 
 ## Implementation Notes
 
-*(filled during implementation)*
+See milestone doc for full summary. Key points:
+- PendingZero context promotion makes app.rs the single source of truth for hide_tab_bar
+- All hide_tab_bar.set() calls removed from game_view.rs and confirm_zero.rs
+- Dual-span label CSS toggle is pure CSS — no JS/signal needed
+- Cell aria-labels computed inside existing reactive `move ||` closure in cell_view
+- Ask Grandma worker round-trip waived (test origin limitation)
 
 ---
 
@@ -155,13 +160,17 @@ pub struct PendingZero(pub RwSignal<Option<(usize, usize)>>);
 
 ## Test Results
 
-*(filled after running)*
+- Native: 94 tests pass (cargo test)
+- Browser: 60 tests pass (wasm-pack test --headless --firefox)
+- E2E: 2 new M10 tests pass; 4 M8 theme tests have pre-existing failures
 
 ---
 
 ## Review Notes
 
-*(filled after self-review)*
+Code review by Copilot agent found one issue: redundant `hide_tab_bar.set()` calls remaining in
+`game_view.rs` after the PendingZero promotion. Fixed: removed all 3 explicit sets (lines 182, 190, 195).
+The app.rs Effect is now the sole writer to hide_tab_bar.
 
 ---
 
@@ -171,8 +180,9 @@ pub struct PendingZero(pub RwSignal<Option<(usize, usize)>>);
   These calls must be removed when promoting to Effect-managed tab bar, otherwise the Effect
   and component will fight. Test: confirm tab bar correctly re-shows after dismissing
   confirm-zero.
-- `game_view.rs` has `HideTabBar` import for a different purpose (it removes it from game_view
-  and moves management entirely to app.rs). Verify no other location in game_view sets
-  `hide_tab_bar` directly.
-- The `@media (max-width: 599px)` block currently sets `.scorecard td:first-child` width.
-  Adding label toggle CSS must not conflict with that rule.
+- `game_view.rs` had `HideTabBar` imported — all 3 explicit `hide_tab_bar.set()` calls were
+  removed. The import was dropped entirely since the component no longer needs it.
+- The `@media (max-width: 599px)` block previously set `.scorecard td:first-child` min-width to
+  5.5rem. Updated to `min-width: 2.4rem; max-width: 2.8rem` for abbreviated labels.
+- Ask Grandma worker round-trip test was waived — wasm-pack test runner cannot serve worker
+  files from test origin without custom HTTP fixture setup.
