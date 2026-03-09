@@ -38,7 +38,7 @@ switching applies instantly without a page reload.
 
 ### Theme Enum & Application
 
-- [x] Define `Theme` enum with 6 variants: `DevilRock`, `Borg`, `Horror`, `Renaissance`,
+- [x] Define `Theme` enum with 6 variants: `AbyssalDepths`, `Borg`, `Horror`, `Renaissance`,
   `NordicMinimal`, `PacificNorthwest`
 - [x] Implement `Theme::as_data_attr_value() -> &'static str` mapping to the `data-theme` attribute strings
 - [x] Implement `Theme::default() -> Theme` returning `NordicMinimal`
@@ -53,8 +53,8 @@ For each theme, add a `[data-theme="..."]` block in `style/main.css` overriding:
 
 - [x] **Nordic Minimal** (`nordic_minimal`): off-white bg, slate grey surface, moss/rust accent,
   dark text, neutral held border, blue-grey preview; sans-serif fonts
-- [x] **Devil Rock** (`devil_rock`): near-black bg `#0a0a0a`, dark red surface, neon red accent `#ff2020`,
-  acid yellow text `#f5e642`, neon red held border; Metal Mania or similar gothic display font
+- [x] **Abyssal Depths** (`abyssal_depths`): near-black midnight-blue bg `#050d1a`, deep indigo surface `#0a1f2e`,
+  bioluminescent teal accent `#00e5c8`, pale aqua text `#b2f0e8`, medium teal held border; Cinzel serif display font
 - [x] **Borg** (`borg`): dark charcoal bg, steel surface, cold cyan accent, cyan/green text,
   cyan held border, monospace body font
 - [x] **Horror** (`horror`): deep black bg, dark crimson surface, sickly green accent, near-white text,
@@ -81,7 +81,7 @@ For each theme, add a `[data-theme="..."]` block in `style/main.css` overriding:
 Each theme: 6 face components with custom symbols arranged to communicate pip count clearly.
 
 - [x] **Nordic Minimal:** geometric dots styled as runes/snowflakes; stark, precise; pip count readable
-- [x] **Devil Rock:** pentagrams, inverted crosses, flames; gothic numerals (face 1 = single pentagram, etc.)
+- [x] **Abyssal Depths:** bioluminescent jellyfish (domed ellipse bell + three quadratic-bezier tentacles in teal)
 - [x] **Borg:** hexagonal circuit nodes, assimilation glyphs, binary tally marks
 - [x] **Horror:** skulls, dripping blood, claw marks, eyeballs; pip positions preserved
 - [x] **Renaissance:** illuminated manuscript flourishes, gilded rosettes, Roman numerals
@@ -120,7 +120,7 @@ Each theme: 6 face components with custom symbols arranged to communicate pip co
   each card must show SVG with that theme's visual style even if it isn't the active theme.
   Options: (a) apply a `data-theme` attribute to the card `<div>` wrapper and scope CSS accordingly,
   (b) hardcode preview colours in SVG `fill` attributes. Option (a) is cleaner.
-- **Font loading:** Display fonts (Metal Mania for Devil Rock, etc.) must be loaded via Google Fonts or
+- **Font loading:** Display fonts (Cinzel for Abyssal Depths and Renaissance, MedievalSharp for Horror, etc.) must be loaded via Google Fonts or
   bundled. Add `<link>` tags to `index.html` for fonts not available system-wide.
   Fallback fonts (cursive, monospace, serif) are acceptable for initial implementation.
 - **Held-border contrast:** The `.dice-row__die--held` double-border must be visually distinct from
@@ -173,7 +173,7 @@ project's Leptos reactivity convention (see `lessons.md`).
 | `src/app.rs` | Theme load on init, `set_body_theme()` sync call, `Effect` for persistence, `provide_context(ActiveTheme(...))` |
 | `src/dice_svg/mod.rs` | New file — `DiceFace` component, `pip_positions()` helper |
 | `src/dice_svg/nordic.rs` | 6 face functions (geometric dots) |
-| `src/dice_svg/devil_rock.rs` | 6 face functions (pentagrams) |
+| `src/dice_svg/abyssal_depths.rs` | 6 face functions (jellyfish) |
 | `src/dice_svg/borg.rs` | 6 face functions (hex circuit nodes) |
 | `src/dice_svg/horror.rs` | 6 face functions (stylised skulls) |
 | `src/dice_svg/renaissance.rs` | 6 face functions (illuminated rosettes) |
