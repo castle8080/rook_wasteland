@@ -598,28 +598,33 @@ input[type="range"]::-moz-range-thumb {
     overflow: hidden;
   }
 
-  /* Stack layout: canvas fills all available space above the handle strip */
+  /* Stack layout: header keeps its natural height; canvas fills the rest.
+     Do NOT use an explicit height here — flex:1 (set in the base rule) handles
+     filling whatever space remains below the header.  padding-bottom reserves
+     space so content doesn't slide behind the fixed 44 px drawer handle. */
   .main-layout {
     flex-direction: column;
-    height: calc(100dvh - 44px); /* leave room for the handle strip */
+    height: auto;
+    padding-bottom: 44px;
     overflow: hidden;
   }
 
-  /* Canvas container fills its column cell */
+  /* Canvas container fills its column cell; min-height:0 lets it shrink */
   .canvas-container {
     flex: 1;
+    min-height: 0;
     width: 100%;
     padding: 0;
     align-items: center;
     justify-content: center;
   }
 
-  /* Canvas fills the full viewport width */
+  /* Canvas is square; constrain by both width and container height */
   #kaleidoscope-canvas {
-    width: 100vw;
-    height: 100vw; /* 1:1 ratio — fills width, crops to square */
-    max-width: 100vw;
-    max-height: calc(100dvh - 44px);
+    width: 100%;
+    height: auto;
+    max-width: 100%;
+    max-height: 100%;
     object-fit: contain;
   }
 
@@ -720,9 +725,22 @@ input[type="range"]::-moz-range-thumb {
     padding: 0.5rem 0.75rem;
   }
 
-  .header-title {
-    font-size: 1rem;
+  /* Title font tweak for narrow screens — fixes dead `.header-title` selector from v1 */
+  .app-title {
+    font-size: 0.9rem;
     letter-spacing: 0.15em;
+  }
+
+  /* Icon-only header buttons: hide text label, keep square 44px touch target */
+  .btn-label {
+    display: none;
+  }
+
+  .header-btn {
+    padding: 0;
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
   }
 }
 
