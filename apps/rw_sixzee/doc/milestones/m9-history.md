@@ -1,9 +1,9 @@
 # M9 — History Screen
 
 <!-- MILESTONE: M9 -->
-<!-- STATUS: NOT_STARTED -->
+<!-- STATUS: DONE -->
 
-**Status:** 🔲 NOT STARTED
+**Status:** ✅ Done
 **Depends on:** [M6 — Persistence & Resume](m6-persistence.md)
 **Required by:** [M10 — Polish & Mobile](m10-polish-mobile.md)
 

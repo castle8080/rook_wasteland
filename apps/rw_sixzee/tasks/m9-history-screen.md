@@ -1,7 +1,7 @@
 # Task M9: History Screen
 
 **Milestone:** M9 — History Screen
-**Status:** 🔄 In Progress
+**Status:** ✅ Done
 
 ## Restatement
 
@@ -109,12 +109,28 @@ fn row_class(rank: usize) -> &'static str // BEM modifier for medal rows
 
 ## Test Results
 
-(filled after Phase 6)
+All tests passed on first attempt after one Clippy fix (`needless_range_loop` in the
+integration test seed helper — replaced with `.iter_mut().enumerate()`).
+
+- `cargo test`: 93 native unit tests ✅
+- `cargo clippy --target wasm32-unknown-unknown --tests -- -D warnings`: clean ✅
+- `python make.py build` (trunk): success ✅
+- `python make.py test` (wasm-pack headless Firefox): 48 tests, 0 failures ✅
+  - 5 new M9 tests all passed on first run
 
 ## Review Notes
 
-(filled after Phase 7)
+No issues found. Code-review agent confirmed no logic errors, ownership concerns, or
+missing doc comments. `route.set()` + `navigate()` pattern is consistent with
+`end_game.rs` and correctly avoids flash on navigation.
 
 ## Callouts / Gotchas
 
-(filled after Phase 10)
+- `ScorecardReadOnly` avoids all context coupling by accepting owned prop values; this
+  is intentional and prevents the component from requiring fake game signals in the
+  history detail context.
+- `format_date` is duplicated between `history.rs` and `history_detail.rs`; this is
+  acceptable (small, pure, private helper) and avoids a shared utility module.
+- History is loaded from localStorage on every mount of `HistoryView`/`HistoryDetail`.
+  Since Leptos destroys and recreates components on route change, each navigation to
+  History gets fresh data. No stale-data risk.
