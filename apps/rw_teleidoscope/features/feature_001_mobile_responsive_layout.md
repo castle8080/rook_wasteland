@@ -248,10 +248,39 @@ above the breakpoint. New mobile wireframes (above) are additive.
 <!-- The sections below are filled in during the implementation phase -->
 
 ## Implementation Plan
-*To be determined*
+
+Implemented under milestone M11 across the following files:
+
+### Core implementation
+| File | What changed |
+|---|---|
+| `index.html` | Added `<meta name="viewport" content="width=device-width, initial-scale=1.0">` |
+| `src/utils.rs` | Added `pinch_distance()` and `apply_pinch_zoom()` with 9 native unit tests |
+| `src/state/app_state.rs` | Added `drawer_open: RwSignal<bool>` (default false) |
+| `src/app.rs` | Drawer handle button and dimmed backdrop div, both wired to `drawer_open` |
+| `src/components/controls_panel.rs` | Added `class:drawer--open` reactive CSS class binding |
+| `src/components/canvas_view.rs` | Removed hardcoded `CANVAS_SIZE = 800.0`; pointer normalisation now uses `canvas.client_width()` / `canvas.client_height()`; HashMap-based pinch tracking; `pointerup` / `pointercancel` listeners; `set_pointer_capture` on `pointerdown` |
+| `src/components/header.rs` | Wrapped button text labels in `<span class="btn-label">` so mobile CSS can hide them; added `aria-label` attributes to both buttons |
+| `style/main.css` | `touch-action: none` on canvas; `.camera-modal` min-width fix; full `@media (max-width: 768px)` block covering drawer, handle strip, backdrop, touch targets, icon-only header buttons |
+| `tests/m11_mobile_layout.rs` | 3 browser integration tests for drawer signal wiring |
+| `tests/integration.rs` + `tests/m8_export.rs` | Updated all `AppState {}` struct literals to include `drawer_open: RwSignal::new(false)` |
+
+### Post-implementation fix (same branch)
+Manual testing at 375 px revealed three bugs in the initial implementation that required a follow-up commit:
+
+1. **Dead CSS selector**: `.header-title` in the media query did not match any DOM element — the real class is `.app-title`. The title font-size override was silently doing nothing.
+2. **Header button overflow**: The text labels "LOAD IMAGE" and "USE CAMERA" (~180 px combined) overflowed the 375 px header row, causing the gear icon to appear above the app name. Fixed by hiding `.btn-label` in the media query and making `header-btn` a 44×44 icon-only touch target.
+3. **Height calc excluded header**: `.main-layout { height: calc(100dvh - 44px) }` only subtracted the drawer handle height, not the header height. When the header wrapped (due to button overflow), the total exceeded `100dvh`. Fixed by removing the explicit height and using `flex: 1` + `padding-bottom: 44px` instead.
+
+### Architecture deviations
+- `header.rs` required a Rust template change (adding `<span class="btn-label">`) in addition to CSS, beyond what the Architecture Fit section anticipated ("compact height variant via CSS only").
 
 ## Spec Changes
-*To be determined (list any doc/*.md files that will need updating)*
+- **`doc/prd.md`**: Mobile noted as a non-goal in the original PRD; updated with a note that it was implemented as Feature 001 / M11.
+- **`doc/tech_spec.md`**: `AppState` struct updated with `drawer_open` field; §14 Mobile/Responsive Layout section added covering breakpoint, drawer mechanism, touch interactions, and canvas sizing approach.
+- **`doc/wireframes.md`**: Sections 8–10 added — mobile drawer closed, mobile drawer open, and camera overlay on mobile.
+- **`doc/project_plan.md`**: M11 row added (✅ Complete).
+- **`doc/lessons.md`**: L16 (`(*canvas_el).clone()`), L17 (`UnmountHandle` naming), L18 (mobile height calc + dead CSS class) added.
 
 ## Test Strategy
 
@@ -323,6 +352,7 @@ Layout:
 - [ ] Canvas fills the full 375 px width as a square; no horizontal scroll
 - [ ] The drawer handle strip is visible at the bottom of the screen
 - [ ] Header is compact and does not wrap or overflow
+- [ ] Header shows only SVG icons for Load Image and Use Camera (no text labels)
 
 Drawer:
 - [ ] Tapping the handle opens the drawer with a smooth slide-up animation
@@ -363,6 +393,23 @@ viewport; `client_width()` used for pointer normalisation.
 **Chosen:** `<button class="drawer-handle">` and `<div class="drawer-backdrop">` in `app.rs`.  
 **Rationale:** App-level layout concerns belong in the root component.
 
+### Decision: icon-only header buttons on mobile (not moved to drawer)
+**Chosen:** "Load Image" and "Use Camera" buttons stay in the header on mobile, with text labels
+hidden. Only the SVG icons are visible.  
+**Alternatives considered:** Moving both buttons into the controls drawer panel on mobile.  
+**Rationale:** Loading an image is the primary action — it should always be one tap away. Moving it
+into the drawer would require two taps (open drawer, then tap button) for the most common first
+action. Icon-only buttons with `aria-label` attributes preserve accessibility without the overflow.
+
+### Decision: flex distribution over `calc()` for mobile layout heights
+**Chosen:** `.main-layout` uses `flex: 1` (inherited from desktop) and `padding-bottom: 44px` to
+reserve space above the fixed drawer handle.  
+**Alternatives considered:** `height: calc(100dvh - [header-height-var] - 44px)` with a CSS
+custom property; or a JavaScript ResizeObserver to compute and set the height at runtime.  
+**Rationale:** The header height is not a fixed value — it can change if font size, padding, or
+number of layout rows changes. Flex distribution is self-correcting and requires no maintenance
+when the header changes.
+
 ## Lessons / Highlights
 
 ### `(*canvas_el).clone()` needed for owned canvas handle in closures
@@ -379,3 +426,18 @@ each test. See lesson L17.
 Setting `touch-action: none` directly in CSS prevents the browser from acquiring touch
 handling at the CSS level, before any JS event dispatch. This is the recommended approach
 alongside `preventDefault()` in pointer listeners.
+
+### Mobile header layout: icon-only buttons prevent overflow; flex heights are self-correcting
+Two mistakes found during manual testing on a 375 px screen: (1) text labels on header buttons
+("LOAD IMAGE" / "USE CAMERA") were ~180 px combined and overflowed the header row, causing the
+gear icon to appear above the app name. Wrapping text in `<span class="btn-label">` and hiding it
+in the media query fixes this cleanly without moving the buttons. (2) `height: calc(100dvh - 44px)`
+on `.main-layout` excluded the header from the calculation, causing vertical overflow when the
+header wrapped. Using `flex: 1` + `padding-bottom: 44px` is self-correcting regardless of header
+height. See lesson L18.
+
+### Dead CSS class selectors are silent: always verify selector names against the DOM
+The mobile override `.header-title { font-size: 1rem }` targeted a class that never existed — the
+real class on the element was `.app-title`. No error, no warning; the rule just had no effect.
+When writing mobile override rules, cross-check the selector against the component's actual HTML
+class names before committing.
