@@ -362,3 +362,103 @@ test.describe("M8 Themes", () => {
     await expect(renCard.locator(".settings__theme-card__check")).toBeVisible();
   });
 });
+
+// ─── M10 Polish & Mobile smoke tests ─────────────────────────────────────────
+
+/**
+ * Build a GameState JSON with all 78 cells filled except column 5 / row 12
+ * (Chance), with dice [1,2,3,4,5] already rolled (rolls_used=1).
+ * Scoring Chance triggers game completion and the EndGame overlay.
+ */
+function nearCompleteGameJson(): string {
+  const filledCol: (number | null)[] = [5, 5, 5, 5, 5, 5, 15, 20, 25, 30, 40, 50, 15];
+  const lastCol: (number | null)[] = [5, 5, 5, 5, 5, 5, 15, 20, 25, 30, 40, 50, null]; // Chance open
+  return JSON.stringify({
+    id: "e2e-full-game-test",
+    cells: [filledCol, filledCol, filledCol, filledCol, filledCol, lastCol],
+    dice: [1, 2, 3, 4, 5],
+    held: [false, false, false, false, false],
+    rolls_used: 1,
+    turn: 77,
+    bonus_turn: false,
+    bonus_pool: 0,
+    bonus_forfeited: true,
+    started_at: "2026-01-01T00:00:00.000Z",
+  });
+}
+
+test.describe("M10 Polish & Mobile", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto("/rw_sixzee/", { waitUntil: "networkidle", timeout: 45_000 });
+    await page.evaluate(() => {
+      localStorage.removeItem("rw_sixzee.in_progress");
+      localStorage.removeItem("rw_sixzee.history");
+    });
+  });
+
+  test("full game completion shows end-game overlay with non-zero score", async ({
+    page,
+  }) => {
+    // Seed a near-complete game in localStorage (77/78 cells filled).
+    await page.evaluate((json: string) => {
+      localStorage.setItem("rw_sixzee.in_progress", json);
+    }, nearCompleteGameJson());
+
+    await navigate(page);
+    await page.waitForTimeout(500);
+
+    // Resume prompt should appear; resume the game.
+    const resumeBtn = page.locator(".resume-prompt .btn--primary");
+    await expect(resumeBtn).toBeVisible({ timeout: 5_000 });
+    await resumeBtn.click();
+    await page.waitForTimeout(500);
+
+    // One preview cell (Chance) should be visible — click it to complete the game.
+    const previewCell = page.locator(".scorecard__cell--preview").first();
+    await expect(previewCell).toBeVisible({ timeout: 3_000 });
+    await previewCell.click();
+    await page.waitForTimeout(500);
+
+    // End-game overlay must appear.
+    const endOverlay = page.locator(".overlay--end-game");
+    await expect(endOverlay).toBeVisible({ timeout: 5_000 });
+
+    // The overlay must have role="dialog".
+    await expect(endOverlay).toHaveAttribute("role", "dialog");
+
+    // Final score must be non-zero (we filled with value 5 or higher in every cell).
+    const finalScoreText = await page.locator(".end-game__final-score").textContent();
+    expect(finalScoreText).toBeTruthy();
+    const match = finalScoreText?.match(/\d+/);
+    expect(match).not.toBeNull();
+    expect(parseInt(match![0], 10)).toBeGreaterThan(0);
+  });
+
+  test("mobile viewport (375px) has no horizontal overflow", async ({
+    page,
+  }) => {
+    // Set a typical mobile viewport.
+    await page.setViewportSize({ width: 375, height: 812 });
+    await navigate(page);
+
+    // Dismiss opening quote.
+    const letsPlay = page.locator(".grandma-quote-overlay .btn--primary");
+    if (await letsPlay.isVisible()) {
+      await letsPlay.click();
+      await page.waitForTimeout(300);
+    }
+
+    // Roll dice to exercise the full game UI at mobile width.
+    const rollBtn = page
+      .locator(".action-buttons button")
+      .filter({ hasText: "ROLL" });
+    await rollBtn.click();
+    await page.waitForTimeout(300);
+
+    // Assert no horizontal overflow: scrollWidth must equal clientWidth (375px).
+    const overflow = await page.evaluate(() => {
+      return document.documentElement.scrollWidth - document.documentElement.clientWidth;
+    });
+    expect(overflow).toBe(0);
+  });
+});

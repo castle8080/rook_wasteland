@@ -36,7 +36,7 @@ pub fn ConfirmQuit(
 
     view! {
         // Backdrop: clicking it cancels.
-        <div class="overlay overlay--quit" on:click=cancel>
+        <div class="overlay overlay--quit" role="dialog" aria-modal="true" on:click=cancel>
             // Inner card: stop propagation so clicks inside don't also cancel.
             <div
                 class="overlay__box"

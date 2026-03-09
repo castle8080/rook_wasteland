@@ -2247,3 +2247,269 @@ async fn end_game_view_full_scorecard_navigates_to_history_detail() {
         let _ = w.location().set_hash("/");
     }
 }
+
+// ─── M10 Accessibility & Polish tests ────────────────────────────────────────
+
+/// Active tab button has aria-current="page"; inactive ones have aria-current="false".
+#[wasm_bindgen_test]
+async fn tab_bar_active_tab_has_aria_current_page() {
+    use leptos::mount::mount_to;
+    use rw_sixzee::app::App;
+
+    clear_game_storage();
+
+    // Start on Game tab (default).
+    if let Some(w) = web_sys::window() {
+        let _ = w.location().set_hash("/");
+    }
+
+    let container = fresh_container();
+    let _handle = mount_to(container.clone(), App);
+    tick().await;
+    tick().await;
+
+    // Dismiss opening quote if present.
+    dismiss_opening_quote(&container).await;
+
+    let buttons = container
+        .query_selector_all(".tab-bar__item")
+        .expect("query ok");
+    assert_eq!(buttons.length(), 3, "expected 3 tab buttons");
+
+    let mut page_count = 0u32;
+    let mut false_count = 0u32;
+    for i in 0..buttons.length() {
+        let btn = buttons.item(i).expect("item");
+        let val = btn
+            .unchecked_ref::<web_sys::Element>()
+            .get_attribute("aria-current")
+            .unwrap_or_default();
+        if val == "page" {
+            page_count += 1;
+        }
+        if val == "false" {
+            false_count += 1;
+        }
+    }
+    assert_eq!(page_count, 1, "exactly one tab must have aria-current=page");
+    assert_eq!(false_count, 2, "the other two tabs must have aria-current=false");
+}
+
+/// Tab bar is hidden while ConfirmZero overlay is visible (PendingZero context drives HideTabBar).
+#[wasm_bindgen_test]
+async fn tab_bar_hidden_while_confirm_zero_visible() {
+    use leptos::mount::mount_to;
+    use rw_sixzee::app::App;
+    use rw_sixzee::state::game::new_game;
+    use rw_sixzee::state::scoring::ROW_COUNT;
+    use rw_sixzee::state::storage;
+
+    clear_game_storage();
+    if let Some(w) = web_sys::window() {
+        let _ = w.location().set_hash("/");
+    }
+
+    // Pre-fill all cells except (col=0, row=0) so a single roll + click
+    // on that cell after scoring would be Ones. We need the cell to be open
+    // and the preview value to be 0 so the ConfirmZero overlay appears.
+    // Use dice [2,2,2,2,2] → score_ones = 0, triggering ConfirmZero.
+    // We'll set up the game in localStorage with all cells pre-filled except (0,0),
+    // then mount, roll, and click the zero-preview cell.
+    let mut g = new_game();
+    // Fill all cells except (col=0, row=0 = Ones).
+    for col in 0..6_usize {
+        for row in 0..ROW_COUNT {
+            if !(col == 0 && row == 0) {
+                g.cells[col][row] = Some(10);
+            }
+        }
+    }
+    // Set dice to all-twos (Ones preview = 0).
+    g.dice = [Some(2); 5];
+    g.rolls_used = 1;
+    storage::save_in_progress(&g).expect("save ok");
+
+    let container = fresh_container();
+    let _handle = mount_to(container.clone(), App);
+    tick().await;
+    tick().await;
+
+    // Resume the saved game.
+    let resume_btn = container.query_selector(".resume-prompt .btn--primary").expect("query");
+    if let Some(btn) = resume_btn {
+        btn.unchecked_ref::<HtmlElement>().click();
+        tick().await;
+        tick().await;
+    }
+
+    // Verify tab bar is currently visible before clicking zero cell.
+    let tab_bar = container
+        .query_selector(".tab-bar")
+        .expect("query")
+        .expect("tab-bar must exist");
+    let style_before = tab_bar
+        .unchecked_ref::<web_sys::Element>()
+        .get_attribute("style")
+        .unwrap_or_default();
+    assert!(
+        !style_before.contains("display: none"),
+        "tab bar must be visible before confirm-zero; style={style_before:?}"
+    );
+
+    // Click the zero-preview cell (col=0, row=0 = Ones with [2,2,2,2,2] dice).
+    let zero_cells = container
+        .query_selector_all(".scorecard__cell--zero-preview")
+        .expect("query");
+    assert!(zero_cells.length() > 0, "at least one zero-preview cell must exist");
+    zero_cells
+        .item(0)
+        .expect("item")
+        .unchecked_ref::<HtmlElement>()
+        .click();
+    tick().await;
+    tick().await;
+
+    // Confirm-zero overlay must be visible.
+    let overlay = container
+        .query_selector(".overlay--confirm")
+        .expect("query")
+        .expect("confirm-zero overlay must appear");
+    assert_eq!(
+        overlay.unchecked_ref::<web_sys::Element>()
+            .get_attribute("role")
+            .unwrap_or_default(),
+        "dialog",
+        "confirm-zero overlay must have role=dialog"
+    );
+
+    // Tab bar must now be hidden.
+    let style_after = tab_bar
+        .unchecked_ref::<web_sys::Element>()
+        .get_attribute("style")
+        .unwrap_or_default();
+    assert!(
+        style_after.contains("display: none"),
+        "tab bar must be hidden while confirm-zero is open; style={style_after:?}"
+    );
+
+    ls_remove("rw_sixzee.in_progress");
+}
+
+/// End-game overlay has role="dialog" and aria-modal="true".
+#[wasm_bindgen_test]
+async fn overlays_have_role_dialog_and_aria_modal() {
+    use leptos::mount::mount_to;
+    use rw_sixzee::app::App;
+    use rw_sixzee::state::game::new_game;
+    use rw_sixzee::state::scoring::ROW_COUNT;
+    use rw_sixzee::state::storage;
+
+    clear_game_storage();
+    if let Some(w) = web_sys::window() {
+        let _ = w.location().set_hash("/");
+    }
+
+    // Build a near-complete game (all cells filled) — one more roll + score triggers EndGame.
+    let mut g = new_game();
+    for col in 0..6_usize {
+        for row in 0..ROW_COUNT {
+            if !(col == 5 && row == 12) {
+                // leave (col=5, row=12 = Chance) open
+                g.cells[col][row] = Some(5);
+            }
+        }
+    }
+    // Set dice to [1,2,3,4,5] (Chance = 15 > 0, so no ConfirmZero).
+    g.dice = [Some(1), Some(2), Some(3), Some(4), Some(5)];
+    g.rolls_used = 1;
+    storage::save_in_progress(&g).expect("save ok");
+
+    let container = fresh_container();
+    let _handle = mount_to(container.clone(), App);
+    tick().await;
+    tick().await;
+
+    // Resume.
+    let resume_btn = container.query_selector(".resume-prompt .btn--primary").expect("query");
+    if let Some(btn) = resume_btn {
+        btn.unchecked_ref::<HtmlElement>().click();
+        tick().await;
+        tick().await;
+    }
+
+    // Click the Chance preview cell on column 6 (col=5, row=12).
+    let preview_cells = container
+        .query_selector_all(".scorecard__cell--preview")
+        .expect("query");
+    // There should be exactly one preview cell — the Chance cell.
+    assert_eq!(preview_cells.length(), 1, "exactly one preview cell (Chance, col 6)");
+    preview_cells
+        .item(0)
+        .expect("item")
+        .unchecked_ref::<HtmlElement>()
+        .click();
+    tick().await;
+    tick().await;
+
+    // End-game overlay must appear.
+    let end_overlay = container
+        .query_selector(".overlay--end-game")
+        .expect("query")
+        .expect("end-game overlay must appear");
+    assert_eq!(
+        end_overlay.unchecked_ref::<web_sys::Element>()
+            .get_attribute("role")
+            .unwrap_or_default(),
+        "dialog",
+        "end-game overlay must have role=dialog"
+    );
+    assert_eq!(
+        end_overlay.unchecked_ref::<web_sys::Element>()
+            .get_attribute("aria-modal")
+            .unwrap_or_default(),
+        "true",
+        "end-game overlay must have aria-modal=true"
+    );
+
+    ls_remove("rw_sixzee.in_progress");
+}
+
+/// Scorecard cells have an aria-label attribute describing their state.
+#[wasm_bindgen_test]
+async fn scorecard_cells_have_aria_label() {
+    use leptos::mount::mount_to;
+    use rw_sixzee::app::App;
+
+    clear_game_storage();
+    if let Some(w) = web_sys::window() {
+        let _ = w.location().set_hash("/");
+    }
+
+    let container = fresh_container();
+    let _handle = mount_to(container.clone(), App);
+    tick().await;
+    tick().await;
+
+    // Dismiss opening quote.
+    dismiss_opening_quote(&container).await;
+
+    // Before rolling, cells are in 'open' state and should have aria-labels.
+    let open_cells = container
+        .query_selector_all(".scorecard__cell--open")
+        .expect("query");
+    assert!(open_cells.length() > 0, "open cells must exist before rolling");
+
+    let first_open = open_cells.item(0).expect("item");
+    let label = first_open
+        .unchecked_ref::<web_sys::Element>()
+        .get_attribute("aria-label")
+        .unwrap_or_default();
+    assert!(
+        !label.is_empty(),
+        "open scorecard cell must have a non-empty aria-label"
+    );
+    assert!(
+        label.contains("empty"),
+        "open cell aria-label must contain 'empty'; got: {label:?}"
+    );
+}

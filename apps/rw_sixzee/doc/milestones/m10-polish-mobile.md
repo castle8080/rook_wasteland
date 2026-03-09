@@ -20,7 +20,7 @@ every existing feature works correctly on mobile, handles all edge cases gracefu
 ## Success Criteria
 
 - [ ] At viewport width ≤ 599px, the scorecard renders without horizontal scrolling; row labels are abbreviated
-  (1s–6s, 3K, 4K, FH, SS, LS, YZ, CH); column headers are C1–C6
+  (1s–6s, 3K, 4K, FH, SS, LS, 6Z, CH); column headers are C1–C6
 - [ ] All interactive targets (dice, cells, buttons, tab items, Ask Grandma cards) are ≥ 44×44 px on mobile
 - [ ] Tapping a die on iOS Safari and Android Chrome correctly toggles held state
 - [ ] Ask Grandma's Advice panel is full-screen (or near-full-screen) on mobile and dismissible without precise pointer control
@@ -44,7 +44,7 @@ every existing feature works correctly on mobile, handles all edge cases gracefu
 - [ ] Add `@media (max-width: 599px)` block in `style/main.css`
 - [ ] Scorecard: shift to condensed grid — abbreviated row labels, smaller cell padding,
   `font-size` reduced, cells shrink to fit 6 columns on screen width
-- [ ] Apply abbreviated labels: 1s, 2s, 3s, 4s, 5s, 6s, Sub, Bon, 3K, 4K, FH, SS, LS, YZ, CH, Tot
+- [ ] Apply abbreviated labels: 1s, 2s, 3s, 4s, 5s, 6s, Sub, Bon, 3K, 4K, FH, SS, LS, 6Z, CH, Tot
 - [ ] Column headers: C1–C6 (abbreviated from full numbers)
 - [ ] Dice: reduce die size but maintain ≥ 44×44 px tap area via padding
 - [ ] Buttons (Roll, Ask Grandma, Apply): full-width or near-full-width on mobile

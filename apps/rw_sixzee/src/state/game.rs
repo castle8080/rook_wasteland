@@ -736,6 +736,43 @@ mod tests {
         assert_eq!(pruned.len(), 1, "entry with unparseable timestamp must be retained");
     }
 
+    // ── mini-game: fill all 78 cells programmatically ──
+
+    /// Simulate a complete Sixzee game by setting dice directly and placing a
+    /// score in every cell.  After 78 placements (6 cols × 13 rows):
+    /// - `is_game_complete()` must return `true`
+    /// - `grand_total()` must be greater than 0
+    ///
+    /// This is the Tier 1 "mini-game" test required by the M10 acceptance criteria.
+    #[test]
+    fn mini_game_fill_all_cells_is_complete_with_nonzero_total() {
+        let mut g = new_game();
+        // Use dice [1,1,1,1,1] for every turn so score_for_row gives deterministic
+        // non-zero values for upper rows (Ones = 5) and a non-zero Chance (5).
+        // Lower-section rows that need specific patterns are scored with zeros —
+        // that is fine; grand_total still ends up > 0 from the upper rows.
+        for col in 0..6_usize {
+            for row in 0..ROW_COUNT {
+                // Set fresh dice before each placement (place_score requires them).
+                g.dice = [Some(1); 5];
+                g.rolls_used = 1;
+                place_score(&mut g, col, row).expect("place_score must succeed for empty cell");
+                // Reset turn state to allow the next placement (start_turn is
+                // called inside place_score, but bonus_sixzee detection clears
+                // dice; set dice again on next iteration).
+            }
+        }
+        assert!(
+            is_game_complete(&g),
+            "all 78 cells filled → game must be complete"
+        );
+        let total = grand_total(&g.cells, g.bonus_pool);
+        assert!(
+            total > 0,
+            "grand total must be > 0 after filling with [1,1,1,1,1] dice; got {total}"
+        );
+    }
+
     // ── completed_game_from_state ──
 
     #[test]

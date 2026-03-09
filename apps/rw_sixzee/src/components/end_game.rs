@@ -69,7 +69,7 @@ pub fn EndGame(
     let forfeited = state.bonus_forfeited;
 
     view! {
-        <div class="overlay overlay--end-game">
+        <div class="overlay overlay--end-game" role="dialog" aria-modal="true">
             <div class="overlay__box">
                 <div class="end-game__title">"🎲  GAME COMPLETE  🎲"</div>
 

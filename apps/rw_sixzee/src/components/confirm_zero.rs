@@ -6,7 +6,6 @@
 
 use leptos::prelude::*;
 
-use crate::state::HideTabBar;
 use crate::components::grandma_quote::GrandmaQuoteInline;
 use crate::state::game::GameState;
 use crate::state::quotes::{pick_quote, QuoteBank};
@@ -14,7 +13,10 @@ use crate::state::scoring::{ROW_LABELS, ROW_SIXZEE};
 
 /// Zero-score confirmation prompt.
 ///
-/// Sets `hide_tab_bar = true` while visible; resets it on dismiss.
+/// Shown when the player clicks a cell that would score 0. The `PendingZero`
+/// context signal is managed by the caller (`GameView`); `ConfirmZero` itself
+/// does not write to `HideTabBar` — the `app.rs` Effect reacts to `PendingZero`
+/// going `Some`/`None` automatically.
 #[component]
 pub fn ConfirmZero(
     /// Column index (0-based) of the cell being scratched.
@@ -28,8 +30,6 @@ pub fn ConfirmZero(
 ) -> impl IntoView {
     let quote_bank =
         use_context::<RwSignal<Option<QuoteBank>>>().expect("quote_bank context must be provided");
-    let hide_tab_bar =
-        use_context::<HideTabBar>().expect("hide_tab_bar context must be provided").0;
 
     // Resolve a scratch quote once on mount.
     let scratch_quote: Option<String> = quote_bank
@@ -44,17 +44,11 @@ pub fn ConfirmZero(
         use_context::<RwSignal<GameState>>().expect("game_signal context must be provided");
     let already_forfeited = game_signal.get_untracked().bonus_forfeited;
 
-    let cancel = move |_| {
-        hide_tab_bar.set(false);
-        on_cancel.run(());
-    };
-    let confirm = move |_| {
-        hide_tab_bar.set(false);
-        on_confirm.run(());
-    };
+    let cancel = move |_| on_cancel.run(());
+    let confirm = move |_| on_confirm.run(());
 
     view! {
-        <div class="overlay overlay--confirm">
+        <div class="overlay overlay--confirm" role="dialog" aria-modal="true">
             <div class="overlay__box">
                 <h3>
                     {format!("Place 0 in {} — Col {}?", row_name, col + 1)}

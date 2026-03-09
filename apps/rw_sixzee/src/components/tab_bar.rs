@@ -45,6 +45,9 @@ pub fn TabBar() -> impl IntoView {
                         "tab-bar__item"
                     }
                 }
+                aria-current=move || {
+                    if matches!(route.get(), Route::Game) { "page" } else { "false" }
+                }
                 on:click=on_game
             >
                 "🎲 Game"
@@ -55,6 +58,13 @@ pub fn TabBar() -> impl IntoView {
                         "tab-bar__item tab-bar__item--active"
                     } else {
                         "tab-bar__item"
+                    }
+                }
+                aria-current=move || {
+                    if matches!(route.get(), Route::History | Route::HistoryDetail { .. }) {
+                        "page"
+                    } else {
+                        "false"
                     }
                 }
                 on:click=on_history
@@ -68,6 +78,9 @@ pub fn TabBar() -> impl IntoView {
                     } else {
                         "tab-bar__item"
                     }
+                }
+                aria-current=move || {
+                    if matches!(route.get(), Route::Settings) { "page" } else { "false" }
                 }
                 on:click=on_settings
             >

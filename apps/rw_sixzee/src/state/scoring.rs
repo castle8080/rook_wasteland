@@ -53,6 +53,16 @@ pub const ROW_LABELS: [&str; ROW_COUNT] = [
     "Chance",
 ];
 
+/// Abbreviated row labels for narrow/mobile display (≤599px).
+///
+/// Mirrors [`ROW_LABELS`] in index order.  Used by the scorecard dual-span
+/// CSS toggle: the short form is hidden at desktop widths and revealed at
+/// `@media (max-width: 599px)`.
+pub const ROW_LABELS_SHORT: [&str; ROW_COUNT] = [
+    "1s", "2s", "3s", "4s", "5s", "6s",
+    "3K", "4K", "FH", "SS", "LS", "6Z", "CH",
+];
+
 /// Upper section bonus threshold (sum of rows 0–5 must reach this to earn the bonus).
 const UPPER_BONUS_THRESHOLD: u16 = 63;
 /// Value of the upper section bonus.

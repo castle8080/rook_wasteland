@@ -38,6 +38,14 @@ pub struct ShowOpeningQuote(pub RwSignal<bool>);
 #[derive(Clone, Copy)]
 pub struct HideTabBar(pub RwSignal<bool>);
 
+/// Newtype for the zero-score confirmation signal — `Some((col, row))` while
+/// the `ConfirmZero` overlay is shown; `None` otherwise.
+///
+/// Provided at the `App` root so the `hide_tab_bar` Effect can react to it
+/// without the overlay component needing to write to `HideTabBar` directly.
+#[derive(Clone, Copy)]
+pub struct PendingZero(pub RwSignal<Option<(usize, usize)>>);
+
 /// Newtype for the active `Theme` signal — the currently selected visual theme.
 ///
 /// Provided at the `App` root; read by `DiceRow`, `SettingsView`, and any

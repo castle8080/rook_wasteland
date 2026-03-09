@@ -54,7 +54,7 @@ pub fn ResumePrompt() -> impl IntoView {
     };
 
     view! {
-        <div class="overlay">
+        <div class="overlay" role="dialog" aria-modal="true">
             <div class="overlay__box resume-prompt">
                 <h2>"Resume Game?"</h2>
                 <div class="resume-prompt__info">

@@ -10,7 +10,7 @@ use leptos::prelude::*;
 use crate::state::game::GameState;
 use crate::state::scoring::{
     bonus_pool_label, column_total, grand_total, lower_subtotal, upper_bonus, upper_subtotal,
-    ROW_COUNT, ROW_LABELS, ROW_SIXZEE,
+    ROW_COUNT, ROW_LABELS, ROW_LABELS_SHORT, ROW_SIXZEE,
 };
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -51,7 +51,10 @@ pub fn Scorecard(
                         .map(|row| {
                             view! {
                                 <tr>
-                                    <td>{ROW_LABELS[row]}</td>
+                                    <td>
+                                        <span class="scorecard__label--long">{ROW_LABELS[row]}</span>
+                                        <span class="scorecard__label--short">{ROW_LABELS_SHORT[row]}</span>
+                                    </td>
                                     {(0..6_usize)
                                         .map(|col| {
                                             cell_view(
@@ -105,7 +108,10 @@ pub fn Scorecard(
                         .map(|row| {
                             view! {
                                 <tr>
-                                    <td>{ROW_LABELS[row]}</td>
+                                    <td>
+                                        <span class="scorecard__label--long">{ROW_LABELS[row]}</span>
+                                        <span class="scorecard__label--short">{ROW_LABELS_SHORT[row]}</span>
+                                    </td>
                                     {(0..6_usize)
                                         .map(|col| {
                                             cell_view(
@@ -228,7 +234,10 @@ pub fn ScorecardReadOnly(
                         .map(|row| {
                             view! {
                                 <tr>
-                                    <td>{ROW_LABELS[row]}</td>
+                                    <td>
+                                        <span class="scorecard__label--long">{ROW_LABELS[row]}</span>
+                                        <span class="scorecard__label--short">{ROW_LABELS_SHORT[row]}</span>
+                                    </td>
                                     {(0..6_usize)
                                         .map(|col| {
                                             let val = cells[col][row];
@@ -274,7 +283,10 @@ pub fn ScorecardReadOnly(
                         .map(|row| {
                             view! {
                                 <tr>
-                                    <td>{ROW_LABELS[row]}</td>
+                                    <td>
+                                        <span class="scorecard__label--long">{ROW_LABELS[row]}</span>
+                                        <span class="scorecard__label--short">{ROW_LABELS_SHORT[row]}</span>
+                                    </td>
                                     {(0..6_usize)
                                         .map(|col| {
                                             let val = cells[col][row];
@@ -359,16 +371,26 @@ fn cell_view(
 
             if let Some(v) = cell {
                 // Filled cell — display value, not clickable.
+                let label = format!("{}, Column {}: scored {}", ROW_LABELS[row], col + 1, v);
                 return view! {
-                    <td class="scorecard__cell scorecard__cell--filled">{v.to_string()}</td>
+                    <td
+                        class="scorecard__cell scorecard__cell--filled"
+                        aria-label=label
+                    >
+                        {v.to_string()}
+                    </td>
                 }
                 .into_any();
             }
 
             if rolls_used == 0 {
                 // Not yet rolled — open cell, no preview, not clickable.
+                let label = format!("{}, Column {}: empty", ROW_LABELS[row], col + 1);
                 return view! {
-                    <td class="scorecard__cell scorecard__cell--open"></td>
+                    <td
+                        class="scorecard__cell scorecard__cell--open"
+                        aria-label=label
+                    ></td>
                 }
                 .into_any();
             }
@@ -376,9 +398,12 @@ fn cell_view(
             // Rolled — show preview.
             let preview = score_preview.get()[col][row];
             if preview > 0 {
+                let label =
+                    format!("{}, Column {}: preview {} pts, click to score", ROW_LABELS[row], col + 1, preview);
                 view! {
                     <td
                         class="scorecard__cell scorecard__cell--preview"
+                        aria-label=label
                         on:click=move |_| on_cell_click.run((col, row))
                     >
                         {format!("[{preview}]")}
@@ -386,9 +411,12 @@ fn cell_view(
                 }
                 .into_any()
             } else {
+                let label =
+                    format!("{}, Column {}: preview 0 pts, click to score", ROW_LABELS[row], col + 1);
                 view! {
                     <td
                         class="scorecard__cell scorecard__cell--zero-preview"
+                        aria-label=label
                         on:click=move |_| on_cell_click.run((col, row))
                     >
                         "[0]"

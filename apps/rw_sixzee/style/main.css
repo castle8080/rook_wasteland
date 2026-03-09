@@ -763,6 +763,11 @@ button {
 
 /* ── Mobile Responsive ───────────────────────────────────────────────────── */
 
+/* Long labels show at desktop, short labels hide; toggled in the 599px block. */
+.scorecard__label--short {
+  display: none;
+}
+
 @media (max-width: 599px) {
   .tab-bar__item {
     padding: 0.5rem 1rem;
@@ -780,9 +785,34 @@ button {
     font-size: 0.72rem;
   }
 
+  /* Switch to abbreviated row labels on mobile. */
+  .scorecard__label--long {
+    display: none;
+  }
+
+  .scorecard__label--short {
+    display: inline;
+  }
+
+  /* Shrink first-column width to fit abbreviated labels. */
   .scorecard td:first-child,
   .scorecard th:first-child {
-    min-width: 5.5rem;
+    min-width: 2.4rem;
+    max-width: 2.8rem;
+  }
+
+  /* Touch targets for scorecard cells: at least 44px tap area. */
+  .scorecard__cell {
+    min-height: 44px;
+    padding: 0.55rem 0.2rem;
+  }
+
+  /* Full-width primary action buttons on mobile. */
+  .btn--primary,
+  .btn--secondary,
+  .btn--danger {
+    width: 100%;
+    box-sizing: border-box;
   }
 }
 

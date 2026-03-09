@@ -21,7 +21,7 @@ use crate::state::quotes::{load_quote_bank, QuoteBank};
 use crate::state::scoring::grand_total as compute_grand_total;
 use crate::state::storage;
 use crate::state::Theme;
-use crate::state::{ActiveTheme, GameActive, HideTabBar, ShowOpeningQuote, ShowResume};
+use crate::state::{ActiveTheme, GameActive, HideTabBar, PendingZero, ShowOpeningQuote, ShowResume};
 use crate::worker::{spawn_grandma_worker, GrandmaPanelState};
 
 fn get_initial_route() -> Route {
@@ -76,6 +76,12 @@ pub fn App() -> impl IntoView {
     // ── M6: saved game state waiting for resume decision ──────────────────
     let pending_resume: RwSignal<Option<GameState>> = RwSignal::new(None);
 
+    // ── M10: pending zero-score confirmation — Some((col, row)) while the
+    // ConfirmZero overlay is visible, None otherwise. Promoted to context so
+    // the hide_tab_bar Effect can react to it without ConfirmZero writing
+    // hide_tab_bar directly.
+    let pending_zero: RwSignal<Option<(usize, usize)>> = RwSignal::new(None);
+
     // ── M7: Ask Grandma worker + panel state ──────────────────────────────
     let grandma_worker: RwSignal<Option<web_sys::Worker>> = RwSignal::new(None);
     let grandma_panel_state: RwSignal<GrandmaPanelState> =
@@ -106,6 +112,7 @@ pub fn App() -> impl IntoView {
     provide_context(ShowOpeningQuote(show_opening_quote));
     provide_context(HideTabBar(hide_tab_bar));
     provide_context(pending_resume);
+    provide_context(PendingZero(pending_zero));
     provide_context(grandma_worker);
     provide_context(grandma_panel_state);
     provide_context(ActiveTheme(theme_signal));
@@ -149,7 +156,8 @@ pub fn App() -> impl IntoView {
     Effect::new(move |_| {
         let quote_visible = show_opening_quote.get() && quote_bank.get().is_some();
         let grandma_open = !matches!(grandma_panel_state.get(), GrandmaPanelState::Closed);
-        hide_tab_bar.set(quote_visible || show_resume.get() || grandma_open);
+        let confirm_zero_open = pending_zero.get().is_some();
+        hide_tab_bar.set(quote_visible || show_resume.get() || grandma_open || confirm_zero_open);
     });
 
     // ── M8: Persist theme changes and update <body data-theme="..."> ──────

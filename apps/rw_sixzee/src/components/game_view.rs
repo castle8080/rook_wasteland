@@ -21,7 +21,7 @@ use crate::state::game::{
 use crate::state::quotes::{pick_quote, QuoteBank};
 use crate::state::scoring::score_sixzee;
 use crate::state::storage;
-use crate::state::{GameActive, HideTabBar, ShowOpeningQuote};
+use crate::state::{GameActive, PendingZero, ShowOpeningQuote};
 use crate::worker::messages::GrandmaRequest;
 use crate::worker::{post_grandma_request, GrandmaPanelState};
 
@@ -67,12 +67,10 @@ pub fn GameView() -> impl IntoView {
         use_context::<RwSignal<GameState>>().expect("game_signal context must be provided");
     let quote_bank =
         use_context::<RwSignal<Option<QuoteBank>>>().expect("quote_bank context must be provided");
-    let hide_tab_bar =
-        use_context::<HideTabBar>().expect("hide_tab_bar context must be provided").0;
-    let show_opening_quote =
-        use_context::<ShowOpeningQuote>().expect("show_opening_quote context must be provided").0;
     let game_active =
         use_context::<GameActive>().expect("game_active context must be provided").0;
+    let show_opening_quote =
+        use_context::<ShowOpeningQuote>().expect("show_opening_quote context must be provided").0;
 
     // ── M7: Ask Grandma ──────────────────────────────────────────────────────
     let grandma_worker =
@@ -83,7 +81,10 @@ pub fn GameView() -> impl IntoView {
     // ── Local overlay state ──────────────────────────────────────────────────
 
     // `Some((col, row))` when the zero-score confirmation prompt is open.
-    let pending_zero: RwSignal<Option<(usize, usize)>> = RwSignal::new(None);
+    // Promoted to app-level context (PendingZero) so the hide_tab_bar Effect
+    // in app.rs can react to it — read from context rather than created locally.
+    let pending_zero =
+        use_context::<PendingZero>().expect("pending_zero context must be provided").0;
 
     // Set to a picked Sixzee quote when the current dice all match.
     // Cleared on the next roll or score placement.
@@ -176,7 +177,6 @@ pub fn GameView() -> impl IntoView {
             });
             persist_after_score(&game_signal.get_untracked());
         } else {
-            hide_tab_bar.set(true);
             pending_zero.set(Some((col, row)));
         }
     });
@@ -184,12 +184,10 @@ pub fn GameView() -> impl IntoView {
     // ── Confirm-zero callbacks ────────────────────────────────────────────────
 
     let on_cancel_zero = Callback::new(move |_| {
-        hide_tab_bar.set(false);
         pending_zero.set(None);
     });
 
     let on_confirm_zero = Callback::new(move |_| {
-        hide_tab_bar.set(false);
         if let Some((col, row)) = pending_zero.get_untracked() {
             sixzee_inline_quote.set(None);
             game_signal.update(|s| {
