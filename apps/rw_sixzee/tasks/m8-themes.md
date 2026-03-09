@@ -1,7 +1,7 @@
 # Task M8: Themes & SVG Dice
 
 **Milestone:** M8 — Themes & SVG Dice
-**Status:** 🔄 In Progress
+**Status:** ✅ Done
 
 ## Restatement
 
@@ -104,11 +104,28 @@ pub fn face(value: u8) -> impl IntoView;
 
 ## Test Results
 
-(filled after Phase 6)
+- Native unit tests: **92 passed** (including 5 new `state::theme::tests::*`)
+- Browser integration tests: **35 passed** (including 3 new M8 tests:
+  `settings_renders_six_theme_cards`, `settings_card_click_changes_body_theme`,
+  `settings_active_card_has_active_class`)
+- `cargo clippy --target wasm32-unknown-unknown --tests -- -D warnings`: **0 warnings**
+- `trunk build`: **✅ success**
 
 ## Review Notes
 
-(filled after Phase 7)
+No issues found during self-review or code-review agent pass.
+
+## Callouts / Gotchas
+
+- SVG `viewBox` attribute: written as `viewBox=` in Leptos 0.8 view! macro — valid Rust identifier
+- Hyphenated SVG attrs (`stroke-width`) use `style=` string to avoid identifier parse issues
+- Settings card `data-theme` scoping: ensures preview colour fidelity for all 6 themes
+- Existing `app_load_applies_saved_theme_to_body` test used `"sixzee_dark"` (not a valid M8
+  theme); updated to `"devil_rock"` so it tests the real round-trip behaviour
+- `roll_reveals_dice_values` integration test updated to check `aria-label` instead of
+  `text_content()` because rolled dice now contain SVG (no text nodes)
+- Pre-existing `clippy::assertions_on_constants` lint in `advisor.rs` suppressed with
+  `#[allow]` on the specific test fn
 
 ## Callouts / Gotchas
 
