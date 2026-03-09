@@ -1,0 +1,17 @@
+[build]
+target     = "index.html"
+dist       = "dist"
+# IMPORTANT: must match the deployment subdirectory exactly so Trunk injects
+# correct absolute paths for the WASM binary, JS glue, and CSS.
+public_url = "/rw_sixzee/"
+
+[watch]
+ignore = ["dist", "doc", "node_modules", "e2e"]
+
+# Copy the assets/ directory into the dist output so grandma_quotes.json,
+# grandma_worker.js, and the pre-built grandma_worker_core.* files are served
+# alongside the WASM bundle.  The worker core files are built into assets/ by
+# `python make.py build` (or `make.py worker`) before trunk runs, so [[copy-dir]]
+# picks them up naturally during staging.
+[[copy-dir]]
+path = "assets"

@@ -1,0 +1,19 @@
+{
+  "name": "rw_sixzee",
+  "version": "1.0.0",
+  "description": "A solitaire 6-column Sixzee game for the browser. Built with **Rust**, **Leptos 0.8 (CSR)**, and compiled to WebAssembly via **Trunk**. Part of the [Rook Wasteland](../../README.md) monorepo.",
+  "main": "index.js",
+  "directories": {
+    "doc": "doc",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.58.2"
+  }
+}
