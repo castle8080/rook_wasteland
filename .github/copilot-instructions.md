@@ -360,9 +360,8 @@ Before writing code for any non-trivial task:
 4. Implement + tests
 5. **Coverage audit:** for every public function or component added/modified, list each meaningful behaviour and confirm it is tested or document why it is waived. Undocumented gaps are bugs in the test suite.
 6. Run all checks: `cargo test` + `cargo clippy --target wasm32-unknown-unknown --tests -- -D warnings` + `trunk build` — all must pass
-7. Self-review: every public `fn`/`struct`/`trait` needs a `///` doc comment; magic numbers need named constants
-8. Stage changes and self-review for logic errors and edge cases
-9. Commit with proper message format (see below), then mark task doc ✅ Done
+7. Self-review: every public `fn`/`struct`/`trait` needs a `///` doc comment; magic numbers need named constants; cheddk for logic errors; check for edge cases
+8. Commit with proper message format (see below), then mark task doc ✅ Done
 
 ### Commit message format
 
