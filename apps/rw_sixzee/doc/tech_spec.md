@@ -50,7 +50,7 @@ apps/rw_sixzee/
 │   │   └── grandma_quote.rs # opening overlay + inline quote display
 │   ├── dice_svg/
 │   │   ├── mod.rs          # DiceFace component dispatch
-│   │   ├── devil_rock.rs   # 6 face SVGs for Devil Rock theme
+│   │   ├── abyssal_depths.rs # 6 face SVGs for Abyssal Depths theme
 │   │   ├── borg.rs
 │   │   ├── horror.rs
 │   │   ├── renaissance.rs
@@ -339,7 +339,7 @@ Key blocks:
 ### 8.2 Theming with CSS Custom Properties
 
 The `<body>` element carries a `data-theme` attribute (e.g.
-`data-theme="devil_rock"`). Each theme is declared as a CSS selector block
+`data-theme="abyssal_depths"`). Each theme is declared as a CSS selector block
 that overrides the custom properties defined in `:root`.
 
 ```css
@@ -354,12 +354,12 @@ that overrides the custom properties defined in `:root`.
   --font-display:     'Inter', sans-serif;
 }
 
-[data-theme="devil_rock"] {
-  --color-bg:         #0a0a0a;
-  --color-surface:    #1a0000;
-  --color-accent:     #ff2020;
-  --color-text:       #f5e642;
-  --font-display:     'Metal Mania', cursive;
+[data-theme="abyssal_depths"] {
+  --color-bg:         #050d1a;
+  --color-surface:    #0a1f2e;
+  --color-accent:     #00e5c8;
+  --color-text:       #b2f0e8;
+  --font-display:     'Cinzel', serif;
   /* ... */
 }
 
@@ -392,11 +392,9 @@ return inline SVG (`view!` macro). All share a common 100×100 viewBox.
 // dice_svg/mod.rs
 #[component]
 pub fn DiceFace(theme: Theme, value: u8) -> impl IntoView {
-    match (theme, value) {
-        (Theme::DevilRock, 1) => devil_rock::Face1(),
-        (Theme::DevilRock, 2) => devil_rock::Face2(),
-        // ...
-        (Theme::NordicMinimal, v) => nordic_minimal::face(v),
+    match theme {
+        Theme::AbyssalDepths => abyssal_depths::face(value).into_any(),
+        Theme::NordicMinimal => nordic::face(value).into_any(),
         // ...
     }
 }

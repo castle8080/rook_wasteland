@@ -1,7 +1,7 @@
 # Feature 002 — Abyssal Depths Theme
 
 ## Status
-Proposed
+Implemented
 
 ## Summary
 Replace the Devil Rock dice theme with a new "Abyssal Depths" theme inspired by
@@ -136,16 +136,95 @@ is removed, Metal Mania has no remaining consumers.
 <!-- The sections below are filled in during the implementation phase -->
 
 ## Implementation Plan
-*To be determined*
+
+### Files added
+- `src/dice_svg/abyssal_depths.rs` — jellyfish pip renderer: `pip(cx, cy)` private
+  function builds an SVG `<g>` of one `<ellipse>` bell (rx=5, ry=4, offset cy-2) and
+  three quadratic-bezier `<path>` tentacles (left, centre, right). All strokes use
+  `var(--color-accent)`. `stroke-width` lives in the CSS `style` attribute per
+  Leptos 0.8 hyphenated-attribute restriction. Three unit tests added inline.
+
+### Files modified
+- `src/state/theme.rs` — `DevilRock` → `AbyssalDepths` in enum declaration, all four
+  match arms (`as_data_attr_value`, `label`, `all`, `from_data_attr`), and the existing
+  unit tests (5 tests, all continue to pass with the new variant name).
+- `src/dice_svg/mod.rs` — `pub mod devil_rock` → `pub mod abyssal_depths`; match arm
+  in `DiceFace` updated; module doc comment updated.
+- `style/main.css` — `[data-theme="devil_rock"]` block replaced with
+  `[data-theme="abyssal_depths"]` block (#050d1a bg / #0a1f2e surface / #00e5c8
+  accent / #b2f0e8 text / #00bfa5 held-border / #38b2ac preview / 'Cinzel' display).
+- `index.html` — `family=Metal+Mania&` removed from Google Fonts URL; Cinzel already
+  present for Renaissance so no net change to loaded fonts.
+- `tests/integration.rs` — three `"devil_rock"` literals → `"abyssal_depths"` in the
+  storage round-trip test and the app-load-applies-theme integration test.
+
+### Deviations from Architecture Fit section
+None. All changes matched the spec exactly.
 
 ## Spec Changes
-*To be determined (list any doc/*.md files that will need updating)*
+- **`doc/tech_spec.md`** — updated §2 repo layout (devil_rock.rs → abyssal_depths.rs),
+  §8.2 CSS theme example block (devil_rock → abyssal_depths palette), and §9.1
+  DiceFace match example (DevilRock → AbyssalDepths dispatch).
+- **`doc/prd.md`** — updated FR 41 theme table row 1 (Devil Rock → Abyssal Depths
+  with new vibe, dice symbols, and palette description).
+- **`doc/wireframes.md`** — No changes needed; wireframes describe layout structure
+  not theme names.
+- **`doc/project_plan.md`** — No changes needed; this feature is within M8 scope and
+  the milestone entry does not enumerate individual theme names.
 
 ## Test Strategy
-*To be determined*
+
+### Tests added
+- `src/dice_svg/abyssal_depths.rs` (Tier 1, native):
+  - `pip_count_matches_value` — asserts `pip_positions(v).len() == v` for v in 1..=6
+  - `out_of_range_values_produce_no_pips` — asserts `pip_positions(0)` and `pip_positions(7)` are empty
+  - `tentacle_tips_stay_within_viewbox` — asserts `cy + 9.0 < 100.0` for all 6-pip positions
+
+### Tests updated
+- `tests/integration.rs`:
+  - `storage_save_and_load_theme_round_trip` — now uses `"abyssal_depths"` string
+  - `app_load_applies_saved_theme_to_body` — now saves and asserts `"abyssal_depths"`
+
+### Coverage gaps
+- The visual shape of jellyfish pips (bezier curvature, ellipse proportions) is not
+  auto-testable. Covered by the manual smoke test: open Settings and verify dice faces
+  look like jellyfish at 56×56 px.
+- CSS custom property values are not auto-tested (no headless CSS inspector available
+  in wasm-pack tests). Covered by smoke test.
 
 ## Decisions Made
-*To be determined*
+
+### Decision: Cinzel shared with Renaissance
+**Chosen:** Reuse the Cinzel Google Font import already present for Renaissance; only
+remove Metal Mania from the fonts URL.
+**Alternatives considered:** Add a separate Cinzel import tag, or use a different font.
+**Rationale:** Cinzel was already loaded and gives the right mysterious/elegant register
+for deep-sea themes. Sharing reduces HTTP requests; one font URL covers both themes.
+
+### Decision: Silent fallback for devil_rock localStorage value
+**Chosen:** `from_data_attr("devil_rock")` returns `None`; storage layer falls back to
+`NordicMinimal`. No migration code, no user notification.
+**Alternatives considered:** Explicit mapping `"devil_rock" → AbyssalDepths`.
+**Rationale:** Product decision made during feature submission. The themes are visually
+different enough that silently mapping would be confusing. A clean reset is simpler.
+
+### Decision: Three tentacles via quadratic bezier paths
+**Chosen:** Three `<path>` elements with `Q` (quadratic bezier) commands, each curving
+left/right from the bell base.
+**Alternatives considered:** `<line>` elements (straight), more tentacles (4–5).
+**Rationale:** Bezier curves were requested by the user for organic feel. Three is
+sufficient for legibility at 56×56 px without crowding the 100×100 viewBox pip slot.
 
 ## Lessons / Highlights
-*To be determined*
+
+### Cinzel Already Loaded for Renaissance
+Before checking `index.html`, the plan assumed Metal Mania would need replacing with a
+separate Cinzel link. In practice Cinzel was already in the same font URL alongside
+Metal Mania and MedievalSharp. Only Metal Mania needed removal. Always audit the actual
+`index.html` before writing font migration notes — the file may already contain the font.
+
+### Hyphenated SVG Attributes in Leptos 0.8 view!
+`stroke-width` is hyphenated and cannot be used as a Leptos `view!` attribute directly.
+It must be embedded in the CSS `style` attribute (`style="stroke-width:1.2;fill:none;"`).
+This applies to any SVG attribute containing a hyphen. See `doc/lessons.md` §L18 for
+the general rule covering all hyphenated attrs.

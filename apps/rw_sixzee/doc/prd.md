@@ -456,7 +456,7 @@ the current game permanently).
 
     | # | Name | Vibe | Dice face symbols | Palette |
     |---|------|------|-------------------|---------|
-    | 1 | **Devil Rock** | 80s heavy metal / occult | Pentagrams, inverted crosses, flames; pip count shown in gothic numerals | Near-black background, neon red and acid yellow accents, distressed textures |
+    | 1 | **Abyssal Depths** | Mysterious deep-sea adventure | Bioluminescent jellyfish (domed bell + sinuous tentacles) | Near-black midnight blue background, bioluminescent teal/aqua accent, pale aqua text, Cinzel display font |
     | 2 | **Borg** | Sci-fi cybernetic / alien collective | Hexagonal circuit nodes, assimilation glyphs, tally marks in binary | Dark charcoal and steel, cold green or cyan grid lines, monospace type |
     | 3 | **Horror** | Classic horror / gothic dread | Skulls, dripping blood drops, claw marks, eyeballs | Deep crimson and black, sickly green highlights, cracked stone texture |
     | 4 | **Renaissance** | 15th–16th century European painting | Illuminated manuscript flourishes, gilded rosettes, Roman numerals | Warm parchment, burnished gold, deep ultramarine, serif calligraphy type |

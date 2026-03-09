@@ -673,3 +673,25 @@ and the Effect, ensuring a single source of truth for the predicate.
 derived signals that replicate the same condition and update them in the same commit.
 The pattern "extract predicate to a named function → call it everywhere" is the
 reliable way to keep multiple reactive sites consistent.
+
+
+---
+
+## L23: Hyphenated SVG attributes must go in style="" in Leptos 0.8 iew!
+
+**Milestone:** M8 / F-002
+**Area:** Leptos / SVG
+**Symptom:** Compiler error or silent mis-render when writing SVG attributes that
+contain hyphens (e.g. stroke-width, stroke-linecap, ill-rule) directly in the
+Leptos iew! macro.
+**Cause:** Hyphenated attribute names are not valid Rust identifiers, so iew! cannot
+parse them as attribute syntax.  Leptos 0.8 provides no ttr:stroke-width escape hatch
+for hyphenated names.
+**Fix / Workaround:** Move hyphenated SVG presentation attributes into the element's
+style CSS attribute: style="stroke-width:1.2;fill:none;".  Non-hyphenated SVG
+attributes (cx, cy, , x, y, ill, stroke, d, iewBox) work
+directly as iew! attributes.
+**Watch out for:** Any SVG <path>, <line>, <polyline>, or <text> that needs
+stroke-width, stroke-dasharray, ill-rule, stroke-linecap, stroke-linejoin,
+	ext-anchor, or similar hyphenated attrs.  Always check attribute names for hyphens
+before writing them in iew!.

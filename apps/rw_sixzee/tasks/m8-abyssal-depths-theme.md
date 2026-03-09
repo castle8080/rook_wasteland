@@ -2,7 +2,7 @@
 
 **Feature Doc:** features/feature_002_abyssal_depths_theme.md
 **Milestone:** M8 — Themes & SVG Dice
-**Status:** 🔄 In Progress
+**Status:** ✅ Done
 
 ## Restatement
 
@@ -100,16 +100,19 @@ impls (`Clone, Copy, PartialEq, Eq, Debug`) as all other variants.
 | localStorage "devil_rock" → silent fallback | 3 (integration) | ✅ | `app_load_applies_saved_theme_to_body` updated to use abyssal_depths |
 
 ## Test Results
-*To be filled after running tests.*
+All 100 native unit tests pass (`cargo test`). Clippy clean (`--target wasm32-unknown-unknown --tests -D warnings`). `trunk build` succeeds with no warnings.
 
 ## Review Notes
-*To be filled during Phase 8.*
+Self-review: all public fns/structs have `///` doc comments; `stroke-width` correctly placed in CSS `style` attribute; no `.unwrap()` calls; `ty0/ty1/ty2` inline comments explain geometry constants; no dead code or debug prints.
+
+Code review agent: no findings — all 13 checklist items green.
 
 ## Decisions Made
-*To be filled.*
+See feature document `features/feature_002_abyssal_depths_theme.md` § Decisions Made.
 
 ## Lessons / Highlights
-*To be filled.*
+- **Cinzel already in index.html**: Cinzel was already loaded alongside Metal Mania for Renaissance. Only Metal Mania needed removal — audit the font URL before writing migration plans.
+- **Hyphenated SVG attrs → L23**: `stroke-width` in `view!` must go in `style=""`. Added to `doc/lessons.md` as L23.
 
 ## Callouts / Gotchas
 - Cinzel shared with Renaissance: removing Metal Mania only. Do not remove Cinzel.
