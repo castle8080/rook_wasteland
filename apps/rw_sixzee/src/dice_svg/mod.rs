@@ -4,7 +4,7 @@
 //!
 //! - `DiceFace(theme, value)` — top-level component; dispatches to the correct
 //!   per-theme `face(value)` function.
-//! - Six sub-modules (`nordic`, `devil_rock`, `borg`, `horror`, `renaissance`,
+//! - Six sub-modules (`nordic`, `abyssal_depths`, `borg`, `horror`, `renaissance`,
 //!   `pacific_nw`) each export `pub fn face(value: u8) -> impl IntoView`.
 //! - `pip_positions(value)` — shared helper returning the canonical (x, y)
 //!   centres for pips 1–6 on a 100×100 viewBox.
@@ -24,8 +24,8 @@ use leptos::prelude::*;
 
 use crate::state::Theme;
 
+pub mod abyssal_depths;
 pub mod borg;
-pub mod devil_rock;
 pub mod horror;
 pub mod nordic;
 pub mod pacific_nw;
@@ -86,7 +86,7 @@ pub fn DiceFace(
 ) -> impl IntoView {
     match theme {
         Theme::NordicMinimal => nordic::face(value).into_any(),
-        Theme::DevilRock => devil_rock::face(value).into_any(),
+        Theme::AbyssalDepths => abyssal_depths::face(value).into_any(),
         Theme::Borg => borg::face(value).into_any(),
         Theme::Horror => horror::face(value).into_any(),
         Theme::Renaissance => renaissance::face(value).into_any(),

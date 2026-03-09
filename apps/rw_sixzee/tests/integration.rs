@@ -696,9 +696,9 @@ fn storage_save_and_load_theme_round_trip() {
     use rw_sixzee::state::storage;
     ls_remove("rw_sixzee.theme");
 
-    storage::save_theme("devil_rock").expect("save ok");
+    storage::save_theme("abyssal_depths").expect("save ok");
     let loaded = storage::load_theme().expect("load ok");
-    assert_eq!(loaded, Some("devil_rock".to_string()));
+    assert_eq!(loaded, Some("abyssal_depths".to_string()));
     ls_remove("rw_sixzee.theme");
 }
 
@@ -976,7 +976,7 @@ async fn app_load_applies_saved_theme_to_body() {
     clear_game_storage();
     // Use a non-default theme so we can distinguish "loaded from storage" from
     // "fell back to the nordic_minimal default".
-    storage::save_theme("devil_rock").expect("save ok");
+    storage::save_theme("abyssal_depths").expect("save ok");
 
     let _handle = mount_to(fresh_container(), App);
     tick().await;
@@ -987,7 +987,7 @@ async fn app_load_applies_saved_theme_to_body() {
         .and_then(|b| b.get_attribute("data-theme"));
     assert_eq!(
         theme_attr.as_deref(),
-        Some("devil_rock"),
+        Some("abyssal_depths"),
         "body data-theme must match the theme saved in localStorage"
     );
     ls_remove("rw_sixzee.theme");

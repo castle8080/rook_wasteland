@@ -26,15 +26,15 @@
   --font-display:      'Inter', sans-serif;
 }
 
-[data-theme="devil_rock"] {
-  --color-bg:          #0a0a0a;
-  --color-surface:     #1a0000;
-  --color-accent:      #ff2020;
-  --color-text:        #f5e642;
-  --color-held-border: #ff4040;
-  --color-preview:     #ff6060;
+[data-theme="abyssal_depths"] {
+  --color-bg:          #050d1a;
+  --color-surface:     #0a1f2e;
+  --color-accent:      #00e5c8;
+  --color-text:        #b2f0e8;
+  --color-held-border: #00bfa5;
+  --color-preview:     #38b2ac;
   --font-body:         sans-serif;
-  --font-display:      'Metal Mania', cursive;
+  --font-display:      'Cinzel', serif;
 }
 
 [data-theme="borg"] {

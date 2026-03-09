@@ -9,8 +9,8 @@ pub enum Theme {
     /// Nordic Minimal — off-white, slate, moss/rust accents. The default.
     #[default]
     NordicMinimal,
-    /// Devil Rock — near-black bg, neon red accent, acid-yellow text, gothic font.
-    DevilRock,
+    /// Abyssal Depths — midnight-blue bg, bioluminescent teal accent, Cinzel display font.
+    AbyssalDepths,
     /// Borg — dark charcoal, cold cyan accent, monospace body font.
     Borg,
     /// Horror — deep black, sickly green accent, near-white text, serif font.
@@ -29,7 +29,7 @@ impl Theme {
     pub fn as_data_attr_value(self) -> &'static str {
         match self {
             Theme::NordicMinimal => "nordic_minimal",
-            Theme::DevilRock => "devil_rock",
+            Theme::AbyssalDepths => "abyssal_depths",
             Theme::Borg => "borg",
             Theme::Horror => "horror",
             Theme::Renaissance => "renaissance",
@@ -41,7 +41,7 @@ impl Theme {
     pub fn label(self) -> &'static str {
         match self {
             Theme::NordicMinimal => "Nordic Minimal",
-            Theme::DevilRock => "Devil Rock",
+            Theme::AbyssalDepths => "Abyssal Depths",
             Theme::Borg => "Borg",
             Theme::Horror => "Horror",
             Theme::Renaissance => "Renaissance",
@@ -53,7 +53,7 @@ impl Theme {
     pub fn all() -> &'static [Theme] {
         &[
             Theme::NordicMinimal,
-            Theme::DevilRock,
+            Theme::AbyssalDepths,
             Theme::Borg,
             Theme::Horror,
             Theme::Renaissance,
@@ -68,7 +68,7 @@ impl Theme {
     pub fn from_data_attr(s: &str) -> Option<Theme> {
         match s {
             "nordic_minimal" => Some(Theme::NordicMinimal),
-            "devil_rock" => Some(Theme::DevilRock),
+            "abyssal_depths" => Some(Theme::AbyssalDepths),
             "borg" => Some(Theme::Borg),
             "horror" => Some(Theme::Horror),
             "renaissance" => Some(Theme::Renaissance),
