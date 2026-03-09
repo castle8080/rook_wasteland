@@ -629,3 +629,47 @@ by GrandmaQuoteOverlay (full-screen) and extended here to a dropdown panel (Game
 z-index, the backdrop may not capture clicks correctly. Assign backdrop and panel
 z-index values that are above all non-overlay content (90 and 100 respectively work
 in the current layout).
+
+---
+
+## L21: Route-switching closures — every early-return guard must be route-aware
+
+**Milestone:** M8
+**Area:** Leptos / Routing
+**Symptom:** All four M8 Themes E2E tests failed with "0 elements found" for
+`.settings__theme-card`. Navigating to `#/settings` showed the Grandma
+opening-quote overlay instead of the Settings view. Manually confirmed: the
+overlay was visible on-screen when on the settings URL.
+**Cause:** The reactive view closure in `App` used a priority-ordered early-return
+structure. The first guard — `if show_opening_quote && bank_ready { return overlay; }` —
+did not check the current route, so it fired for *all* routes whenever the overlay
+flags were set. Because Playwright's `networkidle` wait ensures the quote bank JSON
+is fully fetched before tests navigate, `bank_ready` was always `true` by the time
+the tests reached `#/settings`.
+**Fix / Workaround:** Extract the condition into a named helper
+`opening_quote_visible(show, bank_ready, route)` and add `&& matches!(route, Route::Game)`.
+Call it from both the view closure *and* the `hide_tab_bar` Effect (see L22).
+**Watch out for:** Any time a new overlay or early-return is added to the
+route-switching closure, ask: "Should this fire regardless of which route the user
+is on?" If not, gate it on the relevant route(s) immediately. Overlays that are
+semantically tied to one screen should never unconditionally block other screens.
+
+---
+
+## L22: Keep derived visibility signals in sync with the view predicate
+
+**Milestone:** M8
+**Area:** Leptos / Reactivity
+**Symptom:** After fixing the view closure (L21), a code review found that the
+`hide_tab_bar` Effect used the old, route-unaware predicate. This meant the tab bar
+would be hidden on the Settings and History screens while the opening-quote flags were
+still set, even though no overlay was actually rendered.
+**Cause:** The `Effect` and the view closure are separate reactive subscriptions —
+neither references the other. When the view predicate was tightened, the Effect was
+not updated to match, creating a silent behavioral divergence.
+**Fix / Workaround:** Call `opening_quote_visible(...)` from both the view closure
+and the Effect, ensuring a single source of truth for the predicate.
+**Watch out for:** Any time a view guard is changed, grep for other Effects or
+derived signals that replicate the same condition and update them in the same commit.
+The pattern "extract predicate to a named function → call it everywhere" is the
+reliable way to keep multiple reactive sites consistent.
