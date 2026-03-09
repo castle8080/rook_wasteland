@@ -372,3 +372,38 @@ back via `js_sys::Reflect::get(attrs.as_ref(), &"preserveDrawingBuffer".into())`
 and call `.as_bool()`.
 
 
+
+
+---
+
+## L16: (*canvas_el).clone() required to get owned canvas handle from a reference
+
+**Milestone:** M11  
+**Area:** Leptos / web-sys  
+**Symptom:** Closures passed to EventListener::new_with_options need to be 'static,
+but canvas_el: &web_sys::HtmlCanvasElement is a borrow of a local variable.
+Attempting canvas_el.clone() gives &HtmlCanvasElement (copies the reference), not an
+owned HtmlCanvasElement.  
+**Cause:** In Rust, &T: Clone returns &T (copies the pointer). The auto-deref
+T::clone requires an explicit deref: (*canvas_el).clone().  
+**Fix / Workaround:** Use let canvas_pd: web_sys::HtmlCanvasElement = (*canvas_el).clone();
+before the closure. web_sys types are JS reference-counted (cheap clone).  
+**Watch out for:** Any other code that needs to move a &web_sys::T into a 'static
+closure — always clone via (*ref).clone().
+
+---
+
+## L17: UnmountHandle<M> generic type cannot be named in WASM test helper functions
+
+**Milestone:** M11  
+**Area:** Testing / Leptos  
+**Symptom:** Attempting to write a helper n mount_app() -> (Container, UnmountHandle<impl Fn()>)
+causes a compiler error: "the type parameter M must implement Mountable". The
+impl Fn() bound does not satisfy the constraint.  
+**Cause:** The concrete type M returned by mount_to is a complex opaque type that cannot
+be named with an impl Trait shorthand in a function return position.  
+**Fix / Workaround:** Do not write helpers that return UnmountHandle. Instead, inline
+let _handle = mount_to(container.clone(), App); directly in each test function. Rust
+infers the correct type without requiring it to be named.  
+**Watch out for:** Any future attempt to refactor Leptos mount helpers across test files —
+the handle must always stay as an inferred local variable.
