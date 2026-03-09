@@ -37,6 +37,9 @@ apps/rw_sixzee/
 │   │   ├── scorecard.rs    # 6-column scorecard grid
 │   │   ├── grandma.rs      # Ask Grandma overlay + Worker bridge
 │   │   ├── confirm_zero.rs # zero-score / Sixzee-forfeit prompt
+│   │   ├── confirm_quit.rs # quit-game confirmation overlay
+│   │   ├── game_menu.rs    # ⋮ options menu in game header
+│   │   ├── idle_screen.rs  # pre-game idle screen (shown after quit or before first game)
 │   │   ├── end_game.rs     # game-complete summary overlay
 │   │   ├── resume.rs       # resume-vs-new-game prompt
 │   │   ├── history.rs      # history list screen
@@ -192,6 +195,13 @@ using `Memo<T>`:
 - `score_preview: Memo<[[u8; 13]; 6]>` — for every cell `(col, row)`, the
   score the current dice would yield. Computed only when `rolls_used > 0`;
   when `rolls_used == 0` all entries are 0 and cells show no preview.
+
+Additional context values provided at the `App` level:
+
+- `GameActive(pub RwSignal<bool>)` — `true` while an active game is in
+  progress; `false` causes `GameView` to render `IdleScreen` instead of the
+  normal game UI. Set to `false` when the player confirms a quit or before
+  the first game starts.
 
 ### 5.3 Turn Lifecycle
 
@@ -613,7 +623,7 @@ File: `assets/grandma_quotes.json` — fetched once on app load. Cached in-memor
 }
 ```
 
-Minimum pool sizes: `opening` ≥ 15; each `closing.*` tier ≥ 8; `sixzee` and `scratch` ≥ 10.
+Minimum pool sizes: `opening` ≥ 15; each `closing.*` tier ≥ 8; `sixzee` and `scratch` ≥ 10; `quit` ≥ 25.
 
 ### 11.4 QuoteBank (`src/state/quotes.rs`)
 
@@ -625,6 +635,7 @@ pub struct QuoteBank {
     pub closing:  ClosingQuotes,
     pub sixzee:   Vec<String>,
     pub scratch:  Vec<String>,
+    pub quit:     Vec<String>,   // shown on quit-game confirmation overlay (≥ 25 quotes)
 }
 
 #[derive(Deserialize, Clone)]

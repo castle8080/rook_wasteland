@@ -30,6 +30,16 @@ and its DP validation early to prove the approach, UI and persistence next, and 
 
 **Status values:** 🔲 NOT STARTED · 🔄 IN PROGRESS · ✅ COMPLETE · 🚫 BLOCKED
 
+### Post-Milestone Features
+
+| ID      | Name              | Base Milestone | Status         |
+|---------|-------------------|----------------|----------------|
+| F-001   | Quit Game Mid-Progress | M5 follow-up | 🔲 NOT STARTED |
+
+F-001 adds a ⋮ game-menu button to the game header, a quit-confirmation overlay
+(with a Grandma `quit`-pool quote), and an idle pre-game screen shown after quitting.
+See `features/F-001-quit-game.md` for full specification.
+
 ---
 
 ## Dependency Graph

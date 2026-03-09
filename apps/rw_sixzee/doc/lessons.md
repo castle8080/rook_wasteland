@@ -609,3 +609,23 @@ Use `\u{…}` Unicode escapes inside the adjacent string delimiters:
 **Watch out for:** Any time you want to embed a Unicode character that *looks like* a
 quote character adjacent to a dynamic block — especially curly/smart quotes. The
 compiler gives no warning; the only clue is seeing literal `{…}` text in the browser.
+
+
+## L20: Backdrop div pattern for outside-click dismissal in Leptos
+
+**Milestone:** F-001
+**Area:** Leptos / CSS / UX
+**Symptom:** Need to dismiss a dropdown or overlay when the user clicks outside it,
+without global JS event listeners (which require Send+Sync for cleanup — lessons.md L10).
+**Cause:** Leptos' on_cleanup requires Send+Sync, which gloo_events::EventListener
+doesn't satisfy. Adding a raw Closure+dd_event_listener pair with manual cleanup is
+error-prone.
+**Fix / Workaround:** Render an invisible <div class="backdrop"> with
+position: fixed; inset: 0; z-index: N and on:click=close. Place the panel/dropdown
+at z-index: N+1 above it. Clicks on the panel stop propagation; clicks outside hit the
+backdrop and close the menu. No global event listener needed. This pattern is already used
+by GrandmaQuoteOverlay (full-screen) and extended here to a dropdown panel (GameMenu).
+**Watch out for:** z-index stacking: if other elements on the page have a higher
+z-index, the backdrop may not capture clicks correctly. Assign backdrop and panel
+z-index values that are above all non-overlay content (90 and 100 respectively work
+in the current layout).

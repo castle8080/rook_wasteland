@@ -63,6 +63,14 @@ as a clean, solitaire experience focused on score maximization.
 - As a player resuming a game, I want to see my dice and scorecard restored to
   their exact state so that no progress is lost.
 
+**Quit game:**
+- As a player mid-game, I want to tap a ⋮ menu in the game header and select
+  'Quit Game' so that I can abandon a bad run and start fresh.
+- As a player quitting, I want to confirm before my progress is discarded so
+  that accidental taps don't lose my game.
+- As a player who just quit, I want to see an idle screen with a Grandma quote
+  and a 'Start New Game' button so that I can restart at my own pace.
+
 **History & high scores:**
 - As a player who just finished a game, I want it saved automatically so that I
   don't have to do anything to preserve my score.
@@ -518,6 +526,10 @@ the current game permanently).
     History list via a back button or swipe gesture.
 58. If no completed history exists yet, the History screen shall show an appropriate
     empty-state message.
+59. The player shall be able to quit an active game at any time via a ⋮ menu in the
+    game header; tapping 'Quit Game' shall show a confirmation overlay (with a
+    Grandma quote from the `quit` pool); confirming shall discard the in-progress
+    save, clear all game state, and navigate to the idle pre-game screen.
 
 ---
 
