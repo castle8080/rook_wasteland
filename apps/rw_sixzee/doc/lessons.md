@@ -551,3 +551,32 @@ def build():
 has leftover files from previous manual builds. A hook that "doesn't work" can
 appear to work perfectly on a developer machine that already has the files, only
 breaking on CI or a fresh checkout.
+
+---
+
+## L18: Leptos `view!` attributes that read signals must be closures, not eager values
+
+**Milestone:** M8
+**Area:** Leptos / Reactivity
+**Symptom:** Browser console warns on every component mount:
+`you access a reactive_graph::signal::rw::RwSignal<T> outside a reactive tracking context`.
+The attribute also goes stale — it shows the value from the initial render and never
+updates when the signal changes.
+**Cause:** Inside the `view!` macro, any attribute or node value that calls `.get()`
+(directly or via a helper that calls `.get()`) must be wrapped in a `move ||` closure
+to establish a reactive subscription. Writing a plain expression — `format!(...)`,
+`if signal.get() { … } else { … }`, etc. — evaluates *once* at component
+construction time, outside Leptos' reactive tracking scope. Leptos warns because the
+`.get()` call has no subscriber to update.
+**Fix / Workaround:** Wrap any attribute expression that reads a signal in `move ||`:
+```rust
+// ❌ reads signal outside reactive context — warns + goes stale
+aria-label=format!("Select {} theme{}", label, if is_active() { " (active)" } else { "" })
+
+// ✅ reactive closure — tracked, updated on every signal change
+aria-label=move || format!("Select {} theme{}", label, if is_active() { " (active)" } else { "" })
+```
+**Watch out for:** This applies to *every* attribute position in `view!`, not just
+`class=`. Common victims: `aria-label`, `title`, `placeholder`, `value` on inputs,
+and any custom `data-*` attribute derived from a signal. The compiler does not catch
+this — the only signal is the runtime console warning.
