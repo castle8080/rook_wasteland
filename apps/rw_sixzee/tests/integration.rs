@@ -2135,3 +2135,115 @@ async fn history_detail_header_shows_date_and_score() {
         let _ = w.location().set_hash("/");
     }
 }
+
+// ─── M9 End-game → History navigation test ───────────────────────────────────
+
+/// Clicking "View Full Scorecard" in the end-game overlay navigates to the
+/// correct HistoryDetail view.
+///
+/// Covers the coverage gap identified in the M9 audit: the `on_view_scorecard`
+/// click handler in `end_game.rs` sets `Route::HistoryDetail` and calls
+/// `navigate()`. Tested by pre-seeding a fully-complete `GameState` in
+/// `in_progress` (so the resume prompt fires) and the matching `CompletedGame`
+/// in `history` (so `HistoryDetail` can look it up).
+#[wasm_bindgen_test]
+async fn end_game_view_full_scorecard_navigates_to_history_detail() {
+    use leptos::mount::mount_to;
+    use rw_sixzee::app::App;
+    use rw_sixzee::state::game::{completed_game_from_state, new_game};
+    use rw_sixzee::state::storage;
+
+    clear_game_storage();
+
+    // Build a fully-complete game state (all 6 × 13 cells filled with any value).
+    let mut state = new_game();
+    for col in state.cells.iter_mut() {
+        for cell in col.iter_mut() {
+            *cell = Some(5);
+        }
+    }
+    state.turn = 78;
+
+    let game_id = state.id.clone();
+    let completed = completed_game_from_state(&state);
+
+    // Pre-seed both storage entries.
+    storage::save_in_progress(&state).expect("save in_progress ok");
+    storage::save_history(&[completed]).expect("save history ok");
+
+    if let Some(w) = web_sys::window() {
+        let _ = w.location().set_hash("/");
+    }
+
+    let container = fresh_container();
+    let _handle = mount_to(container.clone(), App);
+    tick().await;
+    tick().await;
+
+    // Resume prompt must appear (saved in-progress game was found).
+    let resume_btn = container
+        .query_selector(".resume-prompt .btn--primary")
+        .expect("query ok")
+        .expect("Resume button must be present");
+    resume_btn.unchecked_ref::<HtmlElement>().click();
+    tick().await;
+    tick().await;
+    tick().await;
+
+    // EndGame overlay must be visible because all cells are filled.
+    let end_game = container
+        .query_selector(".overlay--end-game")
+        .expect("query ok");
+    assert!(
+        end_game.is_some(),
+        "end-game overlay must appear when all cells are filled"
+    );
+
+    // Find and click "View Full Scorecard".
+    let buttons = container
+        .query_selector_all(".overlay--end-game button")
+        .expect("query ok");
+    let mut view_btn: Option<web_sys::Element> = None;
+    for i in 0..buttons.length() {
+        let btn = buttons.item(i).expect("item");
+        if btn
+            .text_content()
+            .unwrap_or_default()
+            .contains("View Full Scorecard")
+        {
+            view_btn = Some(btn.unchecked_ref::<web_sys::Element>().clone());
+            break;
+        }
+    }
+    let view_btn = view_btn.expect("View Full Scorecard button must exist in end-game overlay");
+    view_btn.unchecked_ref::<HtmlElement>().click();
+    tick().await;
+    tick().await;
+
+    // HistoryDetail must now be rendered.
+    let detail = container
+        .query_selector(".history-detail")
+        .expect("query ok");
+    assert!(
+        detail.is_some(),
+        "history-detail must render after clicking View Full Scorecard"
+    );
+
+    // URL hash must reference the correct game id.
+    let hash = web_sys::window()
+        .expect("window")
+        .location()
+        .hash()
+        .unwrap_or_default();
+    assert!(
+        hash.contains(&game_id),
+        "URL hash must contain the game id; hash={hash:?}, id={game_id:?}"
+    );
+
+    // Cleanup.
+    ls_remove("rw_sixzee.history");
+    ls_remove("rw_sixzee.in_progress");
+    if let Some(w) = web_sys::window() {
+        let _ = w.location().set_hash("/");
+    }
+}
