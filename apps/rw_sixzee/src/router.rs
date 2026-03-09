@@ -33,6 +33,17 @@ pub fn navigate(route: &Route) {
     }
 }
 
+/// Returns `true` when the opening-quote overlay should be shown in place of
+/// the current route content.
+///
+/// The overlay is only relevant on the [`Route::Game`] screen — it is a
+/// "welcome to your new game" affordance.  Gating on `Route::Game` ensures
+/// that navigating directly to Settings or History (via a hash URL or the tab
+/// bar) is never blocked by the overlay.
+pub fn opening_quote_visible(show: bool, bank_ready: bool, route: &Route) -> bool {
+    show && bank_ready && matches!(route, Route::Game)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -87,5 +98,52 @@ mod tests {
         assert_eq!(parse_hash("#/unknown"), Route::Game);
         assert_eq!(parse_hash("anything_else"), Route::Game);
         assert_eq!(parse_hash("#/GAME"), Route::Game); // case-sensitive
+    }
+
+    // ── opening_quote_visible ────────────────────────────────────────────
+
+    #[test]
+    fn opening_quote_visible_false_on_settings_route() {
+        // Bug 004: overlay must NOT block non-Game routes even when
+        // show=true and bank_ready=true.
+        assert!(
+            !opening_quote_visible(true, true, &Route::Settings),
+            "opening-quote overlay must not block the Settings route"
+        );
+    }
+
+    #[test]
+    fn opening_quote_visible_false_on_history_detail_route() {
+        let detail_route = Route::HistoryDetail { id: "123".to_string() };
+        assert!(
+            !opening_quote_visible(true, true, &detail_route),
+            "opening-quote overlay must not block the HistoryDetail route"
+        );
+    }
+
+    #[test]
+    fn opening_quote_visible_false_on_history_route() {
+        assert!(
+            !opening_quote_visible(true, true, &Route::History),
+            "opening-quote overlay must not block the History route"
+        );
+    }
+
+    #[test]
+    fn opening_quote_visible_true_on_game_route_when_conditions_met() {
+        assert!(
+            opening_quote_visible(true, true, &Route::Game),
+            "opening-quote overlay should show on the Game route when both flags are set"
+        );
+    }
+
+    #[test]
+    fn opening_quote_visible_false_when_show_is_false() {
+        assert!(!opening_quote_visible(false, true, &Route::Game));
+    }
+
+    #[test]
+    fn opening_quote_visible_false_when_bank_not_ready() {
+        assert!(!opening_quote_visible(true, false, &Route::Game));
     }
 }

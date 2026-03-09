@@ -15,7 +15,7 @@ use crate::components::{
     tab_bar::TabBar,
 };
 use crate::error::{report_error, AppError};
-use crate::router::{parse_hash, Route};
+use crate::router::{opening_quote_visible, parse_hash, Route};
 use crate::state::game::{new_game, prune_old_entries, score_preview_all, GameState};
 use crate::state::quotes::{load_quote_bank, QuoteBank};
 use crate::state::scoring::grand_total as compute_grand_total;
@@ -154,7 +154,15 @@ pub fn App() -> impl IntoView {
     // a signal-set inside the view closure) avoids a secondary reactive flush
     // that can cause the opening-quote overlay to persist after dismissal.
     Effect::new(move |_| {
-        let quote_visible = show_opening_quote.get() && quote_bank.get().is_some();
+        // Use opening_quote_visible so hide_tab_bar tracks actual overlay
+        // visibility, not just the signal flags.  Without the route check,
+        // the tab bar would be hidden on Settings/History even though the
+        // overlay is not rendered there (bug 004 follow-on fix).
+        let quote_visible = opening_quote_visible(
+            show_opening_quote.get(),
+            quote_bank.get().is_some(),
+            &route.get(),
+        );
         let grandma_open = !matches!(grandma_panel_state.get(), GrandmaPanelState::Closed);
         let confirm_zero_open = pending_zero.get().is_some();
         hide_tab_bar.set(quote_visible || show_resume.get() || grandma_open || confirm_zero_open);
@@ -205,11 +213,12 @@ pub fn App() -> impl IntoView {
             <ErrorBanner />
             <GrandmaPanel />
             {move || {
-                // Opening-quote overlay: shown when a new game starts AND the
-                // quote bank is loaded. If the bank hasn't loaded yet, the
-                // overlay is skipped — the game starts immediately.
+                // Opening-quote overlay: shown only on the Game route when a new
+                // game starts AND the quote bank is loaded.  Gated on Route::Game
+                // so Settings/History remain reachable before the overlay is
+                // dismissed (bug 004).
                 let bank_ready = quote_bank.get().is_some();
-                if show_opening_quote.get() && bank_ready {
+                if opening_quote_visible(show_opening_quote.get(), bank_ready, &route.get()) {
                     let on_dismiss = Callback::new(move |_| {
                         show_opening_quote.set(false);
                         // hide_tab_bar is managed by the Effect above.
