@@ -1099,3 +1099,67 @@ async fn settings_active_card_has_active_class() {
     }
     ls_remove("rw_sixzee.theme");
 }
+
+/// After switching themes, each card's aria-label reactively reflects active state.
+///
+/// Regression test for bug_002: aria-label was a static String (signal read outside
+/// reactive context), so it never updated after the initial render.
+#[wasm_bindgen_test]
+async fn settings_card_aria_label_updates_on_theme_switch() {
+    use leptos::mount::mount_to;
+    use rw_sixzee::app::App;
+
+    clear_game_storage(); // start fresh → default theme is nordic_minimal
+    if let Some(w) = web_sys::window() {
+        let _ = w.location().set_hash("/settings");
+    }
+
+    let container = fresh_container();
+    let _handle = mount_to(container.clone(), App);
+    tick().await;
+    tick().await;
+
+    // Default active theme is Nordic Minimal — its aria-label must say "(active)".
+    let nordic_card = container
+        .query_selector(".settings__theme-card[data-theme='nordic_minimal']")
+        .expect("query ok")
+        .expect("nordic card must exist");
+    let initial_label = nordic_card
+        .get_attribute("aria-label")
+        .unwrap_or_default();
+    assert!(
+        initial_label.contains("(active)"),
+        "nordic_minimal aria-label must contain '(active)' initially; got: {initial_label:?}"
+    );
+
+    // Click the Borg card to switch the active theme.
+    let borg_card = container
+        .query_selector(".settings__theme-card[data-theme='borg']")
+        .expect("query ok")
+        .expect("borg card must exist");
+    borg_card.unchecked_ref::<HtmlElement>().click();
+    tick().await;
+
+    // Nordic Minimal is no longer active — its aria-label must update reactively.
+    let nordic_label_after = nordic_card
+        .get_attribute("aria-label")
+        .unwrap_or_default();
+    assert!(
+        !nordic_label_after.contains("(active)"),
+        "nordic_minimal aria-label must NOT contain '(active)' after switching; got: {nordic_label_after:?}"
+    );
+
+    // Borg is now active — its aria-label must also update reactively.
+    let borg_label_after = borg_card
+        .get_attribute("aria-label")
+        .unwrap_or_default();
+    assert!(
+        borg_label_after.contains("(active)"),
+        "borg aria-label must contain '(active)' after becoming active; got: {borg_label_after:?}"
+    );
+
+    if let Some(w) = web_sys::window() {
+        let _ = w.location().set_hash("/");
+    }
+    ls_remove("rw_sixzee.theme");
+}

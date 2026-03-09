@@ -57,7 +57,7 @@ fn theme_card(theme: Theme, active_theme: ActiveTheme) -> impl IntoView {
             class=card_class
             data-theme=attr_val
             on:click=on_click
-            aria-label=format!("Select {} theme{}", label, if is_active() { " (active)" } else { "" })
+            aria-label=move || format!("Select {} theme{}", label, if is_active() { " (active)" } else { "" })
         >
             <div class="settings__theme-card__die">
                 <DiceFace theme=theme value=6 />
