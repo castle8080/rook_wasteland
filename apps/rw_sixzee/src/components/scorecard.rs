@@ -9,8 +9,8 @@ use leptos::prelude::*;
 
 use crate::state::game::GameState;
 use crate::state::scoring::{
-    bonus_pool_label, column_total, lower_subtotal, upper_bonus, upper_subtotal, ROW_LABELS,
-    ROW_SIXZEE,
+    bonus_pool_label, column_total, grand_total, lower_subtotal, upper_bonus, upper_subtotal,
+    ROW_COUNT, ROW_LABELS, ROW_SIXZEE,
 };
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -184,6 +184,158 @@ pub fn Scorecard(
             <div class="grand-total">
                 <div class="grand-total__label">"GRAND TOTAL"</div>
                 <div>{move || grand_total_memo.get().to_string()}</div>
+            </div>
+        </div>
+    }
+}
+
+// ─── Read-only scorecard ─────────────────────────────────────────────────────
+
+/// Read-only 6-column × 13-row scorecard snapshot for the History Detail view.
+///
+/// Accepts a frozen cell grid directly rather than reading from reactive context.
+/// No click handlers, no preview logic. Shares the same BEM classes and layout as
+/// the active `Scorecard`.
+#[component]
+pub fn ScorecardReadOnly(
+    /// Cell snapshot from `CompletedGame.cells`.
+    cells: [[Option<u8>; ROW_COUNT]; 6],
+    /// Sixzee bonus pool value at game end.
+    bonus_pool: u32,
+    /// Whether the Sixzee bonus was forfeited during this game.
+    bonus_forfeited: bool,
+) -> impl IntoView {
+    let grand = grand_total(&cells, bonus_pool);
+    let col_totals: [u16; 6] = std::array::from_fn(|col| column_total(&cells[col]));
+
+    view! {
+        <div class="scorecard-wrapper">
+            <table class="scorecard">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>"C1"</th>
+                        <th>"C2"</th>
+                        <th>"C3"</th>
+                        <th>"C4"</th>
+                        <th>"C5"</th>
+                        <th>"C6"</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    // ── Upper section rows 0–5 ────────────────────────────
+                    {(0..6_usize)
+                        .map(|row| {
+                            view! {
+                                <tr>
+                                    <td>{ROW_LABELS[row]}</td>
+                                    {(0..6_usize)
+                                        .map(|col| {
+                                            let val = cells[col][row];
+                                            view! {
+                                                <td class="scorecard__cell scorecard__cell--filled">
+                                                    {val.map(|v| v.to_string()).unwrap_or_default()}
+                                                </td>
+                                            }
+                                        })
+                                        .collect_view()}
+                                </tr>
+                            }
+                        })
+                        .collect_view()}
+                    // ── Upper sub-totals ──────────────────────────────────
+                    <tr class="scorecard__row--separator">
+                        <td>"Upper Sub"</td>
+                        {(0..6_usize)
+                            .map(|col| {
+                                let v = upper_subtotal(&cells[col]);
+                                view! {
+                                    <td class="scorecard__cell">{v.to_string()}</td>
+                                }
+                            })
+                            .collect_view()}
+                    </tr>
+                    // ── Upper bonus row ───────────────────────────────────
+                    <tr class="scorecard__row--separator">
+                        <td>"Bonus (+35≥63)"</td>
+                        {(0..6_usize)
+                            .map(|col| {
+                                let b = upper_bonus(&cells[col]);
+                                view! {
+                                    <td class="scorecard__cell">
+                                        {if b > 0 { format!("+{b}") } else { String::new() }}
+                                    </td>
+                                }
+                            })
+                            .collect_view()}
+                    </tr>
+                    // ── Lower section rows 6–12 ───────────────────────────
+                    {(6..13_usize)
+                        .map(|row| {
+                            view! {
+                                <tr>
+                                    <td>{ROW_LABELS[row]}</td>
+                                    {(0..6_usize)
+                                        .map(|col| {
+                                            let val = cells[col][row];
+                                            view! {
+                                                <td class="scorecard__cell scorecard__cell--filled">
+                                                    {val.map(|v| v.to_string()).unwrap_or_default()}
+                                                </td>
+                                            }
+                                        })
+                                        .collect_view()}
+                                </tr>
+                            }
+                        })
+                        .collect_view()}
+                    // ── Lower sub-totals ──────────────────────────────────
+                    <tr class="scorecard__row--separator">
+                        <td>"Lower Sub"</td>
+                        {(0..6_usize)
+                            .map(|col| {
+                                let v = lower_subtotal(&cells[col]);
+                                view! {
+                                    <td class="scorecard__cell">{v.to_string()}</td>
+                                }
+                            })
+                            .collect_view()}
+                    </tr>
+                    // ── Column totals ─────────────────────────────────────
+                    <tr class="scorecard__row--separator">
+                        <td>"Col Total"</td>
+                        {col_totals
+                            .iter()
+                            .map(|&v| {
+                                view! {
+                                    <td class="scorecard__cell">{v.to_string()}</td>
+                                }
+                            })
+                            .collect_view()}
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        // ── Footer: Bonus pool + Grand total ──────────────────────────────
+        <div class="scorecard-footer">
+            <div class="bonus-pool">
+                <div class="bonus-pool__label">"SIXZEE BONUS POOL"</div>
+                <div class="bonus-pool__value">{format!("+{bonus_pool}")}</div>
+                {if bonus_forfeited {
+                    view! { <div class="bonus-pool__forfeited">"FORFEITED"</div> }.into_any()
+                } else {
+                    let filled = cells.iter().filter(|col| col[ROW_SIXZEE].is_some()).count();
+                    view! {
+                        <div class="bonus-pool__forfeited">
+                            {bonus_pool_label(filled)}
+                        </div>
+                    }
+                    .into_any()
+                }}
+            </div>
+            <div class="grand-total">
+                <div class="grand-total__label">"GRAND TOTAL"</div>
+                <div>{grand.to_string()}</div>
             </div>
         </div>
     }

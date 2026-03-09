@@ -1184,3 +1184,144 @@ button {
   font-size: 1.05rem;
   padding: 0.75rem 1.75rem;
 }
+
+/* ── History List ────────────────────────────────────────────────────────── */
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  padding: 1rem 1rem 5rem;
+  flex: 1;
+}
+
+.history-list__header {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-accent);
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.history-list__empty {
+  text-align: center;
+  color: var(--color-text);
+  opacity: 0.65;
+  font-size: 1rem;
+  padding: 3rem 1rem;
+}
+
+.history-list__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.history-list__table th,
+.history-list__table td {
+  border: 1px solid var(--color-accent);
+  padding: 0.4rem 0.6rem;
+  text-align: center;
+}
+
+.history-list__table th {
+  background-color: var(--color-surface);
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+/* Date column is wider */
+.history-list__date {
+  text-align: left;
+}
+
+/* Medal row tints */
+.history-list__row--gold {
+  background-color: color-mix(in srgb, #f6d860 18%, var(--color-surface));
+}
+
+.history-list__row--silver {
+  background-color: color-mix(in srgb, #c0c0c0 18%, var(--color-surface));
+}
+
+.history-list__row--bronze {
+  background-color: color-mix(in srgb, #cd7f32 18%, var(--color-surface));
+}
+
+.history-list__view-btn {
+  white-space: nowrap;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.82rem;
+}
+
+/* ── History Detail ──────────────────────────────────────────────────────── */
+
+.history-detail {
+  display: flex;
+  flex-direction: column;
+  padding: 1rem 0.5rem 5rem;
+  flex: 1;
+}
+
+.history-detail__header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 0 0.5rem;
+  flex-wrap: wrap;
+}
+
+.history-detail__back-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.history-detail__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.history-detail__date {
+  font-size: 0.9rem;
+  color: var(--color-text);
+  opacity: 0.75;
+}
+
+.history-detail__score {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-accent);
+}
+
+.history-detail__not-found {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 3rem 1rem;
+  text-align: center;
+}
+
+.history-detail__not-found-msg {
+  font-size: 1rem;
+  color: var(--color-text);
+  opacity: 0.7;
+}
+
+@media (max-width: 599px) {
+  .history-list__table {
+    font-size: 0.8rem;
+  }
+
+  .history-list__table th,
+  .history-list__table td {
+    padding: 0.3rem 0.3rem;
+  }
+
+  .history-list__view-btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.78rem;
+  }
+}

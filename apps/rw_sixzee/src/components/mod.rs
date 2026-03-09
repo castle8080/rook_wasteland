@@ -9,6 +9,7 @@ pub mod game_view;
 pub mod grandma;
 pub mod grandma_quote;
 pub mod history;
+pub mod history_detail;
 pub mod idle_screen;
 pub mod resume;
 pub mod scorecard;

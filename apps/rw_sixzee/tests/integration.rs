@@ -1408,3 +1408,271 @@ async fn start_new_game_from_idle_returns_to_game() {
         .expect("query ok");
     assert!(idle.is_none(), "idle screen should be gone after starting a new game");
 }
+
+// ─── M9 History screen integration tests ─────────────────────────────────────
+
+/// History view shows empty-state message when no games are in storage.
+#[wasm_bindgen_test]
+async fn history_view_shows_empty_state_when_no_history() {
+    use leptos::mount::mount_to;
+    use rw_sixzee::app::App;
+
+    clear_game_storage();
+    if let Some(w) = web_sys::window() {
+        let _ = w.location().set_hash("/history");
+    }
+
+    let container = fresh_container();
+    let _handle = mount_to(container.clone(), App);
+    tick().await;
+    tick().await;
+
+    let empty_msg = container
+        .query_selector(".history-list__empty")
+        .expect("query ok");
+    assert!(
+        empty_msg.is_some(),
+        "empty-state message must be visible when no history exists"
+    );
+
+    // Restore hash.
+    if let Some(w) = web_sys::window() {
+        let _ = w.location().set_hash("/");
+    }
+}
+
+/// History view renders one row per completed game, sorted by score descending.
+#[wasm_bindgen_test]
+async fn history_view_renders_rows_for_completed_games() {
+    use leptos::mount::mount_to;
+    use rw_sixzee::app::App;
+    use rw_sixzee::state::game::CompletedGame;
+    use rw_sixzee::state::scoring::ROW_COUNT;
+    use rw_sixzee::state::storage;
+
+    clear_game_storage();
+
+    let entries = vec![
+        CompletedGame {
+            id: "game-a".to_string(),
+            completed_at: "2026-03-01T10:00:00Z".to_string(),
+            final_score: 350,
+            bonus_pool: 100,
+            bonus_forfeited: false,
+            cells: [[None; ROW_COUNT]; 6],
+        },
+        CompletedGame {
+            id: "game-b".to_string(),
+            completed_at: "2026-03-02T10:00:00Z".to_string(),
+            final_score: 200,
+            bonus_pool: 0,
+            bonus_forfeited: false,
+            cells: [[None; ROW_COUNT]; 6],
+        },
+    ];
+    storage::save_history(&entries).expect("save ok");
+
+    if let Some(w) = web_sys::window() {
+        let _ = w.location().set_hash("/history");
+    }
+
+    let container = fresh_container();
+    let _handle = mount_to(container.clone(), App);
+    tick().await;
+    tick().await;
+
+    // No empty-state message.
+    let empty_msg = container
+        .query_selector(".history-list__empty")
+        .expect("query ok");
+    assert!(
+        empty_msg.is_none(),
+        "empty-state message must NOT appear when history exists"
+    );
+
+    // Exactly 2 rows.
+    let rows = container
+        .query_selector_all(".history-list__row")
+        .expect("query ok");
+    assert_eq!(rows.length(), 2, "must render one row per completed game");
+
+    // First row is the gold medal row (highest score).
+    let gold_row = container
+        .query_selector(".history-list__row--gold")
+        .expect("query ok");
+    assert!(gold_row.is_some(), "top-ranked row must have --gold class");
+
+    ls_remove("rw_sixzee.history");
+    if let Some(w) = web_sys::window() {
+        let _ = w.location().set_hash("/");
+    }
+}
+
+/// History detail shows "Game not found" when the id does not exist in storage.
+#[wasm_bindgen_test]
+async fn history_detail_shows_not_found_for_unknown_id() {
+    use leptos::mount::mount_to;
+    use rw_sixzee::app::App;
+
+    clear_game_storage();
+    if let Some(w) = web_sys::window() {
+        let _ = w.location().set_hash("/history/no-such-game-id-xyz");
+    }
+
+    let container = fresh_container();
+    let _handle = mount_to(container.clone(), App);
+    tick().await;
+    tick().await;
+
+    let not_found = container
+        .query_selector(".history-detail__not-found")
+        .expect("query ok");
+    assert!(
+        not_found.is_some(),
+        "not-found section must appear for an unknown game id"
+    );
+
+    // Scorecard must NOT be present.
+    let scorecard = container
+        .query_selector(".scorecard")
+        .expect("query ok");
+    assert!(
+        scorecard.is_none(),
+        "scorecard must NOT render when game is not found"
+    );
+
+    if let Some(w) = web_sys::window() {
+        let _ = w.location().set_hash("/");
+    }
+}
+
+/// History detail renders the scorecard for a known game id.
+#[wasm_bindgen_test]
+async fn history_detail_renders_scorecard_for_known_id() {
+    use leptos::mount::mount_to;
+    use rw_sixzee::app::App;
+    use rw_sixzee::state::game::CompletedGame;
+    use rw_sixzee::state::scoring::ROW_COUNT;
+    use rw_sixzee::state::storage;
+
+    clear_game_storage();
+
+    // Build a game with all cells in column 0 filled.
+    let mut cells = [[None; ROW_COUNT]; 6];
+    cells[0].iter_mut().enumerate().for_each(|(row, cell)| {
+        *cell = Some((row as u8) + 1);
+    });
+    let game = CompletedGame {
+        id: "detail-test-game".to_string(),
+        completed_at: "2026-03-07T12:00:00Z".to_string(),
+        final_score: 300,
+        bonus_pool: 100,
+        bonus_forfeited: false,
+        cells,
+    };
+    storage::save_history(&[game]).expect("save ok");
+
+    if let Some(w) = web_sys::window() {
+        let _ = w.location().set_hash("/history/detail-test-game");
+    }
+
+    let container = fresh_container();
+    let _handle = mount_to(container.clone(), App);
+    tick().await;
+    tick().await;
+
+    // Scorecard wrapper must be present.
+    let scorecard = container
+        .query_selector(".scorecard")
+        .expect("query ok");
+    assert!(
+        scorecard.is_some(),
+        "scorecard must render for a known game id"
+    );
+
+    // Not-found section must NOT appear.
+    let not_found = container
+        .query_selector(".history-detail__not-found")
+        .expect("query ok");
+    assert!(
+        not_found.is_none(),
+        "not-found section must NOT appear when game is found"
+    );
+
+    // At least one filled cell must be present.
+    let filled_cells = container
+        .query_selector_all(".scorecard__cell--filled")
+        .expect("query ok");
+    assert!(
+        filled_cells.length() > 0,
+        "filled scorecard cells must be visible"
+    );
+
+    // Header meta (date, score) must be present.
+    let meta = container
+        .query_selector(".history-detail__meta")
+        .expect("query ok");
+    assert!(
+        meta.is_some(),
+        "history-detail__meta must be rendered for a known game"
+    );
+
+    ls_remove("rw_sixzee.history");
+    if let Some(w) = web_sys::window() {
+        let _ = w.location().set_hash("/");
+    }
+}
+
+/// The back button on History Detail navigates to the History list.
+#[wasm_bindgen_test]
+async fn history_detail_back_button_navigates_to_history_list() {
+    use leptos::mount::mount_to;
+    use rw_sixzee::app::App;
+    use rw_sixzee::state::game::CompletedGame;
+    use rw_sixzee::state::scoring::ROW_COUNT;
+    use rw_sixzee::state::storage;
+
+    clear_game_storage();
+
+    let game = CompletedGame {
+        id: "back-btn-test".to_string(),
+        completed_at: "2026-03-07T12:00:00Z".to_string(),
+        final_score: 250,
+        bonus_pool: 0,
+        bonus_forfeited: false,
+        cells: [[None; ROW_COUNT]; 6],
+    };
+    storage::save_history(&[game]).expect("save ok");
+
+    if let Some(w) = web_sys::window() {
+        let _ = w.location().set_hash("/history/back-btn-test");
+    }
+
+    let container = fresh_container();
+    let _handle = mount_to(container.clone(), App);
+    tick().await;
+    tick().await;
+
+    // Click the back button.
+    let back_btn = container
+        .query_selector(".history-detail__back-btn")
+        .expect("query ok")
+        .expect("back button must exist on detail view");
+    back_btn.unchecked_ref::<HtmlElement>().click();
+    tick().await;
+    tick().await;
+
+    // Must now show the history list.
+    let history_list = container
+        .query_selector(".history-list")
+        .expect("query ok");
+    assert!(
+        history_list.is_some(),
+        "history list must be visible after clicking the back button"
+    );
+
+    ls_remove("rw_sixzee.history");
+    if let Some(w) = web_sys::window() {
+        let _ = w.location().set_hash("/");
+    }
+}

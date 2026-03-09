@@ -9,6 +9,7 @@ use crate::components::{
     grandma::GrandmaPanel,
     grandma_quote::GrandmaQuoteOverlay,
     history::HistoryView,
+    history_detail::HistoryDetail,
     resume::ResumePrompt,
     settings::SettingsView,
     tab_bar::TabBar,
@@ -214,7 +215,7 @@ pub fn App() -> impl IntoView {
                     Route::Game => view! { <GameView /> }.into_any(),
                     Route::History => view! { <HistoryView /> }.into_any(),
                     Route::HistoryDetail { id } => {
-                        view! { <div class="placeholder">"History: " {id}</div> }.into_any()
+                        view! { <HistoryDetail id=id /> }.into_any()
                     }
                     Route::Settings => view! { <SettingsView /> }.into_any(),
                 }
