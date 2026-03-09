@@ -30,7 +30,7 @@ Creative individuals want to produce beautiful, symmetrical, psychedelic pattern
 - No animation / auto-evolve mode in v1.
 - No ZIP batch export in v1.
 - WebGL is not required for v1 — WASM pixel transforms are sufficient for the target image size.
-- No mobile-specific touch UI in v1 (desktop browser is the primary target).
+- No mobile-specific touch UI in v1 (desktop browser is the primary target). *(Mobile responsive layout added in Feature 001 / M11.)*
 
 ---
 
@@ -230,7 +230,7 @@ The following came up in requirements gathering and are deliberately deferred:
 - **Animated color cycling** — real-time hue animation.
 - **Batch/ZIP export** — generating multiple random variants in one action.
 - **Live camera streaming** — continuously feeding live camera frames into the kaleidoscope in real-time (v1 captures a snapshot; live streaming is deferred).
-- **Mobile / touch support** — touch drag for center position.
+- **Mobile / touch support** — touch drag for center position. *(Implemented as Feature 001 / M11: bottom drawer, pinch zoom, responsive layout.)*
 
 ---
 

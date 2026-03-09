@@ -54,6 +54,7 @@ async fn export_button_disabled_when_no_image() {
             camera_open: RwSignal::new(false),
             camera_error: RwSignal::new(None),
             panel_open: RwSignal::new(true),
+            drawer_open: RwSignal::new(false),
         });
         leptos::prelude::provide_context(rw_teleidoscope::state::KaleidoscopeParams::new());
         leptos::prelude::view! {
@@ -88,6 +89,7 @@ async fn export_button_enabled_after_image_loaded() {
             camera_open: RwSignal::new(false),
             camera_error: RwSignal::new(None),
             panel_open: RwSignal::new(true),
+            drawer_open: RwSignal::new(false),
         });
         leptos::prelude::provide_context(rw_teleidoscope::state::KaleidoscopeParams::new());
         leptos::prelude::view! {
@@ -126,6 +128,7 @@ async fn export_toggle_opens_dropdown() {
             camera_open: RwSignal::new(false),
             camera_error: RwSignal::new(None),
             panel_open: RwSignal::new(true),
+            drawer_open: RwSignal::new(false),
         });
         leptos::prelude::provide_context(rw_teleidoscope::state::KaleidoscopeParams::new());
         leptos::prelude::view! {
@@ -170,6 +173,7 @@ async fn export_toggle_closes_dropdown() {
             camera_open: RwSignal::new(false),
             camera_error: RwSignal::new(None),
             panel_open: RwSignal::new(true),
+            drawer_open: RwSignal::new(false),
         });
         leptos::prelude::provide_context(rw_teleidoscope::state::KaleidoscopeParams::new());
         leptos::prelude::view! {
@@ -207,6 +211,7 @@ async fn dropdown_has_three_format_options() {
             camera_open: RwSignal::new(false),
             camera_error: RwSignal::new(None),
             panel_open: RwSignal::new(true),
+            drawer_open: RwSignal::new(false),
         });
         leptos::prelude::provide_context(rw_teleidoscope::state::KaleidoscopeParams::new());
         leptos::prelude::view! {

@@ -1,4 +1,5 @@
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
+use std::collections::HashMap;
 use std::rc::Rc;
 
 use gloo_events::{EventListener, EventListenerOptions};
@@ -7,19 +8,29 @@ use wasm_bindgen::JsCast;
 
 use crate::components::header::load_file;
 use crate::state::{AppState, KaleidoscopeParams};
+use crate::utils::{apply_pinch_zoom, pinch_distance};
 use crate::renderer;
 
-/// Canvas side length in pixels (matches the `width`/`height` HTML attributes).
-const CANVAS_SIZE: f32 = 800.0;
+/// Minimum and maximum zoom values enforced by the pinch gesture.
+const PINCH_ZOOM_MIN: f32 = 0.25;
+const PINCH_ZOOM_MAX: f32 = 5.0;
 
 /// Canvas element and WebGL rendering surface.
 ///
-/// Renders an 800 × 800 `<canvas>` that hosts the WebGL 2 context.  On first
-/// mount the component:
-/// - attaches `dragover` / `drop` / `pointerdown` / `pointermove` event
-///   listeners (kept alive indefinitely)
+/// Renders an 800 × 800 `<canvas>` that hosts the WebGL 2 context.  The HTML
+/// `width`/`height` attributes fix the drawing buffer at 800 × 800; CSS scales
+/// the canvas to fill the available space via `max-width: 100%; height: auto`.
+/// Pointer coordinate normalisation uses `client_width()` / `client_height()` so
+/// coordinates are correct at any CSS display size (no hard-coded 800 constant).
+///
+/// On first mount the component:
+/// - attaches `dragover` / `drop` / `pointerdown` / `pointermove` /
+///   `pointerup` / `pointercancel` event listeners (kept alive indefinitely)
 /// - initialises the [`renderer`] singleton synchronously (shaders are
 ///   embedded in the binary; no network round-trip is required)
+///
+/// Single-finger drag (or mouse drag) updates `KaleidoscopeParams::center`.
+/// Two-finger pinch updates `KaleidoscopeParams::zoom` in the range 0.25 – 5.0.
 ///
 /// A reactive `Effect` reads `KaleidoscopeParams::snapshot()` (registering
 /// all params signals as dependencies) and `AppState.image_loaded`, then
@@ -76,34 +87,134 @@ pub fn CanvasView() -> impl IntoView {
                         });
 
                     // Pointer drag → update centre of symmetry.
-                    // Must be non-passive so prevent_default() can suppress text
-                    // selection (pointerdown) and touchscreen scrolling (pointermove).
+                    // Two-finger pinch → update zoom.
+                    //
+                    // All pointer listeners are non-passive so prevent_default()
+                    // can suppress text selection and touchscreen scrolling.
                     // `params` is Copy so it is safely captured by each closure.
+                    //
+                    // Pointer tracking: active_pointers maps pointer_id to the
+                    // most recent (offset_x, offset_y) for that contact point.
+                    // last_pinch_dist records the reference distance from the
+                    // previous frame so the zoom delta can be computed.
                     let pparams = params;
+                    let active_pointers: Rc<RefCell<HashMap<i32, (f32, f32)>>> =
+                        Rc::new(RefCell::new(HashMap::new()));
+                    let last_pinch_dist: Rc<Cell<f32>> = Rc::new(Cell::new(0.0));
+
+                    // Clone the canvas handle so it can be moved into closures
+                    // (web_sys types are JS reference-counted; clone is cheap).
+                    let canvas_pd = (*canvas_el).clone();
+                    let canvas_pm = (*canvas_el).clone();
+
+                    let ap_down = Rc::clone(&active_pointers);
+                    let lpd_down = Rc::clone(&last_pinch_dist);
                     let pointerdown_listener =
                         EventListener::new_with_options(canvas_el, "pointerdown", opts, move |ev| {
                             ev.prevent_default();
                             let ptr: &web_sys::PointerEvent =
                                 ev.dyn_ref().expect("PointerEvent");
-                            let cx = (ptr.offset_x() as f32 / CANVAS_SIZE).clamp(0.0, 1.0);
-                            // Flip Y: HTML y=0 is the top; WebGL v_uv.y=1 is the top.
-                            let cy =
-                                (1.0 - ptr.offset_y() as f32 / CANVAS_SIZE).clamp(0.0, 1.0);
-                            pparams.center.set((cx, cy));
+                            let pid = ptr.pointer_id();
+
+                            // Capture ensures drag events keep firing even if
+                            // the pointer moves outside the canvas boundary.
+                            let _ = canvas_pd.set_pointer_capture(pid);
+
+                            let ox = ptr.offset_x() as f32;
+                            let oy = ptr.offset_y() as f32;
+                            ap_down.borrow_mut().insert(pid, (ox, oy));
+
+                            let count = ap_down.borrow().len();
+                            if count == 1 {
+                                // Single contact: update centre of symmetry.
+                                let w = canvas_pd.client_width().max(1) as f32;
+                                let h = canvas_pd.client_height().max(1) as f32;
+                                let cx = (ox / w).clamp(0.0, 1.0);
+                                // Flip Y: HTML y=0 is top; WebGL v_uv.y=1 is top.
+                                let cy = (1.0 - oy / h).clamp(0.0, 1.0);
+                                pparams.center.set((cx, cy));
+                            } else if count >= 2 {
+                                // Two contacts: record initial pinch distance.
+                                let positions: Vec<(f32, f32)> =
+                                    ap_down.borrow().values().copied().collect();
+                                let d = pinch_distance(
+                                    positions[0].0, positions[0].1,
+                                    positions[1].0, positions[1].1,
+                                );
+                                lpd_down.set(d);
+                            }
                         });
+
+                    let ap_move = Rc::clone(&active_pointers);
+                    let lpd_move = Rc::clone(&last_pinch_dist);
                     let pointermove_listener =
                         EventListener::new_with_options(canvas_el, "pointermove", opts, move |ev| {
                             let ptr: &web_sys::PointerEvent =
                                 ev.dyn_ref().expect("PointerEvent");
-                            // Only update (and prevent scroll) while the primary button is held.
-                            if ptr.buttons() & 1 != 0 {
-                                ev.prevent_default();
-                                let cx =
-                                    (ptr.offset_x() as f32 / CANVAS_SIZE).clamp(0.0, 1.0);
-                                let cy = (1.0 - ptr.offset_y() as f32 / CANVAS_SIZE)
-                                    .clamp(0.0, 1.0);
-                                pparams.center.set((cx, cy));
+                            let pid = ptr.pointer_id();
+
+                            // Only process pointers that were registered on pointerdown.
+                            if !ap_move.borrow().contains_key(&pid) {
+                                return;
                             }
+
+                            let ox = ptr.offset_x() as f32;
+                            let oy = ptr.offset_y() as f32;
+                            ap_move.borrow_mut().insert(pid, (ox, oy));
+
+                            let count = ap_move.borrow().len();
+                            if count == 1 {
+                                // Single-contact drag: update centre only while
+                                // the primary button (or touch) is active.
+                                if ptr.buttons() & 1 != 0 {
+                                    ev.prevent_default();
+                                    let w = canvas_pm.client_width().max(1) as f32;
+                                    let h = canvas_pm.client_height().max(1) as f32;
+                                    let cx = (ox / w).clamp(0.0, 1.0);
+                                    let cy = (1.0 - oy / h).clamp(0.0, 1.0);
+                                    pparams.center.set((cx, cy));
+                                }
+                            } else if count >= 2 {
+                                // Two-contact pinch: update zoom.
+                                ev.prevent_default();
+                                let positions: Vec<(f32, f32)> =
+                                    ap_move.borrow().values().copied().collect();
+                                let new_dist = pinch_distance(
+                                    positions[0].0, positions[0].1,
+                                    positions[1].0, positions[1].1,
+                                );
+                                let old_dist = lpd_move.get();
+                                let new_zoom = apply_pinch_zoom(
+                                    old_dist, new_dist,
+                                    pparams.zoom.get_untracked(),
+                                    PINCH_ZOOM_MIN, PINCH_ZOOM_MAX,
+                                );
+                                pparams.zoom.set(new_zoom);
+                                lpd_move.set(new_dist);
+                            }
+                        });
+
+                    let ap_up = Rc::clone(&active_pointers);
+                    let lpd_up = Rc::clone(&last_pinch_dist);
+                    let pointerup_listener =
+                        EventListener::new_with_options(canvas_el, "pointerup", opts, move |ev| {
+                            let ptr: &web_sys::PointerEvent =
+                                ev.dyn_ref().expect("PointerEvent");
+                            ap_up.borrow_mut().remove(&ptr.pointer_id());
+                            if ap_up.borrow().len() < 2 {
+                                lpd_up.set(0.0);
+                            }
+                        });
+
+                    let ap_cancel = Rc::clone(&active_pointers);
+                    let lpd_cancel = Rc::clone(&last_pinch_dist);
+                    let pointercancel_listener =
+                        EventListener::new_with_options(canvas_el, "pointercancel", opts, move |ev| {
+                            let ptr: &web_sys::PointerEvent =
+                                ev.dyn_ref().expect("PointerEvent");
+                            ap_cancel.borrow_mut().remove(&ptr.pointer_id());
+                            // Always reset on cancel (e.g. notification shade, incoming call).
+                            lpd_cancel.set(0.0);
                         });
 
                     // Keep all listeners alive for the entire app lifetime.
@@ -111,6 +222,8 @@ pub fn CanvasView() -> impl IntoView {
                     std::mem::forget(drop_listener);
                     std::mem::forget(pointerdown_listener);
                     std::mem::forget(pointermove_listener);
+                    std::mem::forget(pointerup_listener);
+                    std::mem::forget(pointercancel_listener);
                 }
                 // `canvas_el` borrow released here — canvas can now be moved below.
 

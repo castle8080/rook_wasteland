@@ -101,6 +101,7 @@ pub fn ControlsPanel() -> impl IntoView {
         <aside
             class="controls-panel"
             class:is-collapsed=move || !panel_open.get()
+            class:drawer--open=move || app_state.drawer_open.get()
         >
             // ================================================================
             // Panel collapse / expand toggle (always visible)

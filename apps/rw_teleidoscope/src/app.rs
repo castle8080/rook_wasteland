@@ -47,6 +47,22 @@ pub fn App() -> impl IntoView {
                 <ControlsPanel/>
                 <CanvasView/>
             </div>
+            // Mobile drawer handle — a persistent tab at the very bottom of the
+            // screen.  Hidden on desktop via CSS (display: none above 768 px).
+            <button
+                class="drawer-handle"
+                aria-label="Toggle controls drawer"
+                on:click=move |_| app_state.drawer_open.update(|v| *v = !*v)
+            >
+                <span class="drawer-handle__pip"/>
+            </button>
+            // Dimmed backdrop behind the open drawer; tapping it closes the drawer.
+            // Also hidden on desktop via CSS.
+            <div
+                class="drawer-backdrop"
+                class:is-visible=move || app_state.drawer_open.get()
+                on:click=move |_| app_state.drawer_open.set(false)
+            />
             <CameraOverlay/>
         </div>
     }

@@ -175,6 +175,8 @@ pub struct AppState {
     pub image_loaded:  RwSignal<bool>,
     pub camera_open:   RwSignal<bool>,
     pub camera_error:  RwSignal<Option<String>>,
+    pub panel_open:    RwSignal<bool>,  // desktop collapse/expand
+    pub drawer_open:   RwSignal<bool>,  // mobile drawer slide-up (≤768 px)
 }
 ```
 
@@ -632,7 +634,51 @@ running the full browser suite.
 
 ---
 
-## 14. Resolved Design Decisions
+## 14. Mobile / Responsive Layout (Feature 001 / M11)
+
+Implemented in `style/main.css` (breakpoint at `max-width: 768px`).
+
+### Layout strategy
+
+The WebGL drawing buffer stays at 800 × 800 (the `width`/`height` HTML attributes are
+unchanged). CSS scales the canvas element to fill the viewport. Pointer coordinate
+normalisation uses `canvas.client_width()` and `canvas.client_height()` (not a hardcoded
+800 constant) so dragging works correctly at any CSS display size.
+
+### New signal: `AppState.drawer_open`
+
+```rust
+pub drawer_open: RwSignal<bool>,  // default false
+```
+
+Drives the mobile slide-up drawer.  The signal has no visual effect on desktop (the
+`.drawer-handle` and `.drawer-backdrop` elements are `display: none` above 768 px via CSS).
+
+### Mobile layout elements
+
+| Element | CSS class | Description |
+|---|---|---|
+| Drawer handle | `.drawer-handle` | Fixed strip at bottom (44 px); always in DOM; hidden on desktop |
+| Backdrop | `.drawer-backdrop` | Semi-opaque full-screen overlay; gains `is-visible` when `drawer_open` |
+| Controls panel | `.controls-panel` | On mobile: `position: fixed; bottom: 44px`; `translateY(100%)` → `translateY(0)` when `drawer--open` class present |
+
+### Touch / pointer events
+
+- `touch-action: none` on `#kaleidoscope-canvas` globally (not inside the media query).
+- `pointerdown` calls `element.set_pointer_capture(pointer_id)` for reliable drag tracking.
+- Active-pointer map (`HashMap<i32, (f32, f32)>`) tracks up to N simultaneous contacts.
+- Two-contact pinch calls `utils::pinch_distance()` + `utils::apply_pinch_zoom()` to update
+  `KaleidoscopeParams.zoom` (clamped to `[0.25, 5.0]`).
+- `pointerup` / `pointercancel` remove the pointer from the map and reset `last_pinch_dist`.
+
+### Camera modal fix
+
+`.camera-modal` `min-width` changed from `340px` to `min(340px, 90vw)` so the modal never
+overflows on narrow (320 px) screens.
+
+---
+
+## 15. Resolved Design Decisions
 
 Previously open questions; recorded here for traceability.
 

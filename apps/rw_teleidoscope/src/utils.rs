@@ -174,9 +174,38 @@ pub fn resize_to_800(image: &web_sys::HtmlImageElement) -> Result<web_sys::Image
         .map_err(|e| format!("getImageData failed: {e:?}"))
 }
 
+/// Euclidean distance between two 2-D points in the same coordinate space.
+///
+/// Used to compute the pinch distance between two active touch-pointer positions
+/// before and after a move, so that `apply_pinch_zoom` can derive the zoom delta.
+pub fn pinch_distance(ax: f32, ay: f32, bx: f32, by: f32) -> f32 {
+    let dx = bx - ax;
+    let dy = by - ay;
+    (dx * dx + dy * dy).sqrt()
+}
+
+/// Apply a pinch-zoom gesture delta to `current_zoom` and clamp to [`min`, `max`].
+///
+/// The new zoom is `(new_dist / old_dist) * current_zoom`.  If `old_dist` ≤ 0
+/// (the two fingers were at the same pixel, or only one finger is active) the
+/// function returns `current_zoom` unchanged to avoid a divide-by-zero.
+pub fn apply_pinch_zoom(
+    old_dist: f32,
+    new_dist: f32,
+    current_zoom: f32,
+    min: f32,
+    max: f32,
+) -> f32 {
+    if old_dist <= 0.0 {
+        return current_zoom;
+    }
+    (new_dist / old_dist * current_zoom).clamp(min, max)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{cover_rect, hue_rotate_rgb, is_accepted_image_type, lens_warp, mirror_fold, posterize_channel, radial_fold_r};
+    use super::{apply_pinch_zoom, cover_rect, hue_rotate_rgb, is_accepted_image_type, lens_warp,
+                mirror_fold, pinch_distance, posterize_channel, radial_fold_r};
 
     #[test]
     fn cover_rect_square_image_is_identity() {
@@ -448,6 +477,62 @@ mod tests {
     fn posterize_channel_zero_levels_returns_zero() {
         // levels=0 guard — should not divide by zero.
         assert!((posterize_channel(0.7, 0) - 0.0).abs() < 1e-6);
+    }
+
+    // -- pinch_distance tests (pure math, no browser needed) -----------------
+
+    #[test]
+    fn pinch_distance_same_point_is_zero() {
+        assert!((pinch_distance(3.0, 4.0, 3.0, 4.0) - 0.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn pinch_distance_horizontal() {
+        assert!((pinch_distance(0.0, 0.0, 100.0, 0.0) - 100.0).abs() < 1e-4);
+    }
+
+    #[test]
+    fn pinch_distance_vertical() {
+        assert!((pinch_distance(0.0, 0.0, 0.0, 200.0) - 200.0).abs() < 1e-4);
+    }
+
+    #[test]
+    fn pinch_distance_3_4_5_triangle() {
+        assert!((pinch_distance(0.0, 0.0, 3.0, 4.0) - 5.0).abs() < 1e-5);
+    }
+
+    // -- apply_pinch_zoom tests (pure math, no browser needed) ----------------
+
+    #[test]
+    fn apply_pinch_zoom_scale_out() {
+        // Fingers move apart: new_dist > old_dist → zoom increases.
+        let result = apply_pinch_zoom(100.0, 200.0, 1.0, 0.5, 4.0);
+        assert!((result - 2.0).abs() < 1e-5, "got {result}");
+    }
+
+    #[test]
+    fn apply_pinch_zoom_scale_in() {
+        // Fingers move together: new_dist < old_dist → zoom decreases.
+        let result = apply_pinch_zoom(200.0, 100.0, 2.0, 0.5, 4.0);
+        assert!((result - 1.0).abs() < 1e-5, "got {result}");
+    }
+
+    #[test]
+    fn apply_pinch_zoom_clamps_at_max() {
+        let result = apply_pinch_zoom(100.0, 1000.0, 3.0, 0.5, 4.0);
+        assert!((result - 4.0).abs() < 1e-5, "expected max 4.0, got {result}");
+    }
+
+    #[test]
+    fn apply_pinch_zoom_clamps_at_min() {
+        let result = apply_pinch_zoom(1000.0, 10.0, 1.0, 0.5, 4.0);
+        assert!((result - 0.5).abs() < 1e-5, "expected min 0.5, got {result}");
+    }
+
+    #[test]
+    fn apply_pinch_zoom_zero_old_dist_returns_unchanged() {
+        let result = apply_pinch_zoom(0.0, 100.0, 1.5, 0.5, 4.0);
+        assert!((result - 1.5).abs() < 1e-6, "expected 1.5 unchanged, got {result}");
     }
 }
 

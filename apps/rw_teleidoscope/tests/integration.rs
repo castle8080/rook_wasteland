@@ -122,6 +122,7 @@ async fn placeholder_hides_when_image_loaded_signal_is_set() {
         camera_open: RwSignal::new(false),
         camera_error: RwSignal::new(None),
         panel_open: RwSignal::new(true),
+        drawer_open: RwSignal::new(false),
     };
 
     let container = fresh_container();
@@ -189,6 +190,7 @@ async fn image_pipeline_hides_overlay_end_to_end() {
         camera_open: RwSignal::new(false),
         camera_error: RwSignal::new(None),
         panel_open: RwSignal::new(true),
+        drawer_open: RwSignal::new(false),
     };
 
     let container = fresh_container();
@@ -291,6 +293,7 @@ async fn camera_overlay_shows_when_camera_open_signal_set() {
         camera_open,
         camera_error: RwSignal::new(None),
         panel_open: RwSignal::new(true),
+        drawer_open: RwSignal::new(false),
     };
 
     let container = fresh_container();
@@ -339,6 +342,7 @@ async fn camera_overlay_shows_error_message() {
         camera_open,
         camera_error,
         panel_open: RwSignal::new(true),
+        drawer_open: RwSignal::new(false),
     };
 
     let container = fresh_container();
@@ -440,6 +444,7 @@ async fn surprise_me_button_enabled_when_image_loaded() {
         camera_open: RwSignal::new(false),
         camera_error: RwSignal::new(None),
         panel_open: RwSignal::new(true),
+        drawer_open: RwSignal::new(false),
     };
 
     let container = fresh_container();
@@ -494,6 +499,7 @@ async fn panel_collapses_when_panel_open_is_false() {
         camera_open:  RwSignal::new(false),
         camera_error: RwSignal::new(None),
         panel_open,
+        drawer_open: RwSignal::new(false),
     };
 
     let container = fresh_container();

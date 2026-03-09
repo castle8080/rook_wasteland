@@ -29,6 +29,7 @@ Implementation is underway. M1–M7 are complete.
 | M8 | [Export / Download](milestones/m8-export.md) | canvas.toBlob() download, PNG/JPEG/WebP format selector, metadata in filename. | ⬜ Pending |
 | M9 | [Randomize](milestones/m9-randomize.md) | "Surprise Me" button randomizes segments, rotation, center, effects, and color transforms. | ✅ Complete |
 | M10 | [Steampunk Polish](milestones/m10-steampunk-polish.md) | Full steampunk CSS, fonts, styled sliders and buttons, collapsible panel, final layout. | ✅ Complete |
+| M11 | Mobile / Responsive Layout (Feature 001) | Bottom drawer, canvas fills viewport, touch drag for center, pinch-to-zoom, camera modal fix. | ✅ Complete |
 
 ---
 

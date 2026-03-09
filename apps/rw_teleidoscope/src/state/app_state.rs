@@ -12,6 +12,10 @@ pub struct AppState {
     pub camera_error: RwSignal<Option<String>>,
     /// True while the controls panel is expanded; false when collapsed.
     pub panel_open: RwSignal<bool>,
+    /// True while the mobile bottom drawer is open.
+    /// Only has visible effect below the 768 px breakpoint; safe to ignore on
+    /// desktop (the CSS hides the drawer handle and backdrop above that width).
+    pub drawer_open: RwSignal<bool>,
 }
 
 impl AppState {
@@ -22,6 +26,7 @@ impl AppState {
             camera_open:  RwSignal::new(false),
             camera_error: RwSignal::new(None),
             panel_open:   RwSignal::new(true),
+            drawer_open:  RwSignal::new(false),
         }
     }
 }
@@ -41,5 +46,12 @@ mod tests {
         let state = AppState::new();
         // panel_open starts true so the panel is visible on first load.
         assert!(state.panel_open.get_untracked());
+    }
+
+    #[test]
+    fn drawer_open_defaults_to_false() {
+        let state = AppState::new();
+        // drawer_open starts false so the mobile drawer is hidden on load.
+        assert!(!state.drawer_open.get_untracked());
     }
 }

@@ -245,6 +245,79 @@ Activated by clicking the ↓ EXPORT button.
 ```
 
 > Dropdown appears directly below the Export button.
+
+---
+
+## 8. Mobile Layout — Drawer Closed (≤ 768 px)
+
+```
+┌────────────────────────┐
+│ ⚙ TELEIDOSCOPE  ⚙  📷 │  ← compact header
+├────────────────────────┤
+│                        │
+│                        │
+│                        │
+│    kaleidoscope        │
+│      canvas            │
+│   (fills viewport)     │
+│                        │
+│                        │
+│                        │
+├────────────────────────┤
+│    ────────            │  ← drawer handle strip (pip indicator)
+└────────────────────────┘
+```
+
+Tapping the handle strip slides the controls drawer up from the bottom.
+
+---
+
+## 9. Mobile Layout — Drawer Open (≤ 768 px)
+
+```
+┌────────────────────────┐
+│ ⚙ TELEIDOSCOPE  ⚙  📷 │
+├────────────────────────┤
+│                        │
+│    kaleidoscope        │  ← dimmed by backdrop (tap to close)
+│      canvas            │
+├────────────────────────┤
+│  MIRRORS  ╞══●═════╡   │
+│  ROTATION ╞════●═══╡   │  ← controls drawer (~55 vh, scrollable)
+│  ZOOM     ╞══●═════╡   │
+│  ─────────────────── ─ │
+│  ▣ Spiral           ░  │
+│  ▣ Radial           ░  │
+│  ─────────────────── ─ │
+│  [⚡ SURPRISE ME]      │
+│  [ EXPORT ▾ ]          │
+├────────────────────────┤
+│    ────────            │  ← drawer handle strip
+└────────────────────────┘
+```
+
+Tapping the dimmed canvas area (backdrop) slides the drawer back down.
+
+---
+
+## 10. Mobile — Camera Overlay (≤ 768 px)
+
+```
+┌────────────────────────┐
+│░░░░░░░░░░░░░░░░░░░░░░░░│
+│░░ ┌──────────────┐ ░░░│
+│░░ │  CAMERA      │ ░░░│  ← modal: min(340px, 90vw) wide
+│░░ ├──────────────┤ ░░░│
+│░░ │  video feed  │ ░░░│
+│░░ │  (4:3 ratio) │ ░░░│
+│░░ ├──────────────┤ ░░░│
+│░░ │[CAPTURE] [✕] │ ░░░│
+│░░ └──────────────┘ ░░░│
+│░░░░░░░░░░░░░░░░░░░░░░░░│
+└────────────────────────┘
+```
+
+Modal uses `min(340px, 90vw)` so it fits 320 px screens without horizontal scroll.
 > Format selection persists across sessions.
 
 ---

@@ -110,6 +110,7 @@ pub fn Header() -> impl IntoView {
             <div class="header-actions">
                 <button
                     class="header-btn"
+                    aria-label="Load image"
                     on:click=move |_| {
                         if let Some(input) = file_input_ref.get() {
                             input.click();
@@ -119,16 +120,17 @@ pub fn Header() -> impl IntoView {
                     <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14" class="btn-icon">
                         <path d=GEAR/>
                     </svg>
-                    " LOAD IMAGE"
+                    <span class="btn-label">" LOAD IMAGE"</span>
                 </button>
                 <button
                     class="header-btn"
+                    aria-label="Use camera"
                     on:click=move |_| app_state.camera_open.set(true)
                 >
                     <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14" class="btn-icon">
                         <path d=CAMERA/>
                     </svg>
-                    " USE CAMERA"
+                    <span class="btn-label">" USE CAMERA"</span>
                 </button>
             </div>
             // Hidden file input; triggered programmatically by the button above.

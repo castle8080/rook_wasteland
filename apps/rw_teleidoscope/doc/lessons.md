@@ -372,3 +372,67 @@ back via `js_sys::Reflect::get(attrs.as_ref(), &"preserveDrawingBuffer".into())`
 and call `.as_bool()`.
 
 
+
+
+---
+
+## L16: (*canvas_el).clone() required to get owned canvas handle from a reference
+
+**Milestone:** M11  
+**Area:** Leptos / web-sys  
+**Symptom:** Closures passed to EventListener::new_with_options need to be 'static,
+but canvas_el: &web_sys::HtmlCanvasElement is a borrow of a local variable.
+Attempting canvas_el.clone() gives &HtmlCanvasElement (copies the reference), not an
+owned HtmlCanvasElement.  
+**Cause:** In Rust, &T: Clone returns &T (copies the pointer). The auto-deref
+T::clone requires an explicit deref: (*canvas_el).clone().  
+**Fix / Workaround:** Use let canvas_pd: web_sys::HtmlCanvasElement = (*canvas_el).clone();
+before the closure. web_sys types are JS reference-counted (cheap clone).  
+**Watch out for:** Any other code that needs to move a &web_sys::T into a 'static
+closure — always clone via (*ref).clone().
+
+---
+
+## L17: UnmountHandle<M> generic type cannot be named in WASM test helper functions
+
+**Milestone:** M11  
+**Area:** Testing / Leptos  
+**Symptom:** Attempting to write a helper n mount_app() -> (Container, UnmountHandle<impl Fn()>)
+causes a compiler error: "the type parameter M must implement Mountable". The
+impl Fn() bound does not satisfy the constraint.  
+**Cause:** The concrete type M returned by mount_to is a complex opaque type that cannot
+be named with an impl Trait shorthand in a function return position.  
+**Fix / Workaround:** Do not write helpers that return UnmountHandle. Instead, inline
+let _handle = mount_to(container.clone(), App); directly in each test function. Rust
+infers the correct type without requiring it to be named.  
+**Watch out for:** Any future attempt to refactor Leptos mount helpers across test files —
+the handle must always stay as an inferred local variable.
+
+---
+
+## L18: Two mobile layout bugs from incorrect CSS — dead selector + height calc ignoring header
+
+**Milestone:** M11  
+**Area:** CSS / Mobile Layout  
+**Symptom:** On a 375 px viewport, the gear icon appeared above the app name in the header, and
+the controls panel overflowed the bottom of the screen.  
+**Cause:** Two independent CSS mistakes:  
+1. **Dead selector** — the media query override used `.header-title { font-size: 1rem }` but the
+   actual DOM class is `.app-title`. The rule was silently ignored, leaving the title unshrunk.
+   Meanwhile, the header buttons ("LOAD IMAGE" / "USE CAMERA") had visible text labels that were
+   ~180 px wide combined, overflowing the 375 px header row and causing the gear icon to wrap
+   above the title text.  
+2. **Height calc missing header** — `.main-layout { height: calc(100dvh - 44px) }` only subtracted
+   the 44 px fixed drawer handle, but not the header. When the header wrapped to two rows, the
+   layout exceeded 100dvh and overflowed.  
+**Fix / Workaround:**  
+1. Wrap button text in `<span class="btn-label">` and add `.btn-label { display: none }` in the
+   media query. Make `header-btn` a square 44 × 44 icon-only touch target on mobile.
+   Fix `.header-title` → `.app-title` in the media query.  
+2. Remove the explicit `height: calc(...)` from `.main-layout` in the media query. Use
+   `flex: 1` (inherited from the desktop rule) to fill remaining space, and `padding-bottom: 44px`
+   to prevent content from sliding behind the fixed drawer handle.  
+**Watch out for:** When writing CSS media-query overrides for existing components, always
+cross-check the selector name against the actual DOM element's `class=` attribute — CSS silently
+ignores selectors that match nothing. For mobile viewport heights: never use `calc(100dvh - Npx)`
+unless you account for every fixed-height ancestor; prefer flex children with `flex: 1`.
