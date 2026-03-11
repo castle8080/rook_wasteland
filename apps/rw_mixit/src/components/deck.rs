@@ -528,7 +528,24 @@ pub fn Deck(
 
     view! {
         <div class=deck_class>
-            <h2 class="deck-label">{format!("DECK {side}")}</h2>
+            // Deck title row: label centred, load button tucked in the corner.
+            // The hidden file input lives here too so the button can trigger it.
+            <div class="deck-header">
+                // Spacer mirrors the button width so the label stays centred.
+                <div class="deck-header-spacer"></div>
+                <h2 class="deck-label">{format!("DECK {side}")}</h2>
+                // Hidden file input triggered by the icon button below.
+                <input
+                    type="file"
+                    accept=".mp3,.wav,.ogg,.flac,.aac"
+                    style="display:none"
+                    node_ref=file_input
+                    on:change=on_file_change
+                />
+                <button class="btn-load-icon" on:click=on_load_click title="Load Track">
+                    "📂"
+                </button>
+            </div>
             <TrackLabel state=state.clone()/>
 
             // Inline error message — shown when a file fails to load or decode.
@@ -591,18 +608,6 @@ pub fn Deck(
                 playback_rate=state.playback_rate
                 sync_master=sync_master
             />
-
-            // Hidden file input
-            <input
-                type="file"
-                accept=".mp3,.wav,.ogg,.flac,.aac"
-                style="display:none"
-                node_ref=file_input
-                on:change=on_file_change
-            />
-            <button class="btn-load" on:click=on_load_click>
-                "Load Track"
-            </button>
         </div>
     }
 }
