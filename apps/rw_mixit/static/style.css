@@ -40,7 +40,7 @@
    * JS writes --app-scale via update_viewport_scale() in app.rs.
    * Baseline targets ~800px viewport height; breakpoints go further.     */
   --platter-max:   200px;  /* platter canvas display max-width             */
-  --waveform-h:     60px;  /* waveform canvas display height               */
+  --waveform-h:     44px;  /* waveform canvas display height               */
   --deck-gap:     0.4rem;  /* gap between sections inside each deck column */
   --deck-pad:     0.6rem;  /* padding inside each deck column              */
   --deck-row-gap: 0.75rem; /* gap between the three columns                */
@@ -290,7 +290,7 @@ html, body {
 @media (max-height: 900px) {
   :root {
     --platter-max:   180px;
-    --waveform-h:     50px;
+    --waveform-h:     36px;
     --deck-gap:     0.3rem;
     --deck-pad:    0.45rem;
     --deck-row-gap: 0.5rem;
@@ -456,6 +456,8 @@ html, body {
   background-color: var(--color-panel);
   color: var(--color-glow);
   transition: transform 0.08s ease;
+  /* Small bottom margin separates Load Track from the deck edge */
+  margin-bottom: 0.2rem;
   /* No margin-top: auto — that would push the button to the absolute bottom
      of scrollable overflow content, making it unreachable at small viewports. */
 }
