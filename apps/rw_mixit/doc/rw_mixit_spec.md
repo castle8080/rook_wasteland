@@ -107,7 +107,8 @@ Each deck includes:
 - A playhead line shows the current position.
 - The waveform is rendered on a `<canvas>` element.
 - The loop region is highlighted with a translucent color overlay.
-- Clicking anywhere on the waveform seeks to that position (when paused or in cue mode).
+- Clicking anywhere on the waveform seeks to that position (while playing or paused).
+- **Drag scrub**: pressing and dragging horizontally on the waveform continuously scrubs the playhead position. The cursor changes to a grab/grabbing style to indicate the interaction.
 - **Zoom controls** allow zooming in/out of the waveform for fine loop-point editing.
 
 ### 6.6 Hot Cues

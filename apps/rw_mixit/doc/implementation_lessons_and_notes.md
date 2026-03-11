@@ -321,3 +321,25 @@ queries — without adding any lints to production code. The `#!` scoping means
 the allow applies only within that module. This is cleaner than per-function
 `#[allow(...)]` annotations when the same lint fires in every test function in
 the module, and preferable to a workspace-level allow in `Cargo.toml`.
+
+---
+
+## Lessons from Feature 004 — Waveform Scrub Seek
+
+### RwSignal<T> is Copy — eliminates Rc for shared drag-end handlers
+
+When an event handler closure captures only Leptos signals (and no non-Copy
+heap types), two independent closures for on:mouseup and on:mouseleave can
+both capture the same signal directly by value — no Rc<dyn Fn()> wrapper
+needed. This is a simpler pattern than the 
+udge_end_rc workaround in
+controls.rs. Reserve Rc<dyn Fn()> for closures that also capture
+Rc<RefCell<...>> or other non-Copy types.
+
+### style:<prop> reactive inline style is cleaner than class-toggling for cursor changes
+
+For element properties that change based on a single signal (e.g., cursor
+style during a drag), style:cursor=move || if flag.get() { "grabbing" } else {
+"grab" } in a Leptos iew! is simpler than toggling a CSS class. No
+additional CSS rule is required, the update is reactive, and it avoids the
+potential selector collision of .element.class rules.

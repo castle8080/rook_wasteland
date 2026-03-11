@@ -77,7 +77,7 @@ rw_mixit/
 │   │   ├── mod.rs
 │   │   ├── raf_loop.rs         # requestAnimationFrame driver
 │   │   ├── platter_draw.rs     # Platter drawing logic
-│   │   └── waveform_draw.rs    # Waveform + playhead drawing logic
+│   │   └── waveform_draw.rs    # Waveform + playhead drawing; `seek_from_canvas_x` coordinate helper
 │   └── utils/
 │       ├── mod.rs
 │       └── keyboard.rs         # Global keyboard shortcut handler
