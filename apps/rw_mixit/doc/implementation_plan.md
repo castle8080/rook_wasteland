@@ -244,7 +244,8 @@ Complete the UI: secondary views, cartoon aesthetic fully applied, animations al
 | M10 — Keyboard Shortcuts | T10.1 – T10.4 (4 tasks) | ✅ Done |
 | M11 — Settings, About & Visual Polish | T11.1 – T11.11 (11 tasks) | ✅ Done |
 | M12 — Compact Responsive Layout | Feature 002 (see `features/feature_002_compact_responsive_layout.md`) | ✅ Done |
-| **Total** | **81 tasks + Feature 002** | |
+| Feature 003 — In-App User Guide | `Route::Help` + `HelpView` quick-start guide (see `features/feature_003_in_app_user_guide.md`) | ✅ Done |
+| **Total** | **81 tasks + Feature 002 + Feature 003** | |
 
 ---
 

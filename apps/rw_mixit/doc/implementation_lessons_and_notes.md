@@ -292,3 +292,32 @@ acceptable to fall back to page-level scrolling rather than clipping. The final
 pattern: `overflow-y: auto` on `body` + `min-height: 100vh` on `#rw-mixit-root`.
 This lets the page scroll as a last resort while keeping the exact-height
 constraint at normal viewport sizes.
+
+---
+
+## Lessons from Feature 003 — In-App User Guide
+
+### `round_trip_all_routes` as a route completeness guard
+
+The `round_trip_all_routes` test in `src/routing.rs` maintains an explicit array
+of every `Route` variant and asserts `from_hash(to_hash(r)) == r` for each one.
+Because the array is hand-maintained, adding a new variant to the `Route` enum
+without updating the array causes a compile-time pattern-match exhaustion error
+(if the `to_hash` / `from_hash` match arms are missing) or a test gap (the
+new variant is not exercised and the round-trip is untested). Either way the
+issue surfaces immediately and locally — not as a runtime routing bug in
+production. Replicate this pattern in any module where enum coverage is
+critical: a small, explicit test that enumerates every variant doubles as a
+completeness contract and acts as a lint that forces the implementer to update
+the test alongside the enum.
+
+### `#![allow(...)]` at module level in a `mod wasm_tests {}` block
+
+Applying `#![allow(clippy::let_unit_value, clippy::unwrap_used)]` as an
+**inner attribute** (`#![...]`, not `#[...]`) at the top of a
+`#[cfg(test)] mod wasm_tests { ... }` block suppresses intentional test-code
+patterns — unit-value bindings produced by `view!`, and `unwrap()` on DOM
+queries — without adding any lints to production code. The `#!` scoping means
+the allow applies only within that module. This is cleaner than per-function
+`#[allow(...)]` annotations when the same lint fires in every test function in
+the module, and preferable to a workspace-level allow in `Cargo.toml`.

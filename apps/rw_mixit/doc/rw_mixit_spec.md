@@ -185,6 +185,7 @@ Animations are a first-class citizen:
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                      [ rw_mixit logo ]                      │
+│         [Settings]  [Help]  [About]   ← header nav          │
 ├──────────────────────┬──────────────┬───────────────────────┤
 │      DECK  A         │   MIXER      │       DECK  B         │
 │  [  waveform A  ]    │  [xfader]    │  [  waveform B  ]     │
@@ -197,6 +198,17 @@ Animations are a first-class citizen:
 │  [FX panel A ]       │              │  [FX panel B ]        │
 └──────────────────────┴──────────────┴───────────────────────┘
 ```
+
+**Navigation routes:**
+
+| Hash | Route | View |
+|---|---|---|
+| `#/` | `Route::Main` | Dual-deck mixer (default) |
+| `#/settings` | `Route::Settings` | Settings panel |
+| `#/help` | `Route::Help` | Quick-start guide |
+| `#/about` | `Route::About` | About / credits card |
+
+The header nav order is: `[Settings]` · `[Help]` · `[About]`. Clicking the logo or any nav link sets `window.location.hash`; the `hashchange` listener updates the active route. `DeckView` stays mounted on all routes so audio continues playing.
 
 ---
 

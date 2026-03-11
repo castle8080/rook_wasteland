@@ -1,7 +1,7 @@
 # Feature 003 — In-App User Guide
 
 ## Status
-Proposed
+Implemented
 
 ## Summary
 Add a dedicated Help page accessible via a `[Help]` link in the top navigation bar. The page presents a short, fun, numbered quick-start walkthrough that gets a first-time user mixing in under a minute. Content is hardcoded in a Leptos component styled like the existing About card.
@@ -68,16 +68,58 @@ New users arrive at a complex dual-deck mixer UI with no onboarding. The most cr
 <!-- The sections below are filled in during the implementation phase -->
 
 ## Implementation Plan
-*To be determined*
+
+Six files were modified or created:
+
+| File | Change | Reason |
+|---|---|---|
+| `src/routing.rs` | Added `Help` variant to `Route` enum; added `"#/help"` parse arm and `to_hash()` arm; added `from_hash_help` test; updated `round_trip_all_routes` to include `Route::Help` | Routing support for the new page |
+| `src/components/header.rs` | Added `[Help]` anchor between `[Settings]` and `[About]`; added `help_link_sets_help_hash` WASM test; added `#![allow(clippy::let_unit_value, clippy::unwrap_used)]` to the wasm test module | Nav link and test coverage |
+| `src/components/help.rs` | **New file.** `HelpView` component — purely presentational; `.help-view`/`.help-card` layout; `.help-steps` `<ol>` of 4 quick-start steps; hip-hop copy with emoji; footer link to `#/settings` | The guide page itself |
+| `src/components/mod.rs` | Added `pub mod help;` | Expose the new module |
+| `src/app.rs` | Imported `HelpView`; added `<Show when=move \|\| current_route.get() == Route::Help> <HelpView/> </Show>` | Wire the route to the view |
+| `static/style.css` | Added `.help-view`, `.help-card`, `.help-title`, `.help-tagline`, `.help-steps`, `.help-step`, `.help-step-title`, `.help-footer`, `.help-link` rules | Dedicated styling for the guide card |
+
+**Architectural note:** The same `<Show>`/hide pattern as `AboutView` and `SettingsView` is used — `DeckView` stays mounted while the user is on the Help page, so the audio graph keeps running (music continues playing). No state changes were needed; `HelpView` is purely presentational with no signals or context.
+
+**Deviation from original plan:** The wasm test module in `header.rs` received `#![allow(clippy::let_unit_value, clippy::unwrap_used)]`. This was not in the original plan but was needed to suppress intentional test-code patterns in the new `help_link_sets_help_hash` test, and it also fixed 7 pre-existing clippy violations in the same module at no extra cost.
 
 ## Spec Changes
-*To be determined (list any doc/*.md files that will need updating)*
+
+The following `doc/` files were updated as part of this feature:
+
+- `doc/rw_mixit_spec.md` — Added `Route::Help` / `#/help` to the navigation routes table in §7.3.
+- `doc/rw_mixit_tech_spec.md` — Added `Route::Help` to the `Route` enum and `from_hash`/`to_hash` examples in §6; added `<HelpView>` to the component tree in §10.1; added `help.rs` to the module layout in §3.
+- `doc/implementation_plan.md` — Added Feature 003 as a completed entry.
+- `doc/implementation_lessons_and_notes.md` — Added lesson on `round_trip_all_routes` as a route completeness guard.
 
 ## Test Strategy
-*To be determined*
+
+**Tier 1 — native `cargo test`:**
+- `from_hash_help` in `src/routing.rs` — verifies `"#/help"` parses to `Route::Help`.
+- `round_trip_all_routes` in `src/routing.rs` — verifies every `Route` variant survives a `to_hash` → `from_hash` round-trip. The test array must include every variant, so adding `Route::Help` to the enum without updating the test is a compile-time failure.
+
+**Tier 2 — `wasm-pack test --headless --firefox`:**
+- `help_link_sets_help_hash` in `src/components/header.rs` — mounts the `Header` component, clicks the `[Help]` anchor, and asserts the URL hash is `#/help`.
+
+**`HelpView` DOM rendering:** waived. The component is purely static HTML with no signals or event handlers. Manual smoke test (visually inspect at `#/help`) is sufficient.
 
 ## Decisions Made
-*To be determined*
+
+1. **Dedicated `.help-*` CSS classes rather than reusing `.about-*`** — allows the guide's visual style to evolve independently of the About card without coupling them. The initial styles mirror `.about-*` for consistency.
+
+2. **`[Help]` link placed between `[Settings]` and `[About]`** — `[Settings]` is the most frequently accessed secondary page and stays first; `[About]` is informational and naturally comes last; `[Help]` sits in the middle as the onboarding gateway.
+
+3. **4 steps only (essentials path):** load → play → levels → crossfader. FX, loops, hot cues, and keyboard shortcuts are deferred to a footer hint that links to `[Settings]`. Keeping it to four steps means the guide fits on a single screen without scrolling on typical displays.
+
+4. **Footer link to `#/settings`** — provides a natural continuation path for users who want to explore reverb, crossfader curve, and other advanced options after they have the basics down.
 
 ## Lessons / Highlights
-*To be determined*
+
+### `round_trip_all_routes` as a route completeness guard
+
+The `round_trip_all_routes` test in `src/routing.rs` keeps an explicit array of every `Route` variant and asserts that `from_hash(to_hash(route)) == route` for each one. Because the array is hand-maintained, adding a new variant to the enum without updating the test causes a compilation error (non-exhaustive pattern match if the match arm is missing) or a test failure (the new variant is not exercised). Either way, the breakage is caught immediately and locally — no runtime surprise. This pattern is worth replicating in any app where routing coverage is important: a small, explicit test that enumerates every variant doubles as a completeness contract.
+
+### `#![allow(...)]` at module level in a `mod wasm_tests {}` block
+
+Applying `#![allow(clippy::let_unit_value, clippy::unwrap_used)]` as an inner attribute at the top of a `#[cfg(test)] mod wasm_tests { ... }` block suppresses intentional test-code patterns (unit-value bindings from `view!`, `unwrap()` on DOM queries) without polluting production code with blanket lints. The inner `#!` syntax scopes the allow to the module only. This is cleaner than per-function `#[allow(...)]` attributes when the same lint fires in every test function in the module.

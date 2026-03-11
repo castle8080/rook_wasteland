@@ -71,7 +71,8 @@ rw_mixit/
 │   │   ├── eq.rs               # 3-band EQ knobs
 │   │   ├── hot_cues.rs         # 4 hot cue buttons
 │   │   ├── loop_controls.rs    # Loop In/Out/Toggle/Bar buttons
-│   │   └── fx_panel.rs         # Effects toggles + params
+│   │   ├── fx_panel.rs         # Effects toggles + params
+│   │   └── help.rs             # <HelpView> — quick-start guide (Route::Help)
 │   ├── canvas/
 │   │   ├── mod.rs
 │   │   ├── raf_loop.rs         # requestAnimationFrame driver
@@ -199,6 +200,7 @@ pub enum Route {
     Main,
     Settings,
     About,
+    Help,
 }
 
 impl Route {
@@ -206,6 +208,7 @@ impl Route {
         match hash {
             "#/settings" => Route::Settings,
             "#/about"    => Route::About,
+            "#/help"     => Route::Help,
             _            => Route::Main,
         }
     }
@@ -215,6 +218,7 @@ impl Route {
             Route::Main     => "#/",
             Route::Settings => "#/settings",
             Route::About    => "#/about",
+            Route::Help     => "#/help",
         }
     }
 }
@@ -254,6 +258,9 @@ pub fn App() -> impl IntoView {
             </Show>
             <Show when=move || current_route.get() == Route::About>
                 <AboutView/>
+            </Show>
+            <Show when=move || current_route.get() == Route::Help>
+                <HelpView/>
             </Show>
         </div>
     }
@@ -988,7 +995,8 @@ Rendered in two passes per frame:
  │    └── <Deck side=Right>
  │         └── (mirror of Left)
  ├── <SettingsView>            (Route::Settings)
- └── <AboutView>               (Route::About)
+ ├── <AboutView>               (Route::About)
+ └── <HelpView>                (Route::Help — quick-start guide, purely presentational)
 ```
 
 ### 10.2 Deck Component Props
