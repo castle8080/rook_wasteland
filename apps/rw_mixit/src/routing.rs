@@ -4,6 +4,7 @@ pub enum Route {
     Main,
     Settings,
     About,
+    Help,
 }
 
 impl Route {
@@ -13,6 +14,7 @@ impl Route {
         match hash {
             "#/settings" => Route::Settings,
             "#/about"    => Route::About,
+            "#/help"     => Route::Help,
             _            => Route::Main,
         }
     }
@@ -23,6 +25,7 @@ impl Route {
             Route::Main     => "#/",
             Route::Settings => "#/settings",
             Route::About    => "#/about",
+            Route::Help     => "#/help",
         }
     }
 }
@@ -49,8 +52,13 @@ mod tests {
     }
 
     #[test]
+    fn from_hash_help() {
+        assert_eq!(Route::from_hash("#/help"), Route::Help);
+    }
+
+    #[test]
     fn round_trip_all_routes() {
-        let routes = [Route::Main, Route::Settings, Route::About];
+        let routes = [Route::Main, Route::Settings, Route::About, Route::Help];
         for route in routes {
             assert_eq!(Route::from_hash(route.to_hash()), route,
                 "round-trip failed for {route:?}");

@@ -1293,7 +1293,76 @@ html, body {
   color: var(--color-glow);
 }
 
-/* ─── T11.1 Settings view ─────────────────────────────────────────── */
+/* ─── Feature 003: Help / Quick-start guide ───────────────────────── */
+.help-view {
+  display: flex;
+  justify-content: center;
+  padding: 2rem 1rem;
+}
+
+.help-card {
+  background-color: var(--color-panel);
+  border: var(--border-cartoon);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-cartoon);
+  padding: 2rem;
+  max-width: 600px;
+  width: 100%;
+}
+
+.help-title {
+  font-family: 'Bangers', cursive;
+  font-size: 2.2rem;
+  letter-spacing: 0.08em;
+  color: var(--color-glow);
+  margin: 0 0 0.25rem;
+}
+
+.help-tagline {
+  font-size: 0.95rem;
+  color: var(--color-text-dim);
+  margin: 0 0 1.5rem;
+  line-height: 1.5;
+}
+
+.help-steps {
+  padding-left: 1.4rem;
+  margin: 0 0 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.help-step {
+  line-height: 1.6;
+  color: var(--color-text);
+  font-size: 0.95rem;
+}
+
+.help-step-title {
+  color: var(--color-accent);
+  letter-spacing: 0.04em;
+}
+
+.help-footer {
+  font-size: 0.85rem;
+  color: var(--color-text-dim);
+  line-height: 1.5;
+  margin: 0;
+  border-top: 1px solid rgba(255,255,255,0.07);
+  padding-top: 1rem;
+}
+
+.help-link {
+  color: var(--color-glow);
+  text-decoration: none;
+}
+
+.help-link:hover {
+  text-decoration: underline;
+}
+
+
 .settings-view {
   display: flex;
   justify-content: center;

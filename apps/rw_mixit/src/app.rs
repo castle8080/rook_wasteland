@@ -9,6 +9,7 @@ use crate::components::{
     about::AboutView,
     deck::DeckView,
     header::Header,
+    help::HelpView,
     settings::SettingsView,
 };
 use crate::utils::viewport_scale::update_viewport_scale;
@@ -102,6 +103,9 @@ pub fn App() -> impl IntoView {
             </Show>
             <Show when=move || current_route.get() == Route::About>
                 <AboutView/>
+            </Show>
+            <Show when=move || current_route.get() == Route::Help>
+                <HelpView/>
             </Show>
         </div>
     }
