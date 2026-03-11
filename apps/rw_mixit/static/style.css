@@ -700,6 +700,7 @@ html, body {
   gap: 0.3rem;
   padding: 0.35rem 0.25rem;
   border-top: 1px solid rgba(255,255,255,0.07);
+  overflow: hidden;   /* clip any child that exceeds the section width */
 }
 
 .mixer-section-label {
@@ -726,6 +727,7 @@ html, body {
 
 .crossfader {
   flex: 1;
+  min-width: 0;   /* range inputs have a browser default min-width that causes overflow */
   accent-color: var(--color-glow);
   cursor: pointer;
   height: 8px;
@@ -740,6 +742,7 @@ html, body {
 
 .master-vol {
   flex: 1;
+  min-width: 0;   /* same fix — range input default min-width causes flex overflow */
   accent-color: var(--color-mixer);
   cursor: pointer;
   height: 8px;
