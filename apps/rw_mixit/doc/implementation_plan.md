@@ -198,10 +198,10 @@ Play the app without touching the mouse.
 
 | ID | Task | Success Criteria | Status |
 |---|---|---|---|
-| T10.1 | `src/utils/keyboard.rs`: `is_input_focused() -> bool` — checks `document.activeElement` tag name is not INPUT or TEXTAREA | Returns true when a text input is focused; false otherwise | ⬜ Not Started |
-| T10.2 | `register_keyboard_shortcuts(deck_a, deck_b)` — global `keydown` listener on `window` via `gloo-events`; returns `EventListener` held at app root to prevent drop | Listener registered; no double-firing | ⬜ Not Started |
-| T10.3 | Deck A shortcut handlers: `Space` → play/pause; `KeyQ` → cue; `KeyZ` → loop in; `KeyX` → loop out; `ArrowLeft` / `ArrowRight` → nudge; `Digit1`–`Digit4` → hot cues | Each key triggers the documented action on Deck A | ⬜ Not Started |
-| T10.4 | Deck B shortcut handlers: `Enter` → play/pause; `KeyP` → cue; `KeyN` → loop in; `KeyM` → loop out; `BracketLeft` / `BracketRight` → nudge; `Digit7`–`Digit0` → hot cues | Each key triggers the documented action on Deck B | ⬜ Not Started |
+| T10.1 | `src/utils/keyboard.rs`: `is_input_focused() -> bool` — checks `document.activeElement` tag name is not INPUT or TEXTAREA | Returns true when a text input is focused; false otherwise | ✅ Done |
+| T10.2 | `register_keyboard_shortcuts(deck_a, deck_b)` — global `keydown` listener on `window` via `gloo-events`; returns `EventListener` held at app root to prevent drop | Listener registered; no double-firing | ✅ Done |
+| T10.3 | Deck A shortcut handlers: `Space` → play/pause; `KeyQ` → cue; `KeyZ` → loop in; `KeyX` → loop out; `ArrowLeft` / `ArrowRight` → nudge; `Digit1`–`Digit4` → hot cues | Each key triggers the documented action on Deck A | ✅ Done |
+| T10.4 | Deck B shortcut handlers: `Enter` → play/pause; `KeyP` → cue; `KeyN` → loop in; `KeyM` → loop out; `BracketLeft` / `BracketRight` → nudge; `Digit7`–`Digit0` → hot cues | Each key triggers the documented action on Deck B | ✅ Done |
 
 ---
 
@@ -241,7 +241,7 @@ Complete the UI: secondary views, cartoon aesthetic fully applied, animations al
 | M7 — Hot Cues | T7.1 – T7.5 (5 tasks) | ⬜ Not Started |
 | M8 — EQ, Filter & VU Meter | T8.1 – T8.5 (5 tasks) | ✅ Done |
 | M9 — Effects Panel | T9.1 – T9.6 (6 tasks) | ✅ Done |
-| M10 — Keyboard Shortcuts | T10.1 – T10.4 (4 tasks) | ⬜ Not Started |
+| M10 — Keyboard Shortcuts | T10.1 – T10.4 (4 tasks) | ✅ Done |
 | M11 — Settings, About & Visual Polish | T11.1 – T11.11 (11 tasks) | ⬜ Not Started |
 | **Total** | **81 tasks** | |
 

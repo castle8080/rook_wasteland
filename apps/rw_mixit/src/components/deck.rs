@@ -22,6 +22,7 @@ use crate::components::mixer::Mixer;
 use crate::components::pitch_fader::PitchFader;
 use crate::state::{DeckState, MixerState};
 use crate::state::mixer::DeckId;
+use crate::utils::keyboard::register_keyboard_shortcuts;
 
 /// Waveform canvas dimensions (pixels).
 const WAVEFORM_WIDTH:  u32 = 600;
@@ -70,6 +71,18 @@ pub fn DeckView() -> impl IntoView {
         platter_a_ref,
         platter_b_ref,
     );
+
+    // M10 — Register global keyboard shortcuts and keep the listeners alive for
+    // the entire application lifetime.  `std::mem::forget` prevents the
+    // EventListeners from calling removeEventListener on drop — same pattern as
+    // the hashchange listener in app.rs.
+    let kb = register_keyboard_shortcuts(
+        state_a.clone(),
+        audio_a.clone(),
+        state_b.clone(),
+        audio_b.clone(),
+    );
+    std::mem::forget(kb);
 
     view! {
         <div class="deck-row">
