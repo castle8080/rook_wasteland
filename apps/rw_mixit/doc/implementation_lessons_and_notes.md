@@ -237,3 +237,37 @@ still called, the closure leaks permanently: the browser never invokes it, so
 the allocation is never reclaimed, and on every subsequent resize event another
 closure leaks. The rule: only forget a closure when the browser has taken
 ownership of it by accepting the timeout registration.
+
+---
+
+## Lessons from M12 — Compact Responsive Layout
+
+### `min-height: 100vh` vs `height: 100vh` — silent content clipping
+
+`min-height: 100vh` on the app root lets the root div grow taller than the
+viewport when its content overflows. Paired with `overflow: hidden` on
+`html/body`, any overflow is silently clipped — the user sees nothing, but
+controls at the bottom of the page are invisible and unreachable. The correct
+pattern for a no-scroll app is `height: 100vh` (exact constraint) on the root
+and `height: 100%` on `html/body`. Flex children with `flex: 1` still fill the
+full viewport height; the difference is that the root can no longer grow taller
+than the viewport.
+
+### Flex column overflow requires `min-height: 0` on ALL links in the chain
+
+A flex column child inherits `min-height: auto` by default. This prevents the
+flex algorithm from shrinking the element below its intrinsic content height —
+so even if the parent has a hard `height` constraint, the child overflows it.
+Every element in the chain (`#root → .deck-row → .deck`) must have
+`min-height: 0` for the height constraint to propagate. Missing `min-height: 0`
+on even one link silently breaks the constraint.
+
+### `overflow-y: auto` as a safety net in flexible layouts
+
+CSS height breakpoints that progressively shrink content are best-effort — they
+reduce overflow but cannot guarantee zero overflow at all screen sizes and font
+zoom levels. Pairing the deck column (`overflow-y: auto`) with the exact-height
+root (`height: 100vh`) ensures a scrollbar appears within the deck panel when
+the content is taller than the available space, keeping all controls reachable.
+This is preferable to either (a) page-level scrolling (whole UI shifts) or
+(b) `overflow: hidden` (controls disappear).
