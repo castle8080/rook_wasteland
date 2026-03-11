@@ -213,17 +213,17 @@ Complete the UI: secondary views, cartoon aesthetic fully applied, animations al
 
 | ID | Task | Success Criteria | Status |
 |---|---|---|---|
-| T11.1 | `src/components/settings.rs`: Settings view with reverb duration slider (0.5–3.5 s) and decay slider (0.5–4.0) → call `generate_reverb_ir()` and reload the `ConvolverNode`; crossfader curve toggle (equal-power / linear) | Changing reverb duration audibly changes tail length after confirming | ⬜ Not Started |
-| T11.2 | `src/components/about.rs`: About view with version string, stack bullet list | About page renders correctly at `#/about` | ⬜ Not Started |
-| T11.3 | Cartoon CSS pass — panels: thick black borders (`3px solid #111`), `box-shadow: 4px 4px 0 #111`, `border-radius: 12px` on panels, `50%` on knobs/buttons; deck A accent (`--color-deck-a: #3b82f6`), deck B accent (`--color-deck-b: #f97316`) applied throughout | App visually resembles the wireframe aesthetic | ⬜ Not Started |
-| T11.4 | Button press animation: add `.active` class on `pointerdown`, remove on `pointerup`; CSS `@keyframes pop { 0%{scale:1} 50%{scale:0.92} 100%{scale:1} }` with `animation: pop 80ms ease-out` on `.active` | Every button has a satisfying physical "press" feel | ⬜ Not Started |
-| T11.5 | Hot cue burst animation: on hot cue trigger, briefly render a cartoon star-burst `<div>` over the button with `@keyframes burst { 0%{opacity:1;scale:0.5} 100%{opacity:0;scale:1.8} }` | A star-burst appears for ~200 ms on hot cue tap | ⬜ Not Started |
-| T11.6 | FX active wiggle animation: when `fx_* = true`, add a CSS class with `@keyframes wiggle { 0%,100%{rotate:0} 25%{rotate:-3deg} 75%{rotate:3deg} }` `animation: wiggle 0.4s infinite` | Active FX buttons visibly wiggle | ⬜ Not Started |
-| T11.7 | Loop region pulse animation: when `loop_active = true`, the waveform loop overlay pulses opacity via `@keyframes pulse { 0%,100%{opacity:0.3} 50%{opacity:0.6} }` (CSS class toggled by Leptos signal) | Loop overlay gently pulses when loop is active | ⬜ Not Started |
-| T11.8 | Platter label: render track name (truncated to ~16 chars) inside the label circle using `CanvasRenderingContext2d.fill_text()`; Bangers font via canvas `font` property | Track name appears on the spinning label circle | ⬜ Not Started |
-| T11.9 | Responsive layout: replace fixed pixel widths with `flex: 1` or `min-width` constraints; verify at 1024 px, 1280 px, 1440 px viewport widths — no overflow, no clipping | Layout stays usable at 1024 px wide without horizontal scrolling | ⬜ Not Started |
-| T11.10 | Load button animations: CSS `:hover` state adds a `translateY(-2px)` bounce via `@keyframes loadhover`; on successful file load, add a `.slot-in` class to the platter for 400 ms that plays a brief downward scale-in animation simulating the record "slotting in" | Load button visibly bounces on hover; platter animates on successful load | ⬜ Not Started |
-| T11.11 | Crossfader glow animation: add CSS class `.xfader-moving` while the crossfader is being dragged (set on `pointerdown`, remove on `pointerup`); class applies `box-shadow: 0 0 12px var(--color-glow)` and a slow `@keyframes pulse-glow` | Crossfader glows while being dragged; glow fades when released | ⬜ Not Started |
+| T11.1 | `src/components/settings.rs`: Settings view with reverb duration slider (0.5–3.5 s) and decay slider (0.5–4.0) → call `generate_reverb_ir()` and reload the `ConvolverNode`; crossfader curve toggle (equal-power / linear) | Changing reverb duration audibly changes tail length after confirming | ✅ Done |
+| T11.2 | `src/components/about.rs`: About view with version string, stack bullet list | About page renders correctly at `#/about` | ✅ Done |
+| T11.3 | Cartoon CSS pass — panels: thick black borders (`3px solid #111`), `box-shadow: 4px 4px 0 #111`, `border-radius: 12px` on panels, `50%` on knobs/buttons; deck A accent (`--color-deck-a: #3b82f6`), deck B accent (`--color-deck-b: #f97316`) applied throughout | App visually resembles the wireframe aesthetic | ✅ Done (already in place from earlier milestones) |
+| T11.4 | Button press animation: add `.active` class on `pointerdown`, remove on `pointerup`; CSS `@keyframes pop { 0%{scale:1} 50%{scale:0.92} 100%{scale:1} }` with `animation: pop 80ms ease-out` on `.active` | Every button has a satisfying physical "press" feel | ✅ Done |
+| T11.5 | Hot cue burst animation: on hot cue trigger, briefly render a cartoon star-burst `<div>` over the button with `@keyframes burst { 0%{opacity:1;scale:0.5} 100%{opacity:0;scale:1.8} }` | A star-burst appears for ~200 ms on hot cue tap | ✅ Done |
+| T11.6 | FX active wiggle animation: when `fx_* = true`, add a CSS class with `@keyframes wiggle { 0%,100%{rotate:0} 25%{rotate:-3deg} 75%{rotate:3deg} }` `animation: wiggle 0.4s infinite` | Active FX buttons visibly wiggle | ✅ Done (already in place from M9) |
+| T11.7 | Loop region pulse animation: when `loop_active = true`, the waveform loop overlay pulses opacity via `@keyframes pulse { 0%,100%{opacity:0.3} 50%{opacity:0.6} }` (CSS class toggled by Leptos signal) | Loop overlay gently pulses when loop is active | ✅ Done (uses sin(performance.now()) in waveform_draw.rs — canvas content, not CSS animation) |
+| T11.8 | Platter label: render track name (truncated to ~16 chars) inside the label circle using `CanvasRenderingContext2d.fill_text()`; Bangers font via canvas `font` property | Track name appears on the spinning label circle | ✅ Done (truncation increased from 10 to 16 chars) |
+| T11.9 | Responsive layout: replace fixed pixel widths with `flex: 1` or `min-width` constraints; verify at 1024 px, 1280 px, 1440 px viewport widths — no overflow, no clipping | Layout stays usable at 1024 px wide without horizontal scrolling | ✅ Done (media queries already in place) |
+| T11.10 | Load button animations: CSS `:hover` state adds a `translateY(-2px)` bounce via `@keyframes loadhover`; on successful file load, add a `.slot-in` class to the platter for 400 ms that plays a brief downward scale-in animation simulating the record "slotting in" | Load button visibly bounces on hover; platter animates on successful load | ✅ Done |
+| T11.11 | Crossfader glow animation: add CSS class `.xfader-moving` while the crossfader is being dragged (set on `pointerdown`, remove on `pointerup`); class applies `box-shadow: 0 0 12px var(--color-glow)` and a slow `@keyframes pulse-glow` | Crossfader glows while being dragged; glow fades when released | ✅ Done |
 
 ---
 
@@ -242,7 +242,7 @@ Complete the UI: secondary views, cartoon aesthetic fully applied, animations al
 | M8 — EQ, Filter & VU Meter | T8.1 – T8.5 (5 tasks) | ✅ Done |
 | M9 — Effects Panel | T9.1 – T9.6 (6 tasks) | ✅ Done |
 | M10 — Keyboard Shortcuts | T10.1 – T10.4 (4 tasks) | ✅ Done |
-| M11 — Settings, About & Visual Polish | T11.1 – T11.11 (11 tasks) | ⬜ Not Started |
+| M11 — Settings, About & Visual Polish | T11.1 – T11.11 (11 tasks) | ✅ Done |
 | **Total** | **81 tasks** | |
 
 ---
