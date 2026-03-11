@@ -268,7 +268,10 @@ pub fn Deck(
                 Some(c) => c,
                 None    => return,
             };
-            let canvas_width = canvas_el.width() as f64;
+            let canvas_width = canvas_el.get_bounding_client_rect().width();
+            if canvas_width <= 0.0 {
+                return; // element not yet laid out — skip seek
+            }
             let current      = state.current_secs.get_untracked();
             let seek_pos     = seek_from_canvas_x(mouse_x, canvas_width, current, duration);
             if let Some(ref deck_rc) = *audio_deck_holder.borrow() {

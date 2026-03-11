@@ -26,7 +26,7 @@ web-sys = { version = "0.3", features = [
   "Event", "MouseEvent", "PointerEvent", "KeyboardEvent",
   "HashChangeEvent", "ProgressEvent", "EventTarget",
   # Misc
-  "Performance", "Navigator", "Location",
+  "Performance", "Navigator", "Location", "DomRect",
 ] }
 js-sys = "0.3"
 wasm-bindgen-futures = "0.4"

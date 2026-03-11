@@ -343,3 +343,16 @@ style during a drag), style:cursor=move || if flag.get() { "grabbing" } else {
 "grab" } in a Leptos iew! is simpler than toggling a CSS class. No
 additional CSS rule is required, the update is reactive, and it avoids the
 potential selector collision of .element.class rules.
+
+### Canvas width attribute ≠ CSS display width — always use getBoundingClientRect() for mouse hit-testing
+
+HtmlCanvasElement::width() returns the canvas **buffer** resolution (the HTML
+width attribute, e.g. 600). MouseEvent::offset_x() returns the cursor
+position in **CSS display pixels**. When CSS width: 100% scales the canvas
+element to a different size than its buffer, these two coordinate spaces diverge
+and all pixel-to-time calculations silently produce wrong (tiny) offsets.
+
+Fix: use canvas_el.get_bounding_client_rect().width() (CSS display width) as
+the denominator in any pixel-to-time formula — it is always in the same
+coordinate space as offset_x. The web-sys "DomRect" feature must be listed
+in Cargo.toml for .width() to compile.
