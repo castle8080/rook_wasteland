@@ -62,21 +62,21 @@ html, body {
   background-color: var(--color-bg);
   color: var(--color-text);
   font-family: 'Bangers', cursive;
-  /* height: 100% (not min-height) so #rw-mixit-root's 100vh is well-defined
-     in all browsers and doesn't let the document grow beyond the viewport. */
   height: 100%;
   letter-spacing: 0.04em;
-  overflow: hidden;
+  /* Allow page-level scrolling when the viewport is too small to fit everything.
+     The app tries hard to fit within the viewport via CSS vars + breakpoints,
+     but scrolling is an acceptable fallback rather than clipping content. */
+  overflow-y: auto;
 }
 
 /* ─── Root container ──────────────────────────────────────────────── */
 #rw-mixit-root {
   display: flex;
   flex-direction: column;
-  /* height (not min-height) constrains the root to exactly the viewport so
-     flex children fill it and nothing silently overflows the bottom edge. */
-  height: 100vh;
-  overflow: hidden;
+  /* min-height fills the viewport normally; the root can grow taller on very
+     small screens and the body will scroll rather than clipping content. */
+  min-height: 100vh;
   /* M12: JS writes --app-scale on document root when viewport is very small */
   transform: scale(var(--app-scale, 1));
   transform-origin: top center;
