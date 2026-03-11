@@ -37,15 +37,16 @@
 
   /* ── M12 Responsive size tokens ──────────────────────────────────────
    * Overridden by @media (max-height) blocks below.
-   * JS writes --app-scale via apply_viewport_scale() in app.rs.           */
-  --platter-max:   240px;  /* platter canvas display max-width             */
-  --waveform-h:     80px;  /* waveform canvas display height               */
-  --deck-gap:     0.75rem; /* gap between sections inside each deck column */
-  --deck-pad:      1rem;   /* padding inside each deck column              */
-  --deck-row-gap:  1rem;   /* gap between the three columns                */
-  --deck-row-pad:  1rem;   /* outer padding of the deck-row wrapper        */
-  --knob-sz:       48px;   /* EQ / filter knob diameter                    */
-  --vu-h:          80px;   /* VU meter bar container height                */
+   * JS writes --app-scale via update_viewport_scale() in app.rs.
+   * Baseline targets ~800px viewport height; breakpoints go further.     */
+  --platter-max:   200px;  /* platter canvas display max-width             */
+  --waveform-h:     60px;  /* waveform canvas display height               */
+  --deck-gap:     0.4rem;  /* gap between sections inside each deck column */
+  --deck-pad:     0.6rem;  /* padding inside each deck column              */
+  --deck-row-gap: 0.75rem; /* gap between the three columns                */
+  --deck-row-pad: 0.75rem; /* outer padding of the deck-row wrapper        */
+  --knob-sz:       44px;   /* EQ / filter knob diameter                    */
+  --vu-h:          60px;   /* VU meter bar container height                */
   --app-scale:     1;      /* written imperatively by JS resize handler    */
 }
 
@@ -85,14 +86,14 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.75rem 1.5rem;
+  padding: 0.35rem 1.5rem;
   background-color: var(--color-panel);
   border-bottom: var(--border-cartoon);
   box-shadow: var(--shadow-cartoon);
 }
 
 .rw-logo {
-  font-size: 2rem;
+  font-size: 1.6rem;
   color: var(--color-glow);
   text-decoration: none;
   text-shadow: 2px 2px 0 var(--color-border);
@@ -167,7 +168,7 @@ html, body {
 .deck-b { border-top: 5px solid var(--color-deck-b); }
 
 .deck-label {
-  font-size: 1.8rem;
+  font-size: 1.3rem;
   margin: 0;
   text-align: center;
   letter-spacing: 0.1em;
@@ -192,14 +193,14 @@ html, body {
   border-top: 5px solid var(--color-mixer);
   border-radius: var(--radius-panel);
   box-shadow: var(--shadow-cartoon);
-  padding: 1rem;
+  padding: 0.6rem;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.5rem;
 }
 
 .mixer-label {
-  font-size: 1.8rem;
+  font-size: 1.3rem;
   margin: 0;
   text-align: center;
   color: var(--color-mixer);
@@ -283,63 +284,72 @@ html, body {
 /* ── M12 Height-responsive breakpoints ──────────────────────────────
  * Each tier overrides the size tokens defined in :root.
  * Rules cascade: 768 overrides 900, 640 overrides 768, etc.
- * Keep them in descending height order so specificity is correct.   */
+ * Keep them in descending height order so specificity is correct.
+ * Baseline already targets ~800px; these go further.              */
 
 @media (max-height: 900px) {
   :root {
-    --platter-max:   200px;
-    --waveform-h:     65px;
-    --deck-gap:     0.5rem;
-    --deck-pad:    0.75rem;
-    --deck-row-gap: 0.75rem;
-    --deck-row-pad: 0.75rem;
-    --knob-sz:       44px;
-    --vu-h:          65px;
+    --platter-max:   180px;
+    --waveform-h:     50px;
+    --deck-gap:     0.3rem;
+    --deck-pad:    0.45rem;
+    --deck-row-gap: 0.5rem;
+    --deck-row-pad: 0.5rem;
+    --knob-sz:       40px;
+    --vu-h:          50px;
   }
 
   .rw-header {
-    padding-top:    0.5rem;
-    padding-bottom: 0.5rem;
+    padding-top:    0.25rem;
+    padding-bottom: 0.25rem;
   }
 }
 
 @media (max-height: 768px) {
   :root {
-    --platter-max:   160px;
-    --waveform-h:     50px;
-    --deck-gap:    0.35rem;
-    --deck-pad:     0.5rem;
-    --deck-row-gap: 0.5rem;
-    --deck-row-pad: 0.5rem;
-    --knob-sz:       38px;
-    --vu-h:          50px;
+    --platter-max:   150px;
+    --waveform-h:     38px;
+    --deck-gap:     0.2rem;
+    --deck-pad:    0.35rem;
+    --deck-row-gap: 0.4rem;
+    --deck-row-pad: 0.4rem;
+    --knob-sz:       34px;
+    --vu-h:          38px;
   }
 
   .rw-header {
-    padding-top:    0.4rem;
-    padding-bottom: 0.4rem;
+    padding-top:    0.2rem;
+    padding-bottom: 0.2rem;
+  }
+
+  .deck-label {
+    font-size: 1.0rem;
+  }
+
+  .bpm-value {
+    font-size: 0.95rem;
   }
 }
 
 @media (max-height: 640px) {
   :root {
-    --platter-max:   130px;
-    --waveform-h:     40px;
-    --deck-gap:    0.25rem;
-    --deck-pad:    0.35rem;
-    --deck-row-gap: 0.35rem;
-    --deck-row-pad: 0.35rem;
-    --knob-sz:       32px;
-    --vu-h:          40px;
+    --platter-max:   120px;
+    --waveform-h:     28px;
+    --deck-gap:    0.15rem;
+    --deck-pad:    0.25rem;
+    --deck-row-gap:  0.3rem;
+    --deck-row-pad:  0.3rem;
+    --knob-sz:       28px;
+    --vu-h:          28px;
   }
 
   .rw-header {
-    padding-top:    0.3rem;
-    padding-bottom: 0.3rem;
+    padding-top:    0.15rem;
+    padding-bottom: 0.15rem;
   }
 
   .deck-label {
-    font-size: 1.2rem;
+    font-size: 0.9rem;
   }
 }
 
@@ -363,7 +373,7 @@ html, body {
 .pitch-fader-wrapper {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.15rem;
 }
 
 .pitch-fader-label {
@@ -412,7 +422,7 @@ html, body {
   font-family: 'Bangers', cursive;
   font-size: 1rem;
   letter-spacing: 0.05em;
-  padding: 0.4rem 0.75rem;
+  padding: 0.25rem 0.55rem;
   border: var(--border-cartoon);
   border-radius: var(--radius-button);
   box-shadow: var(--shadow-cartoon);
@@ -435,10 +445,10 @@ html, body {
 
 .btn-load {
   font-family: 'Bangers', cursive;
-  font-size: 1.1rem;
+  font-size: 1rem;
   letter-spacing: 0.06em;
   width: 100%;
-  padding: 0.5rem;
+  padding: 0.3rem;
   border: var(--border-cartoon);
   border-radius: var(--radius-button);
   box-shadow: var(--shadow-cartoon);
@@ -446,7 +456,8 @@ html, body {
   background-color: var(--color-panel);
   color: var(--color-glow);
   transition: transform 0.08s ease;
-  margin-top: auto;
+  /* No margin-top: auto — that would push the button to the absolute bottom
+     of scrollable overflow content, making it unreachable at small viewports. */
 }
 
 .btn-load:hover {
@@ -494,13 +505,13 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
+  gap: 0.3rem;
 }
 
 .btn-zoom {
   font-family: 'Bangers', cursive;
   font-size: 1rem;
-  padding: 0.2rem 0.6rem;
+  padding: 0.15rem 0.5rem;
   border: var(--border-cartoon);
   border-radius: var(--radius-button);
   box-shadow: var(--shadow-cartoon);
@@ -524,8 +535,8 @@ html, body {
 .bpm-panel {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  padding: 0.4rem 0.6rem;
+  gap: 0.2rem;
+  padding: 0.3rem 0.5rem;
   border: var(--border-cartoon);
   border-radius: var(--radius-button);
   background-color: #0d1b2a;
@@ -545,7 +556,7 @@ html, body {
 }
 
 .bpm-value {
-  font-size: 1.4rem;
+  font-size: 1.1rem;
   color: var(--color-glow);
   min-width: 4rem;
   text-align: right;
@@ -613,7 +624,7 @@ html, body {
   display: flex;
   gap: 0.75rem;
   justify-content: center;
-  padding: 0.5rem 0;
+  padding: 0.3rem 0;
 }
 
 .channel-fader-group {
@@ -637,7 +648,7 @@ html, body {
 .channel-fader {
   writing-mode: vertical-lr;
   direction: rtl;
-  height: 100px;
+  height: 80px;
   width: 28px;
   accent-color: var(--color-mixer);
   cursor: pointer;
@@ -655,7 +666,7 @@ html, body {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
-  padding: 0.5rem 0.25rem;
+  padding: 0.35rem 0.25rem;
   border-top: 1px solid rgba(255,255,255,0.07);
 }
 
@@ -713,8 +724,8 @@ html, body {
 .loop-controls {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  padding: 0.4rem 0.5rem;
+  gap: 0.25rem;
+  padding: 0.3rem 0.4rem;
   border: var(--border-cartoon);
   border-radius: var(--radius-button);
   background-color: #0d1b2a;
@@ -745,7 +756,7 @@ html, body {
   font-family: 'Bangers', cursive;
   font-size: 0.9rem;
   letter-spacing: 0.05em;
-  padding: 0.3rem 0.6rem;
+  padding: 0.2rem 0.5rem;
   border: var(--border-cartoon);
   border-radius: var(--radius-button);
   box-shadow: var(--shadow-cartoon);
@@ -806,8 +817,8 @@ html, body {
 .filter-panel {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.4rem 0.5rem;
+  gap: 0.2rem;
+  padding: 0.3rem 0.4rem;
   border: var(--border-cartoon);
   border-radius: var(--radius-button);
   background-color: #0d1b2a;
@@ -834,7 +845,7 @@ html, body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.15rem;
+  gap: 0.1rem;
   flex: 1;
 }
 
@@ -860,7 +871,7 @@ html, body {
   writing-mode: vertical-lr;
   direction: rtl;
   width: 28px;
-  height: 64px;
+  height: 44px;
   border-radius: 4px;
 }
 
@@ -884,8 +895,8 @@ html, body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.4rem 0.5rem;
+  gap: 0.2rem;
+  padding: 0.3rem 0.4rem;
   border: var(--border-cartoon);
   border-radius: var(--radius-button);
   background-color: #0d1b2a;
@@ -932,7 +943,7 @@ html, body {
 .hot-cues {
   display: flex;
   gap: 0.4rem;
-  padding: 0.4rem 0.5rem;
+  padding: 0.3rem 0.4rem;
   border: var(--border-cartoon);
   border-radius: var(--radius-button);
   background-color: #0d1b2a;
@@ -942,10 +953,10 @@ html, body {
 
 .btn-hc {
   font-family: 'Bangers', cursive;
-  font-size: 1rem;
+  font-size: 0.9rem;
   letter-spacing: 0.06em;
-  width: 2.6rem;
-  height: 2.6rem;
+  width: 2.2rem;
+  height: 2.2rem;
   border: var(--border-cartoon);
   border-radius: var(--radius-button);
   box-shadow: var(--shadow-cartoon);
@@ -979,8 +990,8 @@ html, body {
 .fx-panel {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
-  padding: 0.4rem 0.5rem;
+  gap: 0.2rem;
+  padding: 0.3rem 0.4rem;
   border: var(--border-cartoon);
   border-radius: var(--radius-button);
   background-color: #0d1b2a;
