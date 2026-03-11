@@ -195,3 +195,30 @@ type requiring a browser). Extract it as a `pub(crate) fn crossfader_gains(val:
 f32) -> (f32, f32)` so the math properties (boundary values, constant-power
 invariant, symmetry) can all be covered with plain `#[test]` functions. Reserve
 `#[wasm_bindgen_test]` for node construction and actual `AudioParam` updates.
+
+---
+
+## Lessons from Feature 001 — Scratch Realism Improvement
+
+### Track actual buffer state, not gesture direction, in position integrators
+
+When integrating a running position estimate during scratch, branch on the actual
+playback state (`scratch_in_reverse`) not on the user's gesture direction
+(`d_angle < 0`). If a reversed buffer is unavailable, the forward buffer
+continues playing forward even during a backward drag — using gesture direction
+would subtract from position while audio moves forward. This pattern applies to
+any stateful audio gesture that may have a "no-op fallback path".
+
+### Reversed AudioBuffer seek offset is `duration - position`, not `position`
+
+When swapping from a forward buffer at position T to a reversed buffer, the
+correct start offset into the reversed buffer is `duration - T`. The reversed
+buffer plays index 0 (= the last original frame) first. Starting at `T` would
+land at a completely unrelated point in the track. Easy to get backwards.
+
+### AudioBuffer.clone() in web-sys is a cheap JS reference copy
+
+`AudioBuffer` is a JS wrapper type. `.clone()` copies the JS object handle, not
+the PCM audio data (~50 MB per 5-minute stereo track). Use `.clone()` freely to
+satisfy the borrow checker when passing buffers out of `self` fields into
+expressions that also need `&mut self`. No performance concern.

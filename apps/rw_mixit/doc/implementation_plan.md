@@ -181,12 +181,12 @@ Echo, reverb, flanger, stutter, and scratch simulation.
 
 | ID | Task | Success Criteria | Status |
 |---|---|---|---|
-| T9.1 | Echo/Delay: `EchoNodes` construction (`DelayNode` max 2s + feedback `GainNode` + wet/dry `GainNode`s); insert into audio graph; FX panel toggle → ramp wet to 0.6 / 0.0 over 20 ms; time and feedback knobs | Echo is audible when toggled on; feedback knob creates more/fewer repeats | ⬜ Not Started |
-| T9.2 | Reverb: `generate_reverb_ir()` fn (from tech spec §8.8); `ConvolverNode` loaded with IR on deck construction; wet/dry bypass GainNodes; FX panel toggle; duration and decay knobs route to `generate_reverb_ir` and reload the IR | Reverb tail is audible when toggled on; duration knob changes tail length | ⬜ Not Started |
-| T9.3 | Flanger: `FlangerNodes` construction (from tech spec §8.10); LFO starts on deck init; FX panel toggle → ramp wet in/out; rate and depth knobs | Sweeping comb-filter flange is audible when toggled on; rate knob changes sweep speed | ⬜ Not Started |
-| T9.4 | Stutter: `GainNode` inserted as pre-FX gate node; FX panel toggle → call `schedule_stutter()` with rolling lookahead (from tech spec §8.11); on disable, `cancelScheduledValues` + ramp to 1.0; subdivision selector (1/4, 1/8, 1/16, 1/32) | Stutter gates audio rhythmically when on; subdivision selector changes chop rate | ⬜ Not Started |
-| T9.5 | Scratch simulation: FX panel toggle enables scratch mode on platter canvas; `pointerdown` / `pointermove` / `pointerup` listeners on platter canvas; angular velocity → playbackRate via `on_platter_mouse_move` (from tech spec §8.12); `on_platter_mouse_up` ramps back | Dragging on the platter changes pitch/speed proportionally to drag speed; release returns to normal | ⬜ Not Started |
-| T9.6 | FX panel layout (`src/components/fx_panel.rs`): 5 toggle buttons in a row; active buttons visually highlighted; param knobs appear below each active effect | FX panel looks correct; active state visual feedback works | ⬜ Not Started |
+| T9.1 | Echo/Delay: `EchoNodes` construction (`DelayNode` max 2s + feedback `GainNode` + wet/dry `GainNode`s); insert into audio graph; FX panel toggle → ramp wet to 0.6 / 0.0 over 20 ms; time and feedback knobs | Echo is audible when toggled on; feedback knob creates more/fewer repeats | ✅ Done |
+| T9.2 | Reverb: `generate_reverb_ir()` fn (from tech spec §8.8); `ConvolverNode` loaded with IR on deck construction; wet/dry bypass GainNodes; FX panel toggle; duration and decay knobs route to `generate_reverb_ir` and reload the IR | Reverb tail is audible when toggled on; duration knob changes tail length | ✅ Done |
+| T9.3 | Flanger: `FlangerNodes` construction (from tech spec §8.10); LFO starts on deck init; FX panel toggle → ramp wet in/out; rate and depth knobs | Sweeping comb-filter flange is audible when toggled on; rate knob changes sweep speed | ✅ Done |
+| T9.4 | Stutter: `GainNode` inserted as pre-FX gate node; FX panel toggle → call `schedule_stutter()` with rolling lookahead (from tech spec §8.11); on disable, `cancelScheduledValues` + ramp to 1.0; subdivision selector (1/4, 1/8, 1/16, 1/32) | Stutter gates audio rhythmically when on; subdivision selector changes chop rate | ✅ Done |
+| T9.5 | Scratch simulation: FX panel toggle enables scratch mode on platter canvas; `pointerdown` / `pointermove` / `pointerup` listeners on platter canvas; angular velocity → playbackRate via `on_platter_mouse_move` (from tech spec §8.12); `on_platter_mouse_up` ramps back | Dragging on the platter changes pitch/speed proportionally to drag speed; release returns to normal | ✅ Done |
+| T9.6 | FX panel layout (`src/components/fx_panel.rs`): 5 toggle buttons in a row; active buttons visually highlighted; param knobs appear below each active effect | FX panel looks correct; active state visual feedback works | ✅ Done |
 
 ---
 
@@ -240,7 +240,7 @@ Complete the UI: secondary views, cartoon aesthetic fully applied, animations al
 | M6 — Loop Controls | T6.1 – T6.6 (6 tasks) | ⬜ Not Started |
 | M7 — Hot Cues | T7.1 – T7.5 (5 tasks) | ⬜ Not Started |
 | M8 — EQ, Filter & VU Meter | T8.1 – T8.5 (5 tasks) | ✅ Done |
-| M9 — Effects Panel | T9.1 – T9.6 (6 tasks) | ⬜ Not Started |
+| M9 — Effects Panel | T9.1 – T9.6 (6 tasks) | ✅ Done |
 | M10 — Keyboard Shortcuts | T10.1 – T10.4 (4 tasks) | ⬜ Not Started |
 | M11 — Settings, About & Visual Polish | T11.1 – T11.11 (11 tasks) | ⬜ Not Started |
 | **Total** | **81 tasks** | |
