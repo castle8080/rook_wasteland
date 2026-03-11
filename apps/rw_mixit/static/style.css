@@ -34,6 +34,19 @@
   --radius-panel:      12px;
   --radius-button:     8px;
   --radius-knob:       50%;
+
+  /* ── M12 Responsive size tokens ──────────────────────────────────────
+   * Overridden by @media (max-height) blocks below.
+   * JS writes --app-scale via apply_viewport_scale() in app.rs.           */
+  --platter-max:   240px;  /* platter canvas display max-width             */
+  --waveform-h:     80px;  /* waveform canvas display height               */
+  --deck-gap:     0.75rem; /* gap between sections inside each deck column */
+  --deck-pad:      1rem;   /* padding inside each deck column              */
+  --deck-row-gap:  1rem;   /* gap between the three columns                */
+  --deck-row-pad:  1rem;   /* outer padding of the deck-row wrapper        */
+  --knob-sz:       48px;   /* EQ / filter knob diameter                    */
+  --vu-h:          80px;   /* VU meter bar container height                */
+  --app-scale:     1;      /* written imperatively by JS resize handler    */
 }
 
 /* ─── Reset ───────────────────────────────────────────────────────── */
@@ -49,6 +62,8 @@ html, body {
   font-family: 'Bangers', cursive;
   min-height: 100vh;
   letter-spacing: 0.04em;
+  /* M12: the app is never intended to scroll at any viewport size */
+  overflow: hidden;
 }
 
 /* ─── Root container ──────────────────────────────────────────────── */
@@ -56,6 +71,9 @@ html, body {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  /* M12: JS writes --app-scale on document root when viewport is very small */
+  transform: scale(var(--app-scale, 1));
+  transform-origin: top center;
 }
 
 /* ─── Header ──────────────────────────────────────────────────────── */
@@ -112,8 +130,8 @@ html, body {
 .deck-row {
   display: flex;
   flex: 1;
-  gap: 1rem;
-  padding: 1rem;
+  gap: var(--deck-row-gap);
+  padding: var(--deck-row-pad);
   align-items: stretch;
   min-height: 0;
 }
@@ -126,10 +144,10 @@ html, body {
   border: var(--border-cartoon);
   border-radius: var(--radius-panel);
   box-shadow: var(--shadow-cartoon);
-  padding: 1rem;
+  padding: var(--deck-pad);
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: var(--deck-gap);
 }
 
 .deck-a { border-top: 5px solid var(--color-deck-a); }
@@ -221,8 +239,8 @@ html, body {
 
 /* ─── Knob (rotary input) ─────────────────────────────────────────── */
 .knob {
-  width: 48px;
-  height: 48px;
+  width: var(--knob-sz);
+  height: var(--knob-sz);
   border-radius: var(--radius-knob);
   border: var(--border-cartoon);
   box-shadow: var(--shadow-cartoon);
@@ -239,7 +257,7 @@ html, body {
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 600px) {
   .deck-row {
     flex-direction: column;
   }
@@ -249,11 +267,78 @@ html, body {
   }
 }
 
+/* ── M12 Height-responsive breakpoints ──────────────────────────────
+ * Each tier overrides the size tokens defined in :root.
+ * Rules cascade: 768 overrides 900, 640 overrides 768, etc.
+ * Keep them in descending height order so specificity is correct.   */
+
+@media (max-height: 900px) {
+  :root {
+    --platter-max:   200px;
+    --waveform-h:     65px;
+    --deck-gap:     0.5rem;
+    --deck-pad:    0.75rem;
+    --deck-row-gap: 0.75rem;
+    --deck-row-pad: 0.75rem;
+    --knob-sz:       44px;
+    --vu-h:          65px;
+  }
+
+  .rw-header {
+    padding-top:    0.5rem;
+    padding-bottom: 0.5rem;
+  }
+}
+
+@media (max-height: 768px) {
+  :root {
+    --platter-max:   160px;
+    --waveform-h:     50px;
+    --deck-gap:    0.35rem;
+    --deck-pad:     0.5rem;
+    --deck-row-gap: 0.5rem;
+    --deck-row-pad: 0.5rem;
+    --knob-sz:       38px;
+    --vu-h:          50px;
+  }
+
+  .rw-header {
+    padding-top:    0.4rem;
+    padding-bottom: 0.4rem;
+  }
+}
+
+@media (max-height: 640px) {
+  :root {
+    --platter-max:   130px;
+    --waveform-h:     40px;
+    --deck-gap:    0.25rem;
+    --deck-pad:    0.35rem;
+    --deck-row-gap: 0.35rem;
+    --deck-row-pad: 0.35rem;
+    --knob-sz:       32px;
+    --vu-h:          40px;
+  }
+
+  .rw-header {
+    padding-top:    0.3rem;
+    padding-bottom: 0.3rem;
+  }
+
+  .deck-label {
+    font-size: 1.2rem;
+  }
+}
+
+/* Scale fallback: JS in app.rs writes --app-scale when height < 580px.
+ * No additional CSS overrides needed here — the JS-driven transform
+ * handles the rest.  This block exists as a reference comment.         */
+
 /* ─── Platter Canvas ──────────────────────────────────────────────── */
 .platter-canvas {
   display: block;
   width: 100%;
-  max-width: 240px;
+  max-width: var(--platter-max);
   height: auto;
   margin: 0 auto;
   border-radius: 50%;
@@ -384,6 +469,7 @@ html, body {
 .waveform-canvas {
   display: block;
   width: 100%;
+  height: var(--waveform-h);
   border: var(--border-cartoon);
   border-radius: 4px;
   box-shadow: var(--shadow-cartoon);
@@ -796,7 +882,7 @@ html, body {
 
 .vu-meter-bar-container {
   width: 16px;
-  height: 80px;
+  height: var(--vu-h);
   background-color: #0a0f1a;
   border: 1px solid #333;
   border-radius: 3px;
