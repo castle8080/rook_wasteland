@@ -47,6 +47,7 @@
   --deck-row-pad: 0.75rem; /* outer padding of the deck-row wrapper        */
   --knob-sz:       44px;   /* EQ / filter knob diameter                    */
   --vu-h:          60px;   /* VU meter bar container height                */
+  --fader-h:       80px;   /* vertical channel fader height                */
   --app-scale:     1;      /* written imperatively by JS resize handler    */
 }
 
@@ -188,6 +189,12 @@ html, body {
 .mixer {
   width: 280px;
   flex-shrink: 0;
+  /* Same min-height/overflow treatment as .deck — prevents content from
+     silently escaping the panel when the viewport shrinks. */
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-text-dim) transparent;
   background-color: var(--color-panel);
   border: var(--border-cartoon);
   border-top: 5px solid var(--color-mixer);
@@ -297,6 +304,7 @@ html, body {
     --deck-row-pad: 0.5rem;
     --knob-sz:       40px;
     --vu-h:          50px;
+    --fader-h:       65px;
   }
 
   .rw-header {
@@ -315,6 +323,7 @@ html, body {
     --deck-row-pad: 0.4rem;
     --knob-sz:       34px;
     --vu-h:          38px;
+    --fader-h:       50px;
   }
 
   .rw-header {
@@ -341,6 +350,7 @@ html, body {
     --deck-row-pad:  0.3rem;
     --knob-sz:       28px;
     --vu-h:          28px;
+    --fader-h:       40px;
   }
 
   .rw-header {
@@ -670,7 +680,7 @@ html, body {
 .channel-fader {
   writing-mode: vertical-lr;
   direction: rtl;
-  height: 80px;
+  height: var(--fader-h);
   width: 28px;
   accent-color: var(--color-mixer);
   cursor: pointer;
