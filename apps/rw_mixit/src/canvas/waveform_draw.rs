@@ -21,8 +21,6 @@ const COLOR_DECK_A: &str = "#3b82f6";
 const COLOR_DECK_B: &str = "#f97316";
 /// Playhead line color.
 const COLOR_PLAYHEAD: &str = "#ffffff";
-/// Loop region highlight color (translucent).
-const COLOR_LOOP: &str = "rgba(255, 230, 0, 0.25)";
 /// Background color inside the waveform canvas.
 const COLOR_BG: &str = "#1a1a2e";
 /// Hot cue marker colors matching the button accent colors (indices 0–3).
@@ -137,7 +135,18 @@ pub fn draw_waveform(
         if loop_out > loop_in {
             let x_in  = time_to_x(loop_in,  duration, scroll_x, total_peak_width);
             let x_out = time_to_x(loop_out, duration, scroll_x, total_peak_width);
-            ctx2d.set_fill_style_str(COLOR_LOOP);
+
+            // Pulse the loop overlay opacity using the current timestamp so the
+            // region visually "breathes" while looping.  Uses `performance.now()`
+            // rather than a CSS animation because this is a canvas draw call.
+            let now_ms = web_sys::window()
+                .and_then(|w| w.performance())
+                .map(|p| p.now())
+                .unwrap_or(0.0);
+            let pulse_alpha = 0.20 + 0.15 * ((now_ms / 400.0).sin() as f32);
+
+            let loop_color = format!("rgba(255, 230, 0, {pulse_alpha:.3})");
+            ctx2d.set_fill_style_str(&loop_color);
             ctx2d.fill_rect(x_in, 0.0, x_out - x_in, height);
         }
     }

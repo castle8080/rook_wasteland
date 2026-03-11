@@ -155,7 +155,7 @@ pub fn draw_platter(
 
     // Track name on label (abbreviated, Bangers font)
     if let Some(ref name) = track_name {
-        let abbrev = truncate_label(name, 10);
+        let abbrev = truncate_label(name, 16);
         ctx.set_fill_style_str(COLOR_SPINDLE);
         ctx.set_font("bold 10px Bangers, cursive");
         ctx.set_text_align("center");

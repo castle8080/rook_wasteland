@@ -1,3 +1,4 @@
+pub mod about;
 pub mod controls;
 pub mod deck;
 pub mod eq;
@@ -7,3 +8,4 @@ pub mod hot_cues;
 pub mod loop_controls;
 pub mod mixer;
 pub mod pitch_fader;
+pub mod settings;

@@ -25,14 +25,24 @@ pub fn Mixer(
     vol_b: RwSignal<f32>,
 ) -> impl IntoView {
 
-    // T5.2 — Crossfader Effect: equal-power cos/sin curve.
+    // T11.11 — Crossfader glow: true while the user is dragging the crossfader.
+    let xfader_moving = RwSignal::new(false);
+
+    // T5.2 — Crossfader Effect: equal-power cos/sin curve, or linear (T11.1).
     {
         let mixer_audio = mixer_audio.clone();
         let crossfader  = mixer_state.crossfader;
+        let curve_linear = mixer_state.crossfader_curve_linear;
         Effect::new(move |_| {
             let val = crossfader.get();
+            let linear = curve_linear.get();
             if let Some(ref ma) = *mixer_audio.borrow() {
-                ma.set_crossfader(val);
+                if linear {
+                    ma.xfade_gain_a.gain().set_value(1.0 - val);
+                    ma.xfade_gain_b.gain().set_value(val);
+                } else {
+                    ma.set_crossfader(val);
+                }
             }
         });
     }
@@ -101,6 +111,7 @@ pub fn Mixer(
                     <input
                         type="range"
                         class="crossfader"
+                        class:xfader-moving=move || xfader_moving.get()
                         min="0" max="1" step="0.001"
                         prop:value=move || mixer_state.crossfader.get().to_string()
                         on:input=move |ev| {
@@ -109,6 +120,10 @@ pub fn Mixer(
                                 .unwrap_or(0.5);
                             mixer_state.crossfader.set(val);
                         }
+                        on:pointerdown=move |_| xfader_moving.set(true)
+                        on:pointerup=move |_| xfader_moving.set(false)
+                        on:pointerleave=move |_| xfader_moving.set(false)
+                        on:pointercancel=move |_| xfader_moving.set(false)
                     />
                     <span class="crossfader-end">"B"</span>
                 </div>

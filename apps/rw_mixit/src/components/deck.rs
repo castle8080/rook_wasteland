@@ -22,6 +22,7 @@ use crate::components::mixer::Mixer;
 use crate::components::pitch_fader::PitchFader;
 use crate::state::{DeckState, MixerState};
 use crate::state::mixer::DeckId;
+use crate::state::{DeckAContext, DeckBContext};
 use crate::utils::keyboard::register_keyboard_shortcuts;
 
 /// Waveform canvas dimensions (pixels).
@@ -83,6 +84,12 @@ pub fn DeckView() -> impl IntoView {
         audio_b.clone(),
     );
     std::mem::forget(kb);
+
+    // M11 — Provide state contexts so Settings and About views can access
+    // reactive signals without prop-drilling through app.rs.
+    provide_context(DeckAContext(state_a.clone()));
+    provide_context(DeckBContext(state_b.clone()));
+    provide_context(mixer_state.clone());
 
     view! {
         <div class="deck-row">
@@ -151,6 +158,9 @@ pub fn Deck(
 ) -> impl IntoView {
     let file_input: NodeRef<leptos::html::Input> = NodeRef::new();
 
+    // T11.10 — Slot-in animation: true for 400 ms after a successful file load.
+    let slot_in = RwSignal::new(false);
+
     let on_load_click = {
         move |_: web_sys::MouseEvent| {
             if let Some(input) = file_input.get() {
@@ -216,6 +226,19 @@ pub fn Deck(
             let deck_rc = audio_deck_holder.borrow().as_ref()
                 .expect("AudioDeck was just created in the is_none() block above")
                 .clone();
+
+            // T11.10 — Trigger slot-in animation then auto-clear after 400 ms.
+            slot_in.set(true);
+            let clear_cb = wasm_bindgen::closure::Closure::<dyn FnMut()>::new(move || {
+                slot_in.set(false);
+            });
+            if let Some(w) = web_sys::window() {
+                let _ = w.set_timeout_with_callback_and_timeout_and_arguments_0(
+                    clear_cb.as_ref().unchecked_ref(),
+                    400,
+                );
+            }
+            clear_cb.forget();
 
             let state = state.clone();
             spawn_local(async move {
@@ -528,6 +551,7 @@ pub fn Deck(
             // Platter canvas (T3.1–T3.3 / T3.6)
             <canvas
                 class="platter-canvas"
+                class:platter-slot-in=move || slot_in.get()
                 width=PLATTER_SIZE
                 height=PLATTER_SIZE
                 node_ref=platter_ref

@@ -2,7 +2,12 @@ use leptos::prelude::*;
 use gloo_events::EventListener;
 
 use crate::routing::Route;
-use crate::components::{deck::DeckView, header::Header};
+use crate::components::{
+    about::AboutView,
+    deck::DeckView,
+    header::Header,
+    settings::SettingsView,
+};
 
 /// Root application component.
 ///
@@ -10,6 +15,11 @@ use crate::components::{deck::DeckView, header::Header};
 /// `hashchange` events so browser back/forward navigation keeps the route
 /// signal in sync. Provides the `RwSignal<Route>` via Leptos context so any
 /// descendant can read the current route.
+///
+/// `DeckView` is **always mounted** (hidden via CSS when not on the Main route)
+/// so its audio graph, Effects, and keyboard shortcuts stay alive while
+/// navigating to Settings / About.  Settings can then read and mutate deck
+/// state via Leptos context, and the audio Effects fire immediately.
 #[component]
 pub fn App() -> impl IntoView {
     let win = web_sys::window().expect("window unavailable");
@@ -34,14 +44,19 @@ pub fn App() -> impl IntoView {
     view! {
         <div id="rw-mixit-root">
             <Header/>
-            <Show when=move || current_route.get() == Route::Main>
+            // DeckView stays mounted at all times so its audio graph, Effects,
+            // and keyboard shortcuts survive route changes.  Hidden via CSS
+            // when the user is on Settings or About.
+            <div style=move || {
+                if current_route.get() == Route::Main { "" } else { "display:none" }
+            }>
                 <DeckView/>
-            </Show>
+            </div>
             <Show when=move || current_route.get() == Route::Settings>
-                <div class="placeholder-view">"Settings — coming soon"</div>
+                <SettingsView/>
             </Show>
             <Show when=move || current_route.get() == Route::About>
-                <div class="placeholder-view">"About — coming soon"</div>
+                <AboutView/>
             </Show>
         </div>
     }

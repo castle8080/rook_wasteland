@@ -80,6 +80,9 @@ pub struct DeckState {
     /// Set when a file load or decode operation fails; cleared on each new load
     /// attempt.  Displayed as an inline error message on the deck.
     pub load_error:     RwSignal<Option<String>>,
+    /// Per-hot-cue burst flags.  Set to `true` for 200 ms after a cue-jump to
+    /// trigger the CSS burst animation; cleared automatically by a `setTimeout`.
+    pub burst_active:   RwSignal<[bool; 4]>,
 }
 
 impl Default for DeckState {
@@ -121,6 +124,7 @@ impl DeckState {
             waveform_peaks: RwSignal::new(None),
             zoom_level:     RwSignal::new(ZoomLevel::X1),
             load_error:     RwSignal::new(None),
+            burst_active:   RwSignal::new([false; 4]),
         }
     }
 }
