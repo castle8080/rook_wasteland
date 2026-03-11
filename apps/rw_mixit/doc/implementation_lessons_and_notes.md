@@ -271,3 +271,24 @@ root (`height: 100vh`) ensures a scrollbar appears within the deck panel when
 the content is taller than the available space, keeping all controls reachable.
 This is preferable to either (a) page-level scrolling (whole UI shifts) or
 (b) `overflow: hidden` (controls disappear).
+
+### `input[type=range]` has a browser-default `min-width` that breaks flex layouts
+
+`<input type="range">` has a browser-default `min-width` of roughly 129px.
+When used as a `flex: 1` child (or any flex child expected to shrink) without
+`min-width: 0`, it refuses to shrink below that width. In a narrow flex container
+it overflows the container and pushes sibling elements outside the visible panel.
+Fix: add `min-width: 0` to the range input or its wrapper (e.g. `.crossfader`,
+`.master-vol`) so the flex algorithm can shrink it properly.
+
+### `min-height: 100vh` + `overflow: hidden` silently clips bottom content — allow page scroll as fallback
+
+`min-height: 100vh` on the app root lets the root grow taller than the viewport.
+Paired with `overflow: hidden` on `html/body` this silently clips controls at
+the bottom — they are invisible and unreachable. For a "no-scroll" design, use
+`height: 100vh` (exact constraint) instead. However at very compressed sizes
+(below all CSS breakpoints, e.g. single-column view on a tiny screen) it is
+acceptable to fall back to page-level scrolling rather than clipping. The final
+pattern: `overflow-y: auto` on `body` + `min-height: 100vh` on `#rw-mixit-root`.
+This lets the page scroll as a last resort while keeping the exact-height
+constraint at normal viewport sizes.

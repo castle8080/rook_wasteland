@@ -14,7 +14,8 @@ On laptops with a viewport height below roughly 900px (e.g. a 13" MacBook at 128
 - Acceptable usability at 1024×768.
 - Best-effort fit at 800×600 via CSS scale fallback — no scrolling even at this size.
 - No mobile support required; minimum supported width remains ~800px.
-- No Rust or Leptos component changes needed — CSS + one small JS-driven scale Effect.
+- CSS + one small JS-driven scale Effect are the primary vehicle; Rust/Leptos changes are acceptable if required for layout correctness.
+- Vertical page-level scrolling is acceptable as a final fallback at extreme viewport sizes — content must never be silently clipped.
 
 ## Non-Goals
 - True mobile layout (portrait phone, touch-first interaction).
@@ -69,10 +70,11 @@ On laptops with a viewport height below roughly 900px (e.g. a 13" MacBook at 128
 ## Implementation Plan
 
 ### Files modified
-- **`static/style.css`** - `overflow: hidden` on `html, body`; nine CSS custom properties at `:root`; updated `.deck`, `.deck-row`, `.platter-canvas`, `.waveform-canvas`, `.knob`, `.vu-meter-bar-container` to consume those vars; `transform: scale(var(--app-scale, 1))` on `#rw-mixit-root`; three `@media (max-height)` blocks (900, 768, 640); column-stacking breakpoint raised 900px → 600px width.
-- **`src/app.rs`** - `update_viewport_scale()` on mount; debounced 100ms `resize` EventListener.
-- **`src/utils/viewport_scale.rs`** - New module: `compute_scale_factor(f64) -> f64` (pure) + `update_viewport_scale()` (DOM side-effect); 5 native unit tests.
-- **`src/utils/mod.rs`** - `pub mod viewport_scale;` added.
+- **`static/style.css`** — `overflow-y: auto` on `body`; `min-height: 100vh` on `#rw-mixit-root`; ten CSS custom properties at `:root` (including `--fader-h`); `min-height: 0; overflow-y: auto` on `.deck` and `.mixer`; `min-width: 0` on `.crossfader` and `.master-vol`; `overflow: hidden` on `.mixer-section`; `transform: scale(var(--app-scale, 1))` on `#rw-mixit-root`; four `@media (max-height)` blocks (900, 768, 640, breakpoint-specific `--fader-h` overrides); column-stacking breakpoint raised 900px → 600px width; `.deck-header` / `.deck-header-spacer` / `.btn-load-icon` rules added; all baseline sizes reduced (gap `0.75→0.4rem`, pad `1→0.6rem`, header `0.75→0.35rem`, platter `240→200px`, waveform `60→44px`, eq-knob `64→44px`, hot-cue `2.6→2.2rem`, bpm-value `1.4→1.1rem`).
+- **`src/app.rs`** — `update_viewport_scale()` on mount; debounced 100ms `resize` EventListener.
+- **`src/utils/viewport_scale.rs`** — New module: `compute_scale_factor(f64) -> f64` (pure) + `update_viewport_scale()` (DOM side-effect); 5 native unit tests.
+- **`src/utils/mod.rs`** — `pub mod viewport_scale;` added.
+- **`src/components/deck.rs`** — Full-width Load Track button at deck bottom replaced with a `📂` icon button (1.8 rem square) placed in a new `.deck-header` flex row at the top of the deck, alongside the deck title. A `.deck-header-spacer` element mirrors the button width to keep the title centred.
 
 ### Deviations from Architecture Fit
 - `SCALE_THRESHOLD_PX` is `640.0` (not `580.0` as originally proposed) - aligns with the lowest CSS breakpoint.
@@ -82,23 +84,40 @@ On laptops with a viewport height below roughly 900px (e.g. a 13" MacBook at 128
 
 - **`doc/implementation_plan.md`**: Added M12 row, marked Done.
 - **`doc/rw_mixit_spec.md`**: No changes needed.
-- **`doc/rw_mixit_tech_spec.md`**: No changes needed.
+- **`doc/rw_mixit_tech_spec.md`**: No changes needed (Load Track icon button and `--fader-h` var not described at spec level).
 - **`doc/ascii_wireframes.md`**: No changes needed.
 
 ## Test Strategy
 
 Five Tier-1 native tests in `src/utils/viewport_scale.rs` cover: at-threshold → 1.0; above-threshold → 1.0; proportional below threshold; extreme small → MIN_SCALE clamp; just-below boundary. DOM side-effect of `update_viewport_scale()` and CSS visual correctness verified by manual smoke test.
 
+Several overflow bugs (Load Track button clipped, crossfader pushing siblings off-screen) were discovered during manual browser testing and not caught by automated tests. These bugs existed in the initial committed implementation and required post-implementation follow-up commits to fix.
+
 ## Decisions Made
 
 | # | Question | Decision | Rationale |
 |---|---|---|---|
 | 1 | Scale factor approach | **Imperative** - resize listener writes `--app-scale` CSS property directly on `:root` | Scale is purely visual; no reactive overhead needed. Same pattern as `hashchange` listener. |
-| 2 | `overflow: hidden` scope | **Global always-on** on `html, body` | The app is never intended to scroll at any viewport size. |
+| 2 | `overflow` / height strategy | **Reversed from initial implementation.** Final: `overflow-y: auto` on `body` + `min-height: 100vh` on `#rw-mixit-root` | Initially used `overflow: hidden` always-on + `min-height: 100vh`. This silently clipped content when the root grew taller than the viewport. Final approach allows page-level scroll as a last resort at extreme sizes; content is never hidden. |
 | 3 | Scale threshold | **Rust constant** `SCALE_THRESHOLD_PX = 640.0` | Aligned with lowest CSS breakpoint for clean hand-off. |
 | 4 | Column-stacking breakpoint | **Raised 900px → 600px** width | At 800x600 (minimum target) the three-column layout must stay intact. |
+| 5 | Load Track button location | **Moved to deck header icon button** (`📂`, 1.8rem square, `.btn-load-icon`) in a `.deck-header` flex row | Full-width bottom-of-deck button consumed significant vertical space and was unreachable when the deck overflowed. Top-of-deck icon eliminates that overhead entirely. Required a Leptos component change (`deck.rs`). |
+| 6 | Channel fader height | **CSS var `--fader-h`** (`80px` baseline, scaled down at each breakpoint) | Hardcoded `80px` prevented the mixer from shrinking. Using a custom property lets the same `@media (max-height)` blocks that control deck elements also control fader height. |
+| 7 | Range input min-width in flex | **`min-width: 0`** on `.crossfader` and `.master-vol` | `input[type=range]` has a browser-default `min-width` (~129px). Without `min-width: 0` it overflows its flex container and pushes siblings outside the visible panel. |
 
 ## Lessons / Highlights
 
 ### cb.forget() must be inside the successful set_timeout branch
 When wrapping a Closure for set_timeout_with_callback_and_timeout_and_arguments_0, cb.forget() must only be called inside the if let Ok(handle) branch. If set_timeout fails and forget() is called unconditionally, the closure leaks permanently on every resize event. Fix: move cb.forget() inside the success branch so a failed set_timeout drops the closure normally.
+
+### `min-height: 100vh` + `overflow: hidden` silently clips bottom content
+`min-height: 100vh` lets the root div grow taller than the viewport when its children overflow. Paired with `overflow: hidden` on `html/body`, the overflow is silently clipped — controls at the bottom are invisible and unreachable. Use `height: 100vh` (exact constraint) on the root if you want no-scroll, OR use `min-height: 100vh` + `overflow-y: auto` to allow page-level scroll as a fallback instead of clipping.
+
+### `min-height: 0` must be on EVERY flex child in the height-constraint chain
+Flex children default to `min-height: auto`, which prevents them from shrinking below their intrinsic content height. If even one element in the chain (`#root → .deck-row → .deck`) is missing `min-height: 0`, the height constraint silently breaks and content overflows the viewport.
+
+### `margin-top: auto` in a scrollable flex column pushes to intrinsic bottom, not visible bottom
+`margin-top: auto` in a flex column pushes the element to the bottom of the column's intrinsic content height, not the bottom of the visible scroll area. When the column is scrollable (`overflow-y: auto`), this places the element beyond the visible viewport. Remove `margin-top: auto` from elements that need to be visible without scrolling.
+
+### `input[type=range]` has a browser-default `min-width` (~129px) that breaks flex layouts
+When an `<input type="range">` is a `flex: 1` child without `min-width: 0`, its browser-default `min-width` (~129px) prevents it from shrinking. It overflows the flex container and pushes other siblings outside the visible panel. Fix: add `min-width: 0` to the range input (or its wrapping element) so the flex algorithm can shrink it properly.
