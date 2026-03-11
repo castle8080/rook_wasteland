@@ -1,7 +1,7 @@
 # Feature 002 — Compact Responsive Layout
 
 ## Status
-Proposed
+Implemented
 
 ## Summary
 Redesign the CSS layout so that the full DJ mixer UI fits within the visible viewport on smaller laptop screens (down to 800×600) without requiring any vertical scrolling. A tiered approach is used: progressive CSS media queries shrink canvas elements and reduce spacing at each breakpoint, with a JavaScript-driven scale fallback for the smallest viewports where content still overflows.
@@ -67,22 +67,38 @@ On laptops with a viewport height below roughly 900px (e.g. a 13" MacBook at 128
 <!-- The sections below are filled in during the implementation phase -->
 
 ## Implementation Plan
-*To be determined*
+
+### Files modified
+- **`static/style.css`** - `overflow: hidden` on `html, body`; nine CSS custom properties at `:root`; updated `.deck`, `.deck-row`, `.platter-canvas`, `.waveform-canvas`, `.knob`, `.vu-meter-bar-container` to consume those vars; `transform: scale(var(--app-scale, 1))` on `#rw-mixit-root`; three `@media (max-height)` blocks (900, 768, 640); column-stacking breakpoint raised 900px → 600px width.
+- **`src/app.rs`** - `update_viewport_scale()` on mount; debounced 100ms `resize` EventListener.
+- **`src/utils/viewport_scale.rs`** - New module: `compute_scale_factor(f64) -> f64` (pure) + `update_viewport_scale()` (DOM side-effect); 5 native unit tests.
+- **`src/utils/mod.rs`** - `pub mod viewport_scale;` added.
+
+### Deviations from Architecture Fit
+- `SCALE_THRESHOLD_PX` is `640.0` (not `580.0` as originally proposed) - aligns with the lowest CSS breakpoint.
+- Used `HtmlElement.style().set_property()` instead of `set_attribute("style", ...)` to avoid clobbering other inline styles on `<html>`.
 
 ## Spec Changes
-*To be determined (list any doc/*.md files that will need updating)*
+
+- **`doc/implementation_plan.md`**: Added M12 row, marked Done.
+- **`doc/rw_mixit_spec.md`**: No changes needed.
+- **`doc/rw_mixit_tech_spec.md`**: No changes needed.
+- **`doc/ascii_wireframes.md`**: No changes needed.
 
 ## Test Strategy
-*To be determined*
+
+Five Tier-1 native tests in `src/utils/viewport_scale.rs` cover: at-threshold → 1.0; above-threshold → 1.0; proportional below threshold; extreme small → MIN_SCALE clamp; just-below boundary. DOM side-effect of `update_viewport_scale()` and CSS visual correctness verified by manual smoke test.
 
 ## Decisions Made
 
 | # | Question | Decision | Rationale |
 |---|---|---|---|
-| 1 | Scale factor: reactive signal vs. imperative? | **Imperative** — resize listener writes a CSS custom property (`--app-scale`) directly on `:root` | Scale is purely a visual side-effect and never drives conditional rendering; no reactive overhead needed. Same pattern as `hashchange` listener in `app.rs`. |
-| 2 | `overflow: hidden` scope? | **Global always-on** — set `overflow: hidden` on `html, body` unconditionally in the stylesheet | The app is never intended to scroll at any viewport size; making it globally no-scroll is the correct contract and simpler than toggling a class. |
-| 3 | Scale threshold: CSS var vs. Rust constant? | **Rust constant** — `const SCALE_THRESHOLD_PX: f64 = 580.0` in the resize helper | Simple to find and change; doesn't require a CSS read at runtime. Can be revisited if fine-tuning after testing reveals a better value. |
-| 4 | Column-stacking breakpoint (currently 900px)? | **Raise to 600px** — three columns stay side-by-side down to 600px wide; stacking only at phone-width | At 800×600 (the minimum target) the three-column layout must remain; the 900px breakpoint would incorrectly stack them. 600px is a reasonable phone boundary. |
+| 1 | Scale factor approach | **Imperative** - resize listener writes `--app-scale` CSS property directly on `:root` | Scale is purely visual; no reactive overhead needed. Same pattern as `hashchange` listener. |
+| 2 | `overflow: hidden` scope | **Global always-on** on `html, body` | The app is never intended to scroll at any viewport size. |
+| 3 | Scale threshold | **Rust constant** `SCALE_THRESHOLD_PX = 640.0` | Aligned with lowest CSS breakpoint for clean hand-off. |
+| 4 | Column-stacking breakpoint | **Raised 900px → 600px** width | At 800x600 (minimum target) the three-column layout must stay intact. |
 
 ## Lessons / Highlights
-*To be determined*
+
+### cb.forget() must be inside the successful set_timeout branch
+When wrapping a Closure for set_timeout_with_callback_and_timeout_and_arguments_0, cb.forget() must only be called inside the if let Ok(handle) branch. If set_timeout fails and forget() is called unconditionally, the closure leaks permanently on every resize event. Fix: move cb.forget() inside the success branch so a failed set_timeout drops the closure normally.
