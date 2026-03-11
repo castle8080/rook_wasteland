@@ -6,7 +6,7 @@ use web_sys::{AudioContext, AudioBuffer, FileReader};
 use std::rc::Rc;
 use std::cell::RefCell;
 use leptos::prelude::{RwSignal, Set};
-use crate::audio::deck_audio::AudioDeck;
+use crate::audio::deck_audio::{AudioDeck, compute_reversed_buffer};
 use crate::audio::bpm;
 use crate::state::DeckState;
 
@@ -70,7 +70,20 @@ pub async fn load_audio_file(
     let detected_bpm = bpm::estimate_bpm(&flux, sample_rate, bpm::HOP_SIZE);
 
     // Step 5: Store buffer and update reactive state
-    deck.borrow_mut().buffer = Some(audio_buffer);
+    deck.borrow_mut().buffer = Some(audio_buffer.clone());
+
+    // Step 5a: Pre-compute reversed buffer for reverse-scratch playback (Feature 001).
+    // Failure is non-fatal: log a warning and leave reversed_buffer as None, which
+    // causes scratch to fall back to forward-only behaviour.
+    match compute_reversed_buffer(&ctx, &audio_buffer) {
+        Ok(rev) => { deck.borrow_mut().reversed_buffer = Some(rev); }
+        Err(e)  => {
+            web_sys::console::warn_1(
+                &format!("rw_mixit: reversed buffer computation failed — reverse scratch disabled: {e:?}").into()
+            );
+        }
+    }
+
     state.track_name.set(Some(file_name));
     state.duration_secs.set(duration);
     state.waveform_peaks.set(Some(peaks));

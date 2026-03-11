@@ -16,6 +16,8 @@ pub struct AudioDeck {
     pub source:         Option<AudioBufferSourceNode>,
     /// Decoded audio data; `None` before file load.
     pub buffer:         Option<AudioBuffer>,
+    /// Reversed copy of `buffer` for reverse-scratch playback; `None` before file load.
+    pub reversed_buffer: Option<AudioBuffer>,
     pub pre_gain:       GainNode,
     pub eq_high:        BiquadFilterNode,
     pub eq_mid:         BiquadFilterNode,
@@ -48,11 +50,18 @@ pub struct AudioDeck {
     /// Playback rate saved before a nudge starts; restored on nudge end.
     pub pre_nudge_rate: Option<f32>,
     // ── Scratch state ──────────────────────────────────────────────────────────
-    pub scratch_active:     bool,
-    pub scratch_last_angle: f64,
-    pub scratch_last_time:  f64,
+    pub scratch_active:       bool,
+    pub scratch_last_angle:   f64,
+    pub scratch_last_time:    f64,
     /// Playback rate saved at the moment the user grabs the platter; restored on release.
-    pub pre_scratch_rate:   f32,
+    pub pre_scratch_rate:     f32,
+    /// `true` while the current scratch gesture is using the reversed buffer.
+    pub scratch_in_reverse:   bool,
+    /// Running estimate of the forward-track position (seconds) during a scratch gesture.
+    /// Integrated from `rate × dt` each `scratch_move` call; used for buffer-swap offsets.
+    pub scratch_position_secs: f64,
+    /// `true` if the deck was actively playing (source was `Some`) when `scratch_start` was called.
+    pub scratch_was_playing:  bool,
 }
 
 impl AudioDeck {
@@ -198,6 +207,7 @@ impl AudioDeck {
             ctx,
             source: None,
             buffer: None,
+            reversed_buffer: None,
             pre_gain,
             eq_high,
             eq_mid,
@@ -226,6 +236,9 @@ impl AudioDeck {
             scratch_last_angle: 0.0,
             scratch_last_time: 0.0,
             pre_scratch_rate: 1.0,
+            scratch_in_reverse: false,
+            scratch_position_secs: 0.0,
+            scratch_was_playing: false,
         }))
     }
 
@@ -515,14 +528,69 @@ pub(crate) fn stutter_timings(
     (gate_period, gate_open, window_dur)
 }
 
-/// Map pointer angular velocity to `AudioBufferSourceNode.playbackRate`.
+/// Map pointer angular velocity to `AudioBufferSourceNode.playbackRate` using a
+/// non-linear (square-root) compressive curve.
 ///
-/// `d_angle` is the angle delta in radians for the interval `dt_secs` (seconds).
-/// 33 RPM = 0.55 rot/sec; one full rotation per second → `playbackRate = 1/0.55 ≈ 1.818`.
-/// Result is clamped to [0.0, 4.0] (forward-only; see spec §8.12).
-pub(crate) fn scratch_rate_from_angular_velocity(d_angle: f64, dt_secs: f64) -> f32 {
-    let rate = ((d_angle / dt_secs) / (std::f64::consts::TAU * 0.55)) as f32;
-    rate.clamp(0.0, 4.0)
+/// `normalized_vel` is the absolute angular velocity divided by the 33 RPM reference
+/// (TAU × 0.55 rad/s).  A value of 1.0 means "one full rotation per second at 33 RPM speed".
+///
+/// Using a square-root curve means moderate wrist-flick gestures (1–2 rotations/sec)
+/// produce rates in the 0.9–1.3× range instead of the 1.8–3.6× range of a linear map.
+/// The curve satisfies: `rate = sqrt(normalized_vel) * SCRATCH_SENSITIVITY`.
+///
+/// Result is clamped to `[0.0, SCRATCH_RATE_MAX]`.
+pub(crate) fn scratch_rate_nonlinear(normalized_vel: f64) -> f32 {
+    let rate = (normalized_vel.sqrt() * SCRATCH_SENSITIVITY) as f32;
+    rate.clamp(0.0, SCRATCH_RATE_MAX)
+}
+
+/// Scale factor for the square-root scratch sensitivity curve.
+///
+/// Calibrated so that 1 full rotation/second (TAU rad/s, the 33 RPM reference)
+/// produces a playback rate of ≈ 1.21 — within the target 1.0–1.3× range.
+const SCRATCH_SENSITIVITY: f64 = 0.9;
+
+/// Maximum playback rate attainable during a scratch gesture.
+const SCRATCH_RATE_MAX: f32 = 3.5;
+
+/// Duration in seconds of the `linearRampToValueAtTime` applied to each
+/// `pointermove` update in forward-scratch mode.  Suppresses pops from
+/// high-frequency event delivery without blurring the scratch transient.
+const SCRATCH_SMOOTH_SECS: f64 = 0.012;
+
+/// Pre-compute a reversed copy of `forward` for use as a reverse-scratch buffer.
+///
+/// Iterates every channel, reverses the sample order, and writes the result into
+/// a new `AudioBuffer` with identical channel count, sample count, and sample rate.
+///
+/// Returns `Err` if `forward` has zero length or if the browser rejects buffer
+/// creation (e.g. OOM).  The caller should log the error and fall back to
+/// forward-only scratch rather than panicking.
+pub fn compute_reversed_buffer(
+    ctx:     &AudioContext,
+    forward: &AudioBuffer,
+) -> Result<AudioBuffer, wasm_bindgen::JsValue> {
+    let n_channels  = forward.number_of_channels();
+    let length      = forward.length();
+    let sample_rate = forward.sample_rate();
+
+    if length == 0 {
+        return Err(wasm_bindgen::JsValue::from_str(
+            "compute_reversed_buffer: zero-length buffer",
+        ));
+    }
+
+    let rev = ctx.create_buffer(n_channels, length, sample_rate)?;
+    for ch in 0..n_channels {
+        let mut samples = vec![0.0_f32; length as usize];
+        forward
+            .copy_from_channel(&mut samples, ch as i32)
+            .expect("compute_reversed_buffer — copy_from_channel: infallible on a valid buffer");
+        samples.reverse();
+        rev.copy_to_channel(&samples, ch as i32)
+            .expect("compute_reversed_buffer — copy_to_channel: infallible on a valid buffer");
+    }
+    Ok(rev)
 }
 
 impl AudioDeck {
@@ -587,16 +655,23 @@ impl AudioDeck {
 
     // ── Scratch ───────────────────────────────────────────────────────────────
 
-    /// Begin a scratch gesture.  Records the initial angle and time, and saves
-    /// the current source playback rate so `scratch_end` can restore it.
+    /// Begin a scratch gesture.
     ///
-    /// `angle` is the pointer's angle in radians from the platter centre.
+    /// Records the initial pointer angle and timestamp, snapshots the current
+    /// track position for use in buffer-swap offset calculations, and saves the
+    /// current `playbackRate` so `scratch_end` can restore it on release.
+    ///
+    /// `angle` is the pointer's angle in radians from the platter centre (atan2).
     /// `time` is `performance.now()` in milliseconds.
     pub fn scratch_start(&mut self, angle: f64, time: f64) {
         if self.scratch_active {
             return;
         }
-        self.scratch_active = true;
+        self.scratch_active       = true;
+        self.scratch_in_reverse   = false;
+        self.scratch_was_playing  = self.started_at.is_some();
+        // Snapshot the current playhead position; used as the integration base.
+        self.scratch_position_secs = self.current_position();
         self.pre_scratch_rate = self.source
             .as_ref()
             .map(|s| s.playback_rate().value())
@@ -605,47 +680,139 @@ impl AudioDeck {
         self.scratch_last_time  = time;
     }
 
-    /// Update the playback rate based on pointer angular velocity.
+    /// Update playback in response to pointer movement on the platter.
     ///
-    /// Maps `Δangle / Δt` to a `playbackRate` — one full rotation per second
-    /// at 33 RPM (0.55 rot/s) corresponds to `playbackRate = 1.0`.
+    /// Maps `|Δangle| / Δt` to a `playbackRate` via the non-linear
+    /// `scratch_rate_nonlinear()` curve.  When the drag direction reverses, the
+    /// current `AudioBufferSourceNode` is swapped for one using the reversed
+    /// buffer (or back to the forward buffer), positioned at the estimated track
+    /// location.  `scratch_position_secs` is integrated each call so the swap
+    /// offsets stay accurate.
     pub fn scratch_move(&mut self, angle: f64, time: f64) {
         if !self.scratch_active {
             return;
         }
+
         // dt in seconds; guard against divide-by-zero on rapid successive events.
         let dt = ((time - self.scratch_last_time) / 1000.0).max(0.001);
+
+        // Angle delta with [−π, π] unwrapping to handle the ±π discontinuity.
         let mut d_angle = angle - self.scratch_last_angle;
         if d_angle >  std::f64::consts::PI { d_angle -= std::f64::consts::TAU; }
         if d_angle < -std::f64::consts::PI { d_angle += std::f64::consts::TAU; }
 
-        let rate = scratch_rate_from_angular_velocity(d_angle, dt);
-        if let Some(ref src) = self.source {
-            src.playback_rate().set_value(rate);
+        let going_reverse  = d_angle < 0.0;
+        // Normalize absolute angular velocity to 33 RPM reference (TAU × 0.55 rad/s).
+        let normalized_vel = d_angle.abs() / dt / (std::f64::consts::TAU * 0.55);
+        let rate           = scratch_rate_nonlinear(normalized_vel);
+
+        if going_reverse && !self.scratch_in_reverse {
+            // ── Forward → reverse: swap to reversed buffer ────────────────────
+            if let Some(rev_buf) = self.reversed_buffer.clone() {
+                let duration   = rev_buf.duration();
+                // Map forward position to reversed buffer: position T from the end.
+                let rev_offset = (duration - self.scratch_position_secs).clamp(0.0, duration);
+                self.stop_source();
+                let src = self.ctx.create_buffer_source()
+                    .expect("scratch_move (fwd→rev) — create_buffer_source: infallible on a live context");
+                src.set_buffer(Some(&rev_buf));
+                src.playback_rate().set_value(rate);
+                src.connect_with_audio_node(&self.pre_gain)
+                    .expect("scratch_move (fwd→rev) — connect rev → pre_gain: infallible");
+                src.start_with_when_and_grain_offset(0.0, rev_offset)
+                    .expect("scratch_move (fwd→rev) — start: infallible on a new node");
+                self.source = Some(src);
+                self.scratch_in_reverse = true;
+            }
+            // If no reversed buffer: forward-only fallback; rate update handled below.
+
+        } else if !going_reverse && self.scratch_in_reverse {
+            // ── Reverse → forward: swap back to forward buffer ─────────────────
+            if let Some(fwd_buf) = self.buffer.clone() {
+                let duration   = fwd_buf.duration();
+                let fwd_offset = self.scratch_position_secs.clamp(0.0, duration);
+                self.stop_source();
+                let src = self.ctx.create_buffer_source()
+                    .expect("scratch_move (rev→fwd) — create_buffer_source: infallible on a live context");
+                src.set_buffer(Some(&fwd_buf));
+                src.playback_rate().set_value(rate);
+                src.connect_with_audio_node(&self.pre_gain)
+                    .expect("scratch_move (rev→fwd) — connect fwd → pre_gain: infallible");
+                src.start_with_when_and_grain_offset(0.0, fwd_offset)
+                    .expect("scratch_move (rev→fwd) — start: infallible on a new node");
+                self.source = Some(src);
+            }
+            self.scratch_in_reverse = false;
+
+        } else if let Some(ref src) = self.source {
+            // ── Same direction: update rate only ──────────────────────────────
+            if self.scratch_in_reverse {
+                // Immediate update during reverse — smoothing would blur the sharp
+                // transients that define the reverse-scratch sound.
+                src.playback_rate().set_value(rate);
+            } else {
+                // Forward: 12 ms ramp suppresses pops from high-frequency events.
+                let now = self.ctx.current_time();
+                let _ = src.playback_rate().cancel_scheduled_values(now);
+                let _ = src.playback_rate().set_value_at_time(src.playback_rate().value(), now);
+                let _ = src.playback_rate()
+                    .linear_ramp_to_value_at_time(rate, now + SCRATCH_SMOOTH_SECS);
+            }
         }
+        // If going_reverse and no reversed_buffer, or going_forward but source is None
+        // (paused deck scratched forward before any buffer swap): rate update is a no-op.
+
+        // Integrate the position estimate regardless of buffer availability.
+        // Use scratch_in_reverse (actual playback state) not going_reverse (user intent):
+        // when no reversed buffer is loaded, going_reverse stays false and the forward
+        // buffer continues playing forward — position must still increase.
+        let max_pos = self.buffer.as_ref().map(|b| b.duration()).unwrap_or(f64::MAX);
+        if self.scratch_in_reverse {
+            self.scratch_position_secs = (self.scratch_position_secs - rate as f64 * dt).max(0.0);
+        } else {
+            self.scratch_position_secs = (self.scratch_position_secs + rate as f64 * dt).min(max_pos);
+        }
+
         self.scratch_last_angle = angle;
         self.scratch_last_time  = time;
     }
 
-    /// End the scratch gesture: ramp playback rate smoothly back to the
-    /// pre-scratch value over 100 ms.
+    /// End the scratch gesture.
+    ///
+    /// Stops whatever source is currently playing (may be reversed buffer),
+    /// then restores the deck to its pre-scratch state:
+    /// - If the deck was playing when the scratch started, resumes forward
+    ///   playback at the estimated current track position (`scratch_position_secs`)
+    ///   at `pre_scratch_rate`.
+    /// - If the deck was paused, updates `offset_at_play` so seeking remains
+    ///   accurate but does not restart the source.
     pub fn scratch_end(&mut self) {
         if !self.scratch_active {
             return;
         }
-        if let Some(ref src) = self.source {
-            let now = self.ctx.current_time();
-            // Anchor current value first — required by Web Audio spec so that
-            // linearRampToValueAtTime has a defined starting point.
-            let current_rate = src.playback_rate().value();
-            let _ = src.playback_rate().set_value_at_time(current_rate, now);
-            let _ = src.playback_rate()
-                .linear_ramp_to_value_at_time(
-                    self.pre_scratch_rate, // f32 value; f64 end_time per web-sys signature
-                    now + 0.1,
-                );
+
+        let was_playing = self.scratch_was_playing;
+        let position    = self.scratch_position_secs;
+        let rate        = self.pre_scratch_rate;
+
+        // Always stop whatever is running — may be the reversed buffer source.
+        self.stop_source();
+        self.started_at = None;
+
+        if was_playing {
+            // Resume forward playback at the estimated position.
+            // play() sets started_at, offset_at_play, and rate_at_play, restoring
+            // current_position() accuracy for the rAF loop.
+            self.play(position, rate);
+        } else {
+            // Keep deck paused; anchor position so waveform display is correct.
+            self.offset_at_play = position;
         }
-        self.scratch_active = false;
+
+        self.scratch_active       = false;
+        self.scratch_in_reverse   = false;
+        self.scratch_position_secs = 0.0;
+        self.scratch_was_playing  = false;
     }
 }
 
@@ -821,45 +988,60 @@ mod tests {
         assert!((gate_open - gate_period).abs() < 1e-9, "duty=1 → gate_open should equal period");
     }
 
-    // ── M9: scratch angular velocity → playback rate (native) ────────────────
+    // ── Feature 001: non-linear scratch rate (native) ────────────────────────
 
     #[test]
-    fn scratch_stationary_gives_zero_rate() {
-        // No rotation → rate = 0 (clamped from negative result too).
-        let rate = scratch_rate_from_angular_velocity(0.0, 0.1);
+    fn scratch_nonlinear_stationary_gives_zero() {
+        // Zero velocity → rate = 0 (sqrt(0) * K = 0).
+        let rate = scratch_rate_nonlinear(0.0);
         assert!(rate.abs() < 1e-6, "stationary should give 0, got {rate}");
     }
 
     #[test]
-    fn scratch_one_full_rotation_per_second_gives_rate_near_one() {
-        // TAU rad / 1.0 s → playback_rate ≈ 1/0.55 ≈ 1.818 (unclamped).
-        // This simulates scrubbing at 33 RPM-equivalent angular velocity.
-        let rate = scratch_rate_from_angular_velocity(std::f64::consts::TAU, 1.0);
-        let expected = (1.0_f64 / 0.55) as f32;
-        assert!((rate - expected).abs() < 0.01, "expected ~{expected:.3}, got {rate}");
+    fn scratch_nonlinear_one_rotation_per_second_in_target_range() {
+        // TAU rad / 1.0 s → normalized_vel = 1/0.55 ≈ 1.818.
+        // sqrt(1.818) * 0.9 ≈ 1.21 — within the target 1.0–1.3 range.
+        let normalized = 1.0_f64 / 0.55;
+        let rate = scratch_rate_nonlinear(normalized);
+        assert!(
+            (1.0_f32..=1.3_f32).contains(&rate),
+            "1 rotation/sec should produce rate in [1.0, 1.3], got {rate}"
+        );
     }
 
     #[test]
-    fn scratch_rate_clamped_at_upper_bound() {
-        // Extremely fast rotation should not produce a rate above 4.0.
-        let rate = scratch_rate_from_angular_velocity(100.0 * std::f64::consts::TAU, 0.01);
-        assert!(rate <= 4.0, "expected ≤4.0, got {rate}");
-        assert!((rate - 4.0).abs() < 1e-6, "expected exactly 4.0 at clamp, got {rate}");
+    fn scratch_nonlinear_clamped_at_upper_bound() {
+        // Extremely fast rotation should not exceed SCRATCH_RATE_MAX.
+        let rate = scratch_rate_nonlinear(10_000.0);
+        assert!(
+            (rate - SCRATCH_RATE_MAX).abs() < 1e-6,
+            "expected clamp at {SCRATCH_RATE_MAX}, got {rate}"
+        );
     }
 
     #[test]
-    fn scratch_negative_angular_velocity_clamped_to_zero() {
-        // Reverse motion gives negative angular velocity; clamped to 0 (no reverse playback).
-        let rate = scratch_rate_from_angular_velocity(-std::f64::consts::TAU, 1.0);
-        assert!(rate.abs() < 1e-6, "negative velocity should clamp to 0, got {rate}");
+    fn scratch_nonlinear_sqrt_is_sublinear() {
+        // Doubling velocity must NOT double the rate (sqrt is compressive).
+        let rate1 = scratch_rate_nonlinear(1.0);
+        let rate2 = scratch_rate_nonlinear(4.0); // 4× velocity
+        // sqrt(4) = 2 * sqrt(1), so rate2 = 2 * rate1 — still sublinear vs linear (4×).
+        assert!(
+            rate2 < rate1 * 3.0,
+            "4× velocity should produce less than 3× rate (got rate1={rate1}, rate2={rate2})"
+        );
+        assert!(rate2 > rate1, "higher velocity must still give higher rate");
     }
 
     #[test]
-    fn scratch_half_speed_rotation() {
-        // Half of 33 RPM equivalent → rate ≈ 0.5 / 0.55 ≈ 0.909.
-        let rate = scratch_rate_from_angular_velocity(std::f64::consts::TAU * 0.5, 1.0);
-        let expected = (0.5_f64 / 0.55) as f32;
-        assert!((rate - expected).abs() < 0.01, "expected ~{expected:.3}, got {rate}");
+    fn scratch_nonlinear_half_speed() {
+        // Half of 1 rotation/sec → normalized ≈ 0.909; sqrt(0.909) * 0.9 ≈ 0.858.
+        let normalized = 0.5_f64 / 0.55;
+        let rate = scratch_rate_nonlinear(normalized);
+        let expected = (normalized.sqrt() * SCRATCH_SENSITIVITY) as f32;
+        assert!(
+            (rate - expected).abs() < 0.01,
+            "expected ~{expected:.3}, got {rate}"
+        );
     }
 
     // ── M9: reverb IR (WASM) ──────────────────────────────────────────────────
@@ -984,16 +1166,100 @@ mod tests {
     }
 
     #[wasm_bindgen_test]
+    fn scratch_in_reverse_starts_false() {
+        let deck = AudioDeck::new(make_ctx());
+        assert!(!deck.borrow().scratch_in_reverse);
+    }
+
+    #[wasm_bindgen_test]
+    fn reversed_buffer_is_none_before_load() {
+        let deck = AudioDeck::new(make_ctx());
+        assert!(deck.borrow().reversed_buffer.is_none());
+    }
+
+    #[wasm_bindgen_test]
     fn scratch_end_without_start_is_safe() {
         // Calling scratch_end when scratch is not active should be a no-op.
         let deck = AudioDeck::new(make_ctx());
         deck.borrow_mut().scratch_end(); // must not panic
     }
-}
 
-/// RMS of a sample slice — used by the reverb IR decay test.
-#[cfg(test)]
-fn rms(samples: &[f32]) -> f32 {
-    if samples.is_empty() { return 0.0; }
-    (samples.iter().map(|&s| s * s).sum::<f32>() / samples.len() as f32).sqrt()
+    #[wasm_bindgen_test]
+    fn scratch_on_paused_deck_does_not_panic() {
+        // Scratch gestures on a deck with no source (paused / no track) must not panic.
+        let deck = AudioDeck::new(make_ctx());
+        deck.borrow_mut().scratch_start(0.5, 0.0);
+        deck.borrow_mut().scratch_move(0.6, 50.0);
+        deck.borrow_mut().scratch_move(0.4, 100.0); // reverse direction
+        deck.borrow_mut().scratch_end();
+        assert!(!deck.borrow().scratch_active);
+    }
+
+    // ── Feature 001: compute_reversed_buffer (WASM) ───────────────────────────
+
+    fn make_test_buffer(ctx: &web_sys::AudioContext, n_channels: u32, length: u32) -> web_sys::AudioBuffer {
+        let buf = ctx.create_buffer(n_channels, length, 44100.0)
+            .expect("make_test_buffer — create_buffer");
+        for ch in 0..n_channels {
+            let samples: Vec<f32> = (0..length).map(|i| i as f32 / length as f32).collect();
+            buf.copy_to_channel(&samples, ch as i32)
+                .expect("make_test_buffer — copy_to_channel");
+        }
+        buf
+    }
+
+    #[wasm_bindgen_test]
+    fn reversed_buffer_has_same_dims() {
+        let ctx = make_ctx();
+        let fwd = make_test_buffer(&ctx, 2, 256);
+        let rev = compute_reversed_buffer(&ctx, &fwd).expect("compute_reversed_buffer");
+        assert_eq!(rev.number_of_channels(), fwd.number_of_channels());
+        assert_eq!(rev.length(), fwd.length());
+        assert!((rev.sample_rate() - fwd.sample_rate()).abs() < 1.0);
+    }
+
+    #[wasm_bindgen_test]
+    fn reversed_buffer_reverses_content() {
+        // Forward: samples ramp 0.0 → ~1.0; reversed: ramp ~1.0 → 0.0.
+        let ctx = make_ctx();
+        let fwd = make_test_buffer(&ctx, 1, 100);
+        let rev = compute_reversed_buffer(&ctx, &fwd).expect("compute_reversed_buffer");
+
+        let mut ch = vec![0.0_f32; 100];
+        rev.copy_from_channel(&mut ch, 0).expect("copy_from_channel rev");
+        // First sample of reversed buffer should be the last sample of forward buffer.
+        assert!(ch[0] > 0.9, "rev[0] should be near 1.0 (last fwd sample), got {}", ch[0]);
+        // Last sample of reversed buffer should be the first sample of forward buffer (≈0).
+        assert!(ch[99] < 0.05, "rev[99] should be near 0.0 (first fwd sample), got {}", ch[99]);
+    }
+
+    #[wasm_bindgen_test]
+    fn reversed_buffer_both_channels_reversed() {
+        let ctx = make_ctx();
+        let buf = ctx.create_buffer(2, 50, 44100.0).expect("create_buffer");
+        // ch0: 0,1,2,...,49; ch1: 49,48,...,0
+        let ch0_fwd: Vec<f32> = (0..50).map(|i| i as f32).collect();
+        let ch1_fwd: Vec<f32> = (0..50).map(|i| (49 - i) as f32).collect();
+        buf.copy_to_channel(&ch0_fwd, 0).expect("ch0");
+        buf.copy_to_channel(&ch1_fwd, 1).expect("ch1");
+
+        let rev = compute_reversed_buffer(&ctx, &buf).expect("compute_reversed_buffer");
+        let mut ch0_rev = vec![0.0_f32; 50];
+        let mut ch1_rev = vec![0.0_f32; 50];
+        rev.copy_from_channel(&mut ch0_rev, 0).expect("rev ch0");
+        rev.copy_from_channel(&mut ch1_rev, 1).expect("rev ch1");
+
+        // ch0 reversed: last sample = 49, first reversed = 49
+        assert!((ch0_rev[0] - 49.0).abs() < 0.5, "ch0 rev[0]={}", ch0_rev[0]);
+        assert!((ch0_rev[49] - 0.0).abs() < 0.5, "ch0 rev[49]={}", ch0_rev[49]);
+        // ch1 reversed: original was 49..0, reversed = 0..49, so rev[0]=0, rev[49]=49
+        assert!((ch1_rev[0] - 0.0).abs() < 0.5, "ch1 rev[0]={}", ch1_rev[0]);
+        assert!((ch1_rev[49] - 49.0).abs() < 0.5, "ch1 rev[49]={}", ch1_rev[49]);
+    }
+
+    /// RMS of a sample slice — used by the reverb IR decay test.
+    fn rms(samples: &[f32]) -> f32 {
+        if samples.is_empty() { return 0.0; }
+        (samples.iter().map(|&s| s * s).sum::<f32>() / samples.len() as f32).sqrt()
+    }
 }
