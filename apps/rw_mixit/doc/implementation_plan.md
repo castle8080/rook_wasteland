@@ -243,7 +243,8 @@ Complete the UI: secondary views, cartoon aesthetic fully applied, animations al
 | M9 — Effects Panel | T9.1 – T9.6 (6 tasks) | ✅ Done |
 | M10 — Keyboard Shortcuts | T10.1 – T10.4 (4 tasks) | ✅ Done |
 | M11 — Settings, About & Visual Polish | T11.1 – T11.11 (11 tasks) | ✅ Done |
-| **Total** | **81 tasks** | |
+| M12 — Compact Responsive Layout | Feature 002 (see `features/feature_002_compact_responsive_layout.md`) | ✅ Done |
+| **Total** | **81 tasks + Feature 002** | |
 
 ---
 

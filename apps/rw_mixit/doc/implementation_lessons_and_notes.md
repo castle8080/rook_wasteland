@@ -222,3 +222,18 @@ land at a completely unrelated point in the track. Easy to get backwards.
 the PCM audio data (~50 MB per 5-minute stereo track). Use `.clone()` freely to
 satisfy the borrow checker when passing buffers out of `self` fields into
 expressions that also need `&mut self`. No performance concern.
+
+---
+
+## Lessons from Feature 002 — Compact Responsive Layout
+
+### `Closure::forget()` must be conditional on successful `set_timeout`
+
+When creating a `Closure::<dyn FnMut()>` to pass to
+`set_timeout_with_callback_and_timeout_and_arguments_0`, the `.forget()` call
+**must** be inside the `if let Ok(handle) = ...` success branch — not after it
+unconditionally. If `set_timeout` fails (returns `Err`) and `.forget()` is
+still called, the closure leaks permanently: the browser never invokes it, so
+the allocation is never reclaimed, and on every subsequent resize event another
+closure leaks. The rule: only forget a closure when the browser has taken
+ownership of it by accepting the timeout registration.
