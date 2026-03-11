@@ -221,6 +221,31 @@ fn time_to_x(time: f64, duration: f64, scroll_x: f64, total_width: f64) -> f64 {
     (time / duration) * total_width + scroll_x
 }
 
+/// Compute a seek position in seconds from a mouse X pixel offset on the
+/// waveform canvas.
+///
+/// The waveform is rendered so that the current playhead is always centred at
+/// `canvas_width / 2`. A click or drag at pixel `mouse_x` is therefore
+/// `(mouse_x - center_x)` pixels away from the playhead, which maps to a time
+/// offset of `(mouse_x - center_x) * (duration / canvas_width)` seconds.
+/// The result is clamped to `[0.0, duration]`.
+///
+/// Returns `0.0` when `canvas_width <= 0.0` or `duration <= 0.0` to guard
+/// against divide-by-zero.
+pub(crate) fn seek_from_canvas_x(
+    mouse_x:      f64,
+    canvas_width: f64,
+    current:      f64,
+    duration:     f64,
+) -> f64 {
+    if canvas_width <= 0.0 || duration <= 0.0 {
+        return 0.0;
+    }
+    let center_x    = canvas_width / 2.0;
+    let secs_per_px = duration / canvas_width;
+    (current + (mouse_x - center_x) * secs_per_px).clamp(0.0, duration)
+}
+
 /// Get the 2D rendering context from a canvas element.
 fn canvas_2d(canvas: &HtmlCanvasElement) -> Option<CanvasRenderingContext2d> {
     canvas
@@ -250,7 +275,9 @@ fn make_offscreen_canvas(width: u32, height: u32) -> HtmlCanvasElement {
 
 #[cfg(test)]
 mod tests {
-    use super::time_to_x;
+    use super::{seek_from_canvas_x, time_to_x};
+
+    // ── time_to_x ──────────────────────────────────────────────────────────────
 
     #[test]
     fn time_to_x_at_start_equals_scroll_x() {
@@ -269,5 +296,74 @@ mod tests {
     fn time_to_x_midpoint() {
         let x = time_to_x(90.0, 180.0, 0.0, 800.0);
         assert!((x - 400.0).abs() < 1e-9);
+    }
+
+    // ── seek_from_canvas_x ─────────────────────────────────────────────────────
+
+    /// Clicking at the exact center of the canvas maps to no offset → returns
+    /// the current playhead position unchanged.
+    #[test]
+    fn seek_from_canvas_x_center_returns_current() {
+        let pos = seek_from_canvas_x(400.0, 800.0, 60.0, 180.0);
+        assert!((pos - 60.0).abs() < 1e-9, "expected 60.0 got {pos}");
+    }
+
+    /// Clicking at the left edge (x=0) should seek backward by half the
+    /// duration (since center = width/2 maps to full duration, left edge is
+    /// –width/2 pixels → –duration/2 seconds offset).
+    #[test]
+    fn seek_from_canvas_x_left_edge_seeks_backward() {
+        // canvas_width=800, duration=180, current=90 → center at 400px.
+        // mouse_x=0 → offset = (0 - 400) * (180/800) = -90s → 90-90=0.0
+        let pos = seek_from_canvas_x(0.0, 800.0, 90.0, 180.0);
+        assert!((pos - 0.0).abs() < 1e-9, "expected 0.0 got {pos}");
+    }
+
+    /// Clicking at the right edge (x=width) seeks forward by half the duration.
+    #[test]
+    fn seek_from_canvas_x_right_edge_seeks_forward() {
+        // mouse_x=800 → offset = (800 - 400) * (180/800) = +90s → 90+90=180.0
+        let pos = seek_from_canvas_x(800.0, 800.0, 90.0, 180.0);
+        assert!((pos - 180.0).abs() < 1e-9, "expected 180.0 got {pos}");
+    }
+
+    /// Result must be clamped to 0.0 even when the computed offset is negative.
+    #[test]
+    fn seek_from_canvas_x_clamps_below_zero() {
+        // current=10s, clicking far left would give a negative position.
+        let pos = seek_from_canvas_x(0.0, 800.0, 10.0, 180.0);
+        assert!(pos >= 0.0, "position must not go below 0.0, got {pos}");
+    }
+
+    /// Result must be clamped to duration even when the computed offset exceeds it.
+    #[test]
+    fn seek_from_canvas_x_clamps_above_duration() {
+        // current=170s, clicking far right would exceed 180s.
+        let pos = seek_from_canvas_x(800.0, 800.0, 170.0, 180.0);
+        assert!((pos - 180.0).abs() < 1e-9, "expected 180.0 got {pos}");
+    }
+
+    /// Guard against divide-by-zero when no track is loaded (duration == 0).
+    #[test]
+    fn seek_from_canvas_x_zero_duration_returns_zero() {
+        let pos = seek_from_canvas_x(400.0, 800.0, 0.0, 0.0);
+        assert_eq!(pos, 0.0);
+    }
+
+    /// Guard against divide-by-zero when the canvas has not been rendered yet.
+    #[test]
+    fn seek_from_canvas_x_zero_canvas_width_returns_zero() {
+        let pos = seek_from_canvas_x(0.0, 0.0, 60.0, 180.0);
+        assert_eq!(pos, 0.0);
+    }
+
+    /// Intermediate click: arbitrary position within the track.
+    #[test]
+    fn seek_from_canvas_x_arbitrary_position() {
+        // canvas=800, duration=200, current=100 (midpoint), click at x=600.
+        // offset_px = 600 - 400 = 200; secs_per_px = 200/800 = 0.25
+        // seek = 100 + 200*0.25 = 150
+        let pos = seek_from_canvas_x(600.0, 800.0, 100.0, 200.0);
+        assert!((pos - 150.0).abs() < 1e-9, "expected 150.0 got {pos}");
     }
 }

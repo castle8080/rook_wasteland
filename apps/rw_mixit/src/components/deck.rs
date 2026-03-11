@@ -13,6 +13,7 @@ use crate::audio::bpm::sync_rate;
 use crate::audio::mixer_audio::MixerAudio;
 use crate::canvas::raf_loop::start_raf_loop;
 use crate::canvas::platter_draw::PLATTER_SIZE;
+use crate::canvas::waveform_draw::seek_from_canvas_x;
 use crate::components::controls::Controls;
 use crate::components::eq::{EqKnobs, FilterKnob, VuMeter};
 use crate::components::fx_panel::FxPanel;
@@ -247,40 +248,53 @@ pub fn Deck(
         }
     };
 
-    // Waveform seek on click: compute click position → time → seek.
-    let on_waveform_click = {
+    // ── Waveform scrub: drag (or click) to seek, regardless of play state ────
+    //
+    // `is_scrubbing` tracks whether a mousedown is currently held on the canvas.
+    // `do_scrub` is wrapped in Rc so it can be captured by both `mousedown` and
+    // `mousemove` handlers without violating the borrow checker (same pattern as
+    // `nudge_end_rc` in controls.rs).
+    let is_scrubbing = RwSignal::new(false);
+
+    let do_scrub: Rc<dyn Fn(f64)> = {
         let state             = state.clone();
         let audio_deck_holder = audio_deck_holder.clone();
-        move |ev: web_sys::MouseEvent| {
-            // Only seek when not playing (cue mode / paused).
-            if state.is_playing.get_untracked() {
-                return;
-            }
+        Rc::new(move |mouse_x: f64| {
             let duration = state.duration_secs.get_untracked();
             if duration <= 0.0 {
                 return;
             }
-            let canvas_el = waveform_ref.get_untracked();
-            let canvas_el = match canvas_el {
+            let canvas_el = match waveform_ref.get_untracked() {
                 Some(c) => c,
-                None => return,
+                None    => return,
             };
             let canvas_width = canvas_el.width() as f64;
-            let click_x = ev.offset_x() as f64;
-            // The waveform is scrolled so the playhead is at the center.
-            // Clicking at click_x relative to center maps to a time delta.
-            let center_x    = canvas_width / 2.0;
-            let current     = state.current_secs.get_untracked();
-            let secs_per_px = if canvas_width > 0.0 { duration / canvas_width } else { 0.0 };
-            let seek_pos = (current + (click_x - center_x) * secs_per_px).clamp(0.0, duration);
-
+            let current      = state.current_secs.get_untracked();
+            let seek_pos     = seek_from_canvas_x(mouse_x, canvas_width, current, duration);
             if let Some(ref deck_rc) = *audio_deck_holder.borrow() {
                 let rate = state.playback_rate.get_untracked() as f32;
                 deck_rc.borrow_mut().seek(seek_pos, rate);
                 state.current_secs.set(seek_pos);
             }
+        })
+    };
+    let do_scrub_down = do_scrub.clone();
+    let do_scrub_move = do_scrub;
+
+    let on_waveform_mousedown = move |ev: web_sys::MouseEvent| {
+        is_scrubbing.set(true);
+        do_scrub_down(ev.offset_x() as f64);
+    };
+
+    let on_waveform_mousemove = move |ev: web_sys::MouseEvent| {
+        if is_scrubbing.get_untracked() {
+            do_scrub_move(ev.offset_x() as f64);
         }
     };
+
+    // Both end-handlers only capture `is_scrubbing` (Copy), so no Rc needed.
+    let on_scrub_end_up  = move |_: web_sys::MouseEvent| { is_scrubbing.set(false); };
+    let on_scrub_end_out = move |_: web_sys::MouseEvent| { is_scrubbing.set(false); };
 
     let deck_class = format!("deck deck-{}", side.to_lowercase());
 
@@ -559,7 +573,11 @@ pub fn Deck(
                 width=WAVEFORM_WIDTH
                 height=WAVEFORM_HEIGHT
                 node_ref=waveform_ref
-                on:click=on_waveform_click
+                style:cursor=move || if is_scrubbing.get() { "grabbing" } else { "grab" }
+                on:mousedown=on_waveform_mousedown
+                on:mousemove=on_waveform_mousemove
+                on:mouseup=on_scrub_end_up
+                on:mouseleave=on_scrub_end_out
             />
 
             // Zoom controls (T2.11)

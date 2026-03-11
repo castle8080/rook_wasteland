@@ -529,7 +529,8 @@ html, body {
   border: var(--border-cartoon);
   border-radius: 4px;
   box-shadow: var(--shadow-cartoon);
-  cursor: crosshair;
+  cursor: grab;
+  user-select: none; /* prevent text-selection highlight during drag */
 }
 
 /* ─── Zoom controls ───────────────────────────────────────────────── */
