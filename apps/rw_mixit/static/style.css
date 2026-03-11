@@ -60,9 +60,10 @@ html, body {
   background-color: var(--color-bg);
   color: var(--color-text);
   font-family: 'Bangers', cursive;
-  min-height: 100vh;
+  /* height: 100% (not min-height) so #rw-mixit-root's 100vh is well-defined
+     in all browsers and doesn't let the document grow beyond the viewport. */
+  height: 100%;
   letter-spacing: 0.04em;
-  /* M12: the app is never intended to scroll at any viewport size */
   overflow: hidden;
 }
 
@@ -70,7 +71,10 @@ html, body {
 #rw-mixit-root {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  /* height (not min-height) constrains the root to exactly the viewport so
+     flex children fill it and nothing silently overflows the bottom edge. */
+  height: 100vh;
+  overflow: hidden;
   /* M12: JS writes --app-scale on document root when viewport is very small */
   transform: scale(var(--app-scale, 1));
   transform-origin: top center;
@@ -140,6 +144,15 @@ html, body {
 .deck {
   flex: 1;
   min-width: 0;
+  /* min-height: 0 overrides the default min-height: auto on flex children.
+     Without this, the deck refuses to shrink and overflows the viewport,
+     silently hiding the Load Track button (and anything else at the bottom).
+     overflow-y: auto gives a scroll fallback if breakpoints aren't sufficient
+     — guarantees all controls are always reachable. */
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-text-dim) transparent;
   background-color: var(--color-panel);
   border: var(--border-cartoon);
   border-radius: var(--radius-panel);
