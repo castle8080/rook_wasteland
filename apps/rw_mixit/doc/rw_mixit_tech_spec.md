@@ -71,12 +71,13 @@ rw_mixit/
 │   │   ├── eq.rs               # 3-band EQ knobs
 │   │   ├── hot_cues.rs         # 4 hot cue buttons
 │   │   ├── loop_controls.rs    # Loop In/Out/Toggle/Bar buttons
-│   │   └── fx_panel.rs         # Effects toggles + params
+│   │   ├── fx_panel.rs         # Effects toggles + params
+│   │   └── help.rs             # <HelpView> — quick-start guide (Route::Help)
 │   ├── canvas/
 │   │   ├── mod.rs
 │   │   ├── raf_loop.rs         # requestAnimationFrame driver
 │   │   ├── platter_draw.rs     # Platter drawing logic
-│   │   └── waveform_draw.rs    # Waveform + playhead drawing logic
+│   │   └── waveform_draw.rs    # Waveform + playhead drawing; `seek_from_canvas_x` coordinate helper
 │   └── utils/
 │       ├── mod.rs
 │       └── keyboard.rs         # Global keyboard shortcut handler
@@ -199,6 +200,7 @@ pub enum Route {
     Main,
     Settings,
     About,
+    Help,
 }
 
 impl Route {
@@ -206,6 +208,7 @@ impl Route {
         match hash {
             "#/settings" => Route::Settings,
             "#/about"    => Route::About,
+            "#/help"     => Route::Help,
             _            => Route::Main,
         }
     }
@@ -215,6 +218,7 @@ impl Route {
             Route::Main     => "#/",
             Route::Settings => "#/settings",
             Route::About    => "#/about",
+            Route::Help     => "#/help",
         }
     }
 }
@@ -254,6 +258,9 @@ pub fn App() -> impl IntoView {
             </Show>
             <Show when=move || current_route.get() == Route::About>
                 <AboutView/>
+            </Show>
+            <Show when=move || current_route.get() == Route::Help>
+                <HelpView/>
             </Show>
         </div>
     }
@@ -729,57 +736,49 @@ fn schedule_stutter(
 
 ### 8.12 Scratch Simulation
 
-Scratch simulation maps mouse angular velocity on the platter canvas to `AudioBufferSourceNode.playbackRate`. True reverse playback (`playbackRate < 0`) is not supported by Web Audio API in major browsers, so v1 simulates "brake-and-release" style scratching with forward-only rate manipulation.
+Scratch simulation maps platter angular velocity to `AudioBufferSourceNode.playbackRate` using
+a non-linear (square-root) compressive curve. True `playbackRate < 0` is not supported by
+Web Audio API, so backward drag is implemented by swapping to a **pre-computed reversed
+`AudioBuffer`** that was created on file load.
 
 ```rust
-struct ScratchState {
-    is_scratching:     bool,
-    last_angle:        f64,  // radians from platter center
-    last_time:         f64,  // performance.now() ms
-    pre_scratch_rate:  f32,  // rate before scratch started
+// Key constants (all in deck_audio.rs)
+const SCRATCH_SENSITIVITY: f64 = 0.9;   // sqrt-curve scale factor
+const SCRATCH_RATE_MAX:    f32 = 3.5;   // max playback rate
+const SCRATCH_SMOOTH_SECS: f64 = 0.012; // 12 ms ramp for forward-phase smoothing
+
+// Non-linear rate mapping: sqrt compresses high-velocity gestures
+fn scratch_rate_nonlinear(normalized_vel: f64) -> f32 {
+    // normalized_vel = |d_angle| / dt / (TAU * 0.55)
+    // 1.0 = 33 RPM reference speed → rate ≈ 1.21
+    (normalized_vel.sqrt() * SCRATCH_SENSITIVITY) as f32
+        .clamp(0.0, SCRATCH_RATE_MAX)
 }
 
-fn on_platter_mouse_move(
-    event: &MouseEvent,
-    canvas: &HtmlCanvasElement,
-    scratch: &mut ScratchState,
-    source: &AudioBufferSourceNode,
-) {
-    let cx = canvas.width()  as f64 / 2.0;
-    let cy = canvas.height() as f64 / 2.0;
-    let angle = (event.offset_y() as f64 - cy).atan2(event.offset_x() as f64 - cx);
-
-    let now = window().performance().unwrap().now();
-    let dt  = (now - scratch.last_time).max(1.0) / 1000.0; // seconds, avoid div/0
-
-    // Angular velocity → playbackRate
-    // 33 RPM ≈ 0.55 rotations/sec; one full rotation/sec = playbackRate 1.0/0.55
-    let mut d_angle = angle - scratch.last_angle;
-    if d_angle >  std::f64::consts::PI { d_angle -= std::f64::consts::TAU; }
-    if d_angle < -std::f64::consts::PI { d_angle += std::f64::consts::TAU; }
-    let rate = ((d_angle / dt) / (std::f64::consts::TAU * 0.55)) as f32;
-    source.playback_rate().set_value(rate.clamp(0.0, 4.0));
-
-    scratch.last_angle = angle;
-    scratch.last_time  = now;
-}
-
-fn on_platter_mouse_up(
-    scratch: &mut ScratchState,
-    source:  &AudioBufferSourceNode,
-    ctx:     &AudioContext,
-) {
-    // Smooth return to pre-scratch rate over 100 ms
-    source.playback_rate()
-        .linear_ramp_to_value_at_time(
-            scratch.pre_scratch_rate as f64,
-            ctx.current_time() + 0.1,
-        ).unwrap();
-    scratch.is_scratching = false;
-}
+// Fields added to AudioDeck for reverse scratch support
+pub reversed_buffer:      Option<AudioBuffer>,  // pre-computed on file load
+pub scratch_in_reverse:   bool,                 // true while using reversed buffer
+pub scratch_position_secs: f64,                 // integrated track position (seconds)
+pub scratch_was_playing:  bool,                 // deck was playing at scratch_start?
 ```
 
-**v2 enhancement (true reverse):** Pre-compute a second `AudioBuffer` with reversed channel data on file load. On scratch, swap to the reversed buffer when angular velocity goes strongly negative.
+**On `scratch_move(angle, time)`:**
+- Detects direction sign change (d_angle < 0 = backward)
+- If changing fwd→rev and `reversed_buffer` is `Some`: stops current source, starts reversed buffer at `duration - scratch_position_secs`
+- If changing rev→fwd: stops current source, starts forward buffer at `scratch_position_secs`
+- Same direction: updates `playbackRate` only (12 ms ramp if forward, immediate if reverse)
+- Integrates `scratch_position_secs` using `scratch_in_reverse` (actual buffer state) not
+  `going_reverse` (user intent), so position stays correct when no reversed buffer is loaded
+
+**On `scratch_end()`:**
+- Always stops the source (which may be the reversed buffer)
+- If `scratch_was_playing`: calls `play(scratch_position_secs, pre_scratch_rate)` to resume
+- If paused: sets `offset_at_play = scratch_position_secs` to anchor waveform position
+
+**On file load (`loader.rs`):**
+- After `deck.buffer = Some(audio_buffer)`, calls `compute_reversed_buffer(&ctx, &audio_buffer)`
+- Non-fatal: if computation fails (e.g. OOM), logs a warning and scratch falls back to
+  forward-only behaviour
 
 ---
 
@@ -996,7 +995,8 @@ Rendered in two passes per frame:
  │    └── <Deck side=Right>
  │         └── (mirror of Left)
  ├── <SettingsView>            (Route::Settings)
- └── <AboutView>               (Route::About)
+ ├── <AboutView>               (Route::About)
+ └── <HelpView>                (Route::Help — quick-start guide, purely presentational)
 ```
 
 ### 10.2 Deck Component Props
@@ -1089,7 +1089,7 @@ All styling lives in `static/style.css`. No CSS-in-Rust, no Tailwind (to keep th
 |---|---|
 | Pitch-preserving time stretch (WSOLA / Phase Vocoder) | **Dropped from roadmap.** Requires AudioWorklet + COOP/COEP headers. Vinyl-mode only. |
 | AudioWorklet (WASM) | **Dropped.** Requires COOP/COEP headers which complicate static hosting. |
-| True reverse scratch | playbackRate < 0 unsupported in browsers; pre-reversed buffer approach deferred indefinitely |
+| True reverse scratch | ~~playbackRate < 0 unsupported~~ — **Implemented (Feature 001)** via pre-reversed buffer swap in `scratch_move()` |
 | Recording / export | `MediaRecorder` API — not planned |
 | `localStorage` persistence | Hot cues and loop points reset every session by design |
 

@@ -86,14 +86,21 @@ pub fn start_raf_loop(
 // ── Per-frame helpers ─────────────────────────────────────────────────────────
 
 /// Write the current playhead position from the audio clock into `DeckState.current_secs`.
+///
+/// During scratch, `current_position()` still advances based on the pre-scratch `started_at`,
+/// which would show incorrect forward motion on the waveform.  Use `scratch_position_secs`
+/// instead — it is integrated from actual gesture velocity and correctly tracks backward motion.
 fn update_current_time(
     audio_holder: &Rc<RefCell<Option<Rc<RefCell<AudioDeck>>>>>,
     state:        &DeckState,
 ) {
     if let Some(ref deck_rc) = *audio_holder.borrow() {
         let deck = deck_rc.borrow();
-        // Only advance time when source is active (playing).
-        if deck.source.is_some() {
+        if deck.scratch_active {
+            // Use the gesture-integrated position so the waveform reflects actual
+            // backward/forward motion during the scratch.
+            state.current_secs.set(deck.scratch_position_secs);
+        } else if deck.source.is_some() {
             let pos = deck.current_position();
             state.current_secs.set(pos);
         }
@@ -116,6 +123,11 @@ fn check_loop(
 ) {
     if !state.loop_active.get_untracked() {
         return;
+    }
+    // Never trigger a loop seek during scratch — it would destroy the reversed buffer
+    // source and corrupt scratch_position_secs by seeking the deck to loop_in.
+    if let Some(ref deck_rc) = *audio_holder.borrow() {
+        if deck_rc.borrow().scratch_active { return; }
     }
     let current  = state.current_secs.get_untracked();
     let loop_out = state.loop_out.get_untracked();

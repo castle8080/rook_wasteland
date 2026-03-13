@@ -94,7 +94,7 @@ Wraps every view. Rendered by `<App>` / `<Header>`.
 │  │                   ║░░░░░ loop region ░░░░░          │  │
 │  │         ▲ 1:14    ║              ◆ GRN  ◆ RED       │  │
 │  └──────────────────────────────────────────────────────┘  │
-│  [−] zoom [+]   click to seek (while paused or in cue)     │
+│  [−] zoom [+]   click or drag to seek (playing or paused)     │
 │  ◆ = hot cue markers (fixed; hold button to set at current position)                           │
 │                                                            │
 │  ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─  │
@@ -196,7 +196,7 @@ Wraps every view. Rendered by `<App>` / `<Header>`.
 | Element | Description | Interaction |
 |---|---|---|
 | Track label | Shows filename and duration | Display only; set on load |
-| Waveform | Scrolling canvas of audio peaks | Click to seek (paused/cue mode); zoom in/out with [−]/[+] |
+| Waveform | Scrolling canvas of audio peaks | Click or drag to seek (playing or paused); cursor `grab`/`grabbing`; zoom in/out with [−]/[+] |
 | Loop region | Translucent highlight on waveform | Pulses with heartbeat glow when active |
 | Hot cue markers `◆` | Colored pins on waveform | Draggable to adjust position |
 | Platter | Spinning vinyl canvas at 33 RPM × playbackRate | Drag to simulate scratch (when Scratch FX on) |

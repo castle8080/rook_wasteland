@@ -150,6 +150,19 @@ pub fn HotCues(
                         deck_rc.borrow_mut().seek(cue_pos, rate);
                         state.current_secs.set(cue_pos);
                     }
+                    // Trigger burst animation for 200 ms.
+                    let burst_sig = state.burst_active;
+                    burst_sig.update(|b| b[idx] = true);
+                    let clear_cb = Closure::<dyn FnMut()>::new(move || {
+                        burst_sig.update(|b| b[idx] = false);
+                    });
+                    if let Some(w) = web_sys::window() {
+                        let _ = w.set_timeout_with_callback_and_timeout_and_arguments_0(
+                            clear_cb.as_ref().unchecked_ref(),
+                            200,
+                        );
+                    }
+                    clear_cb.forget();
                 }
             }
         };
@@ -190,27 +203,37 @@ pub fn HotCues(
         let color       = HC_COLORS[idx];
         let label       = HC_LABELS[idx];
         let hot_cues_s  = state.hot_cues;
+        let burst_s     = state.burst_active;
 
         view! {
-            <button
-                class="btn-hc"
-                class:btn-hc-set=move || hot_cues_s.get()[idx].is_some()
-                style=move || {
-                    let is_set = hot_cues_s.get()[idx].is_some();
-                    if is_set {
-                        format!("--hc-color:{color}; background-color:{color};")
-                    } else {
-                        format!("--hc-color:{color};")
+            <div class="btn-hc-wrap">
+                <button
+                    class="btn-hc"
+                    class:btn-hc-set=move || hot_cues_s.get()[idx].is_some()
+                    style=move || {
+                        let is_set = hot_cues_s.get()[idx].is_some();
+                        if is_set {
+                            format!("--hc-color:{color}; background-color:{color};")
+                        } else {
+                            format!("--hc-color:{color};")
+                        }
                     }
-                }
-                on:pointerdown=on_down
-                on:pointerup=on_up
-                on:pointerleave=on_leave
-                on:pointercancel=on_cancel
-                on:contextmenu=on_context
-            >
-                {label}
-            </button>
+                    on:pointerdown=on_down
+                    on:pointerup=on_up
+                    on:pointerleave=on_leave
+                    on:pointercancel=on_cancel
+                    on:contextmenu=on_context
+                >
+                    {label}
+                </button>
+                // Burst overlay: rendered for 200 ms after a cue jump.
+                <Show when=move || burst_s.get()[idx]>
+                    <div
+                        class="btn-hc-burst"
+                        style=move || format!("--hc-color:{color};")
+                    />
+                </Show>
+            </div>
         }
     }).collect_view();
 

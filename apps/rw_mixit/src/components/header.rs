@@ -35,6 +35,18 @@ pub fn Header() -> impl IntoView {
                     "[Settings]"
                 </a>
                 <a
+                    href="#/help"
+                    on:click=move |e| {
+                        e.prevent_default();
+                        let _ = web_sys::window()
+                            .expect("window unavailable")
+                            .location()
+                            .set_hash(Route::Help.to_hash());
+                    }
+                >
+                    "[Help]"
+                </a>
+                <a
                     href="#/about"
                     on:click=move |e| {
                         e.prevent_default();
@@ -55,6 +67,7 @@ pub fn Header() -> impl IntoView {
 mod tests {
     #[cfg(target_arch = "wasm32")]
     mod wasm {
+        #![allow(clippy::let_unit_value, clippy::unwrap_used)]
         use leptos::prelude::*;
         use leptos::mount::mount_to_body;
         use wasm_bindgen::JsCast;
@@ -100,6 +113,13 @@ mod tests {
             let _handle = mount_to_body(|| view! { <Header/> });
             click_selector(".rw-nav a[href='#/about']");
             assert_eq!(current_hash(), Route::About.to_hash());
+        }
+
+        #[wasm_bindgen_test]
+        fn help_link_sets_help_hash() {
+            let _handle = mount_to_body(|| view! { <Header/> });
+            click_selector(".rw-nav a[href='#/help']");
+            assert_eq!(current_hash(), Route::Help.to_hash());
         }
 
         use crate::routing::Route;

@@ -9,3 +9,13 @@ pub mod mixer;
 pub use deck::{DeckState, ZoomLevel};
 #[allow(unused_imports)]
 pub use mixer::{DeckId, MixerState};
+
+// Leptos context is keyed by TypeId.  Two values of the same type would overwrite
+// each other, so each deck state needs its own unique wrapper type.
+/// Context wrapper for Deck A's `DeckState`.  Use with `provide_context` /
+/// `use_context` to disambiguate from Deck B.
+#[derive(Clone)]
+pub struct DeckAContext(pub DeckState);
+/// Context wrapper for Deck B's `DeckState`.
+#[derive(Clone)]
+pub struct DeckBContext(pub DeckState);

@@ -34,6 +34,21 @@
   --radius-panel:      12px;
   --radius-button:     8px;
   --radius-knob:       50%;
+
+  /* ── M12 Responsive size tokens ──────────────────────────────────────
+   * Overridden by @media (max-height) blocks below.
+   * JS writes --app-scale via update_viewport_scale() in app.rs.
+   * Baseline targets ~800px viewport height; breakpoints go further.     */
+  --platter-max:   200px;  /* platter canvas display max-width             */
+  --waveform-h:     44px;  /* waveform canvas display height               */
+  --deck-gap:     0.4rem;  /* gap between sections inside each deck column */
+  --deck-pad:     0.6rem;  /* padding inside each deck column              */
+  --deck-row-gap: 0.75rem; /* gap between the three columns                */
+  --deck-row-pad: 0.75rem; /* outer padding of the deck-row wrapper        */
+  --knob-sz:       44px;   /* EQ / filter knob diameter                    */
+  --vu-h:          60px;   /* VU meter bar container height                */
+  --fader-h:       80px;   /* vertical channel fader height                */
+  --app-scale:     1;      /* written imperatively by JS resize handler    */
 }
 
 /* ─── Reset ───────────────────────────────────────────────────────── */
@@ -47,15 +62,24 @@ html, body {
   background-color: var(--color-bg);
   color: var(--color-text);
   font-family: 'Bangers', cursive;
-  min-height: 100vh;
+  height: 100%;
   letter-spacing: 0.04em;
+  /* Allow page-level scrolling when the viewport is too small to fit everything.
+     The app tries hard to fit within the viewport via CSS vars + breakpoints,
+     but scrolling is an acceptable fallback rather than clipping content. */
+  overflow-y: auto;
 }
 
 /* ─── Root container ──────────────────────────────────────────────── */
 #rw-mixit-root {
   display: flex;
   flex-direction: column;
+  /* min-height fills the viewport normally; the root can grow taller on very
+     small screens and the body will scroll rather than clipping content. */
   min-height: 100vh;
+  /* M12: JS writes --app-scale on document root when viewport is very small */
+  transform: scale(var(--app-scale, 1));
+  transform-origin: top center;
 }
 
 /* ─── Header ──────────────────────────────────────────────────────── */
@@ -63,14 +87,14 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.75rem 1.5rem;
+  padding: 0.35rem 1.5rem;
   background-color: var(--color-panel);
   border-bottom: var(--border-cartoon);
   box-shadow: var(--shadow-cartoon);
 }
 
 .rw-logo {
-  font-size: 2rem;
+  font-size: 1.6rem;
   color: var(--color-glow);
   text-decoration: none;
   text-shadow: 2px 2px 0 var(--color-border);
@@ -112,8 +136,8 @@ html, body {
 .deck-row {
   display: flex;
   flex: 1;
-  gap: 1rem;
-  padding: 1rem;
+  gap: var(--deck-row-gap);
+  padding: var(--deck-row-pad);
   align-items: stretch;
   min-height: 0;
 }
@@ -122,21 +146,30 @@ html, body {
 .deck {
   flex: 1;
   min-width: 0;
+  /* min-height: 0 overrides the default min-height: auto on flex children.
+     Without this, the deck refuses to shrink and overflows the viewport,
+     silently hiding the Load Track button (and anything else at the bottom).
+     overflow-y: auto gives a scroll fallback if breakpoints aren't sufficient
+     — guarantees all controls are always reachable. */
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-text-dim) transparent;
   background-color: var(--color-panel);
   border: var(--border-cartoon);
   border-radius: var(--radius-panel);
   box-shadow: var(--shadow-cartoon);
-  padding: 1rem;
+  padding: var(--deck-pad);
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: var(--deck-gap);
 }
 
 .deck-a { border-top: 5px solid var(--color-deck-a); }
 .deck-b { border-top: 5px solid var(--color-deck-b); }
 
 .deck-label {
-  font-size: 1.8rem;
+  font-size: 1.3rem;
   margin: 0;
   text-align: center;
   letter-spacing: 0.1em;
@@ -156,19 +189,25 @@ html, body {
 .mixer {
   width: 280px;
   flex-shrink: 0;
+  /* Same min-height/overflow treatment as .deck — prevents content from
+     silently escaping the panel when the viewport shrinks. */
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-text-dim) transparent;
   background-color: var(--color-panel);
   border: var(--border-cartoon);
   border-top: 5px solid var(--color-mixer);
   border-radius: var(--radius-panel);
   box-shadow: var(--shadow-cartoon);
-  padding: 1rem;
+  padding: 0.6rem;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.5rem;
 }
 
 .mixer-label {
-  font-size: 1.8rem;
+  font-size: 1.3rem;
   margin: 0;
   text-align: center;
   color: var(--color-mixer);
@@ -221,8 +260,8 @@ html, body {
 
 /* ─── Knob (rotary input) ─────────────────────────────────────────── */
 .knob {
-  width: 48px;
-  height: 48px;
+  width: var(--knob-sz);
+  height: var(--knob-sz);
   border-radius: var(--radius-knob);
   border: var(--border-cartoon);
   box-shadow: var(--shadow-cartoon);
@@ -239,7 +278,7 @@ html, body {
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 600px) {
   .deck-row {
     flex-direction: column;
   }
@@ -249,11 +288,90 @@ html, body {
   }
 }
 
+/* ── M12 Height-responsive breakpoints ──────────────────────────────
+ * Each tier overrides the size tokens defined in :root.
+ * Rules cascade: 768 overrides 900, 640 overrides 768, etc.
+ * Keep them in descending height order so specificity is correct.
+ * Baseline already targets ~800px; these go further.              */
+
+@media (max-height: 900px) {
+  :root {
+    --platter-max:   180px;
+    --waveform-h:     36px;
+    --deck-gap:     0.3rem;
+    --deck-pad:    0.45rem;
+    --deck-row-gap: 0.5rem;
+    --deck-row-pad: 0.5rem;
+    --knob-sz:       40px;
+    --vu-h:          50px;
+    --fader-h:       65px;
+  }
+
+  .rw-header {
+    padding-top:    0.25rem;
+    padding-bottom: 0.25rem;
+  }
+}
+
+@media (max-height: 768px) {
+  :root {
+    --platter-max:   150px;
+    --waveform-h:     38px;
+    --deck-gap:     0.2rem;
+    --deck-pad:    0.35rem;
+    --deck-row-gap: 0.4rem;
+    --deck-row-pad: 0.4rem;
+    --knob-sz:       34px;
+    --vu-h:          38px;
+    --fader-h:       50px;
+  }
+
+  .rw-header {
+    padding-top:    0.2rem;
+    padding-bottom: 0.2rem;
+  }
+
+  .deck-label {
+    font-size: 1.0rem;
+  }
+
+  .bpm-value {
+    font-size: 0.95rem;
+  }
+}
+
+@media (max-height: 640px) {
+  :root {
+    --platter-max:   120px;
+    --waveform-h:     28px;
+    --deck-gap:    0.15rem;
+    --deck-pad:    0.25rem;
+    --deck-row-gap:  0.3rem;
+    --deck-row-pad:  0.3rem;
+    --knob-sz:       28px;
+    --vu-h:          28px;
+    --fader-h:       40px;
+  }
+
+  .rw-header {
+    padding-top:    0.15rem;
+    padding-bottom: 0.15rem;
+  }
+
+  .deck-label {
+    font-size: 0.9rem;
+  }
+}
+
+/* Scale fallback: JS in app.rs writes --app-scale when height < 580px.
+ * No additional CSS overrides needed here — the JS-driven transform
+ * handles the rest.  This block exists as a reference comment.         */
+
 /* ─── Platter Canvas ──────────────────────────────────────────────── */
 .platter-canvas {
   display: block;
   width: 100%;
-  max-width: 240px;
+  max-width: var(--platter-max);
   height: auto;
   margin: 0 auto;
   border-radius: 50%;
@@ -265,7 +383,7 @@ html, body {
 .pitch-fader-wrapper {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.15rem;
 }
 
 .pitch-fader-label {
@@ -314,7 +432,7 @@ html, body {
   font-family: 'Bangers', cursive;
   font-size: 1rem;
   letter-spacing: 0.05em;
-  padding: 0.4rem 0.75rem;
+  padding: 0.25rem 0.55rem;
   border: var(--border-cartoon);
   border-radius: var(--radius-button);
   box-shadow: var(--shadow-cartoon);
@@ -335,12 +453,30 @@ html, body {
   transform: translateY(1px);
 }
 
-.btn-load {
-  font-family: 'Bangers', cursive;
-  font-size: 1.1rem;
-  letter-spacing: 0.06em;
-  width: 100%;
-  padding: 0.5rem;
+/* ─── Deck header row (title + load icon) ────────────────────────── */
+.deck-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.3rem;
+}
+
+/* Mirrors the icon button width so the label stays visually centred */
+.deck-header-spacer {
+  width: 1.8rem;
+  flex-shrink: 0;
+}
+
+/* Small folder-icon button — shares the title row, no extra vertical space */
+.btn-load-icon {
+  width: 1.8rem;
+  height: 1.8rem;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  padding: 0;
   border: var(--border-cartoon);
   border-radius: var(--radius-button);
   box-shadow: var(--shadow-cartoon);
@@ -348,12 +484,17 @@ html, body {
   background-color: var(--color-panel);
   color: var(--color-glow);
   transition: transform 0.08s ease;
-  margin-top: auto;
+  line-height: 1;
 }
 
-.btn-load:hover {
+.btn-load-icon:hover {
   transform: translateY(-2px);
   background-color: #1e2f50;
+}
+
+.btn-load-icon:active {
+  animation: pop 80ms ease-out;
+  transform: translateY(1px);
 }
 
 /* ─── Track label ─────────────────────────────────────────────────── */
@@ -384,10 +525,12 @@ html, body {
 .waveform-canvas {
   display: block;
   width: 100%;
+  height: var(--waveform-h);
   border: var(--border-cartoon);
   border-radius: 4px;
   box-shadow: var(--shadow-cartoon);
-  cursor: crosshair;
+  cursor: grab;
+  user-select: none; /* prevent text-selection highlight during drag */
 }
 
 /* ─── Zoom controls ───────────────────────────────────────────────── */
@@ -395,13 +538,13 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
+  gap: 0.3rem;
 }
 
 .btn-zoom {
   font-family: 'Bangers', cursive;
   font-size: 1rem;
-  padding: 0.2rem 0.6rem;
+  padding: 0.15rem 0.5rem;
   border: var(--border-cartoon);
   border-radius: var(--radius-button);
   box-shadow: var(--shadow-cartoon);
@@ -425,8 +568,8 @@ html, body {
 .bpm-panel {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  padding: 0.4rem 0.6rem;
+  gap: 0.2rem;
+  padding: 0.3rem 0.5rem;
   border: var(--border-cartoon);
   border-radius: var(--radius-button);
   background-color: #0d1b2a;
@@ -446,7 +589,7 @@ html, body {
 }
 
 .bpm-value {
-  font-size: 1.4rem;
+  font-size: 1.1rem;
   color: var(--color-glow);
   min-width: 4rem;
   text-align: right;
@@ -514,7 +657,7 @@ html, body {
   display: flex;
   gap: 0.75rem;
   justify-content: center;
-  padding: 0.5rem 0;
+  padding: 0.3rem 0;
 }
 
 .channel-fader-group {
@@ -538,7 +681,7 @@ html, body {
 .channel-fader {
   writing-mode: vertical-lr;
   direction: rtl;
-  height: 100px;
+  height: var(--fader-h);
   width: 28px;
   accent-color: var(--color-mixer);
   cursor: pointer;
@@ -556,8 +699,9 @@ html, body {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
-  padding: 0.5rem 0.25rem;
+  padding: 0.35rem 0.25rem;
   border-top: 1px solid rgba(255,255,255,0.07);
+  overflow: hidden;   /* clip any child that exceeds the section width */
 }
 
 .mixer-section-label {
@@ -584,6 +728,7 @@ html, body {
 
 .crossfader {
   flex: 1;
+  min-width: 0;   /* range inputs have a browser default min-width that causes overflow */
   accent-color: var(--color-glow);
   cursor: pointer;
   height: 8px;
@@ -598,6 +743,7 @@ html, body {
 
 .master-vol {
   flex: 1;
+  min-width: 0;   /* same fix — range input default min-width causes flex overflow */
   accent-color: var(--color-mixer);
   cursor: pointer;
   height: 8px;
@@ -614,8 +760,8 @@ html, body {
 .loop-controls {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  padding: 0.4rem 0.5rem;
+  gap: 0.25rem;
+  padding: 0.3rem 0.4rem;
   border: var(--border-cartoon);
   border-radius: var(--radius-button);
   background-color: #0d1b2a;
@@ -646,7 +792,7 @@ html, body {
   font-family: 'Bangers', cursive;
   font-size: 0.9rem;
   letter-spacing: 0.05em;
-  padding: 0.3rem 0.6rem;
+  padding: 0.2rem 0.5rem;
   border: var(--border-cartoon);
   border-radius: var(--radius-button);
   box-shadow: var(--shadow-cartoon);
@@ -707,8 +853,8 @@ html, body {
 .filter-panel {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.4rem 0.5rem;
+  gap: 0.2rem;
+  padding: 0.3rem 0.4rem;
   border: var(--border-cartoon);
   border-radius: var(--radius-button);
   background-color: #0d1b2a;
@@ -735,7 +881,7 @@ html, body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.15rem;
+  gap: 0.1rem;
   flex: 1;
 }
 
@@ -761,7 +907,7 @@ html, body {
   writing-mode: vertical-lr;
   direction: rtl;
   width: 28px;
-  height: 64px;
+  height: 44px;
   border-radius: 4px;
 }
 
@@ -785,8 +931,8 @@ html, body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.4rem 0.5rem;
+  gap: 0.2rem;
+  padding: 0.3rem 0.4rem;
   border: var(--border-cartoon);
   border-radius: var(--radius-button);
   background-color: #0d1b2a;
@@ -796,7 +942,7 @@ html, body {
 
 .vu-meter-bar-container {
   width: 16px;
-  height: 80px;
+  height: var(--vu-h);
   background-color: #0a0f1a;
   border: 1px solid #333;
   border-radius: 3px;
@@ -833,7 +979,7 @@ html, body {
 .hot-cues {
   display: flex;
   gap: 0.4rem;
-  padding: 0.4rem 0.5rem;
+  padding: 0.3rem 0.4rem;
   border: var(--border-cartoon);
   border-radius: var(--radius-button);
   background-color: #0d1b2a;
@@ -843,10 +989,10 @@ html, body {
 
 .btn-hc {
   font-family: 'Bangers', cursive;
-  font-size: 1rem;
+  font-size: 0.9rem;
   letter-spacing: 0.06em;
-  width: 2.6rem;
-  height: 2.6rem;
+  width: 2.2rem;
+  height: 2.2rem;
   border: var(--border-cartoon);
   border-radius: var(--radius-button);
   box-shadow: var(--shadow-cartoon);
@@ -880,8 +1026,8 @@ html, body {
 .fx-panel {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
-  padding: 0.4rem 0.5rem;
+  gap: 0.2rem;
+  padding: 0.3rem 0.4rem;
   border: var(--border-cartoon);
   border-radius: var(--radius-button);
   background-color: #0d1b2a;
@@ -990,3 +1136,305 @@ html, body {
   font-size: 0.75rem;
   padding: 0.2rem 0.4rem;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   M11 — Visual Polish
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ─── T11.4 Button press pop animation for all button types ───────── */
+.btn-transport:active,
+.btn-nudge:active {
+  animation: pop 80ms ease-out;
+}
+
+.btn-load-icon:active {
+  animation: pop 80ms ease-out;
+  transform: translateY(1px);
+}
+
+.btn-zoom:active {
+  animation: pop 80ms ease-out;
+  box-shadow: 2px 2px 0 var(--color-shadow);
+  transform: translateY(1px);
+}
+
+.btn-tap:active,
+.btn-sync:active {
+  animation: pop 80ms ease-out;
+}
+
+.btn-loop:active {
+  animation: pop 80ms ease-out;
+}
+
+.btn-hc:active {
+  animation: pop 80ms ease-out;
+}
+
+.btn-fx:active {
+  animation: pop 80ms ease-out;
+}
+
+/* ─── T11.5 Hot cue burst overlay ────────────────────────────────── */
+.btn-hc-wrap {
+  position: relative;
+  display: inline-block;
+}
+
+@keyframes hc-burst {
+  0%   { transform: scale(0.6); opacity: 0.9; }
+  60%  { transform: scale(1.5); opacity: 0.5; }
+  100% { transform: scale(2.0); opacity: 0; }
+}
+
+.btn-hc-burst {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-button);
+  background-color: var(--hc-color, #888);
+  pointer-events: none;
+  animation: hc-burst 200ms ease-out forwards;
+  z-index: 10;
+}
+
+/* ─── T11.7 Loop pulse ────────────────────────────────────────────── */
+/* Loop pulse is handled in waveform_draw.rs via sin(performance.now()) */
+
+/* ─── T11.10 Platter slot-in animation ───────────────────────────── */
+@keyframes platter-slot-in {
+  0%   { opacity: 0.4; transform: scale(0.85) rotate(-8deg); }
+  60%  { opacity: 1.0; transform: scale(1.04) rotate(2deg); }
+  80%  { transform: scale(0.98) rotate(-0.5deg); }
+  100% { transform: scale(1.0) rotate(0deg); opacity: 1; }
+}
+
+.platter-slot-in {
+  animation: platter-slot-in 400ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* ─── T11.11 Crossfader glow while dragging ──────────────────────── */
+@keyframes pulse-glow {
+  0%   { box-shadow: 0 0 4px var(--color-glow); }
+  50%  { box-shadow: 0 0 12px var(--color-glow), 0 0 20px var(--color-glow); }
+  100% { box-shadow: 0 0 4px var(--color-glow); }
+}
+
+.crossfader.xfader-moving {
+  accent-color: var(--color-glow);
+  filter: brightness(1.3);
+  animation: pulse-glow 0.8s ease-in-out infinite;
+}
+
+/* ─── T11.2 About view ────────────────────────────────────────────── */
+.about-view {
+  display: flex;
+  justify-content: center;
+  padding: 2rem 1rem;
+}
+
+.about-card {
+  background-color: var(--color-panel);
+  border: var(--border-cartoon);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-cartoon);
+  padding: 2rem;
+  max-width: 600px;
+  width: 100%;
+}
+
+.about-title {
+  font-family: 'Bangers', cursive;
+  font-size: 2.5rem;
+  letter-spacing: 0.08em;
+  color: var(--color-glow);
+  margin: 0 0 0.25rem;
+}
+
+.about-version {
+  font-size: 0.85rem;
+  color: var(--color-text-dim);
+  margin: 0 0 1rem;
+  letter-spacing: 0.1em;
+}
+
+.about-tagline {
+  line-height: 1.6;
+  color: var(--color-text);
+  margin-bottom: 1.5rem;
+}
+
+.about-card h2 {
+  font-family: 'Bangers', cursive;
+  font-size: 1.2rem;
+  letter-spacing: 0.08em;
+  color: var(--color-accent);
+  margin: 1.25rem 0 0.5rem;
+}
+
+.about-stack {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.about-stack li {
+  font-size: 0.9rem;
+  color: var(--color-text);
+  padding-left: 1rem;
+  position: relative;
+}
+
+.about-stack li::before {
+  content: "▸";
+  position: absolute;
+  left: 0;
+  color: var(--color-glow);
+}
+
+/* ─── Feature 003: Help / Quick-start guide ───────────────────────── */
+.help-view {
+  display: flex;
+  justify-content: center;
+  padding: 2rem 1rem;
+}
+
+.help-card {
+  background-color: var(--color-panel);
+  border: var(--border-cartoon);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-cartoon);
+  padding: 2rem;
+  max-width: 600px;
+  width: 100%;
+}
+
+.help-title {
+  font-family: 'Bangers', cursive;
+  font-size: 2.2rem;
+  letter-spacing: 0.08em;
+  color: var(--color-glow);
+  margin: 0 0 0.25rem;
+}
+
+.help-tagline {
+  font-size: 0.95rem;
+  color: var(--color-text-dim);
+  margin: 0 0 1.5rem;
+  line-height: 1.5;
+}
+
+.help-steps {
+  padding-left: 1.4rem;
+  margin: 0 0 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.help-step {
+  line-height: 1.6;
+  color: var(--color-text);
+  font-size: 0.95rem;
+}
+
+.help-step-title {
+  color: var(--color-accent);
+  letter-spacing: 0.04em;
+}
+
+.help-footer {
+  font-size: 0.85rem;
+  color: var(--color-text-dim);
+  line-height: 1.5;
+  margin: 0;
+  border-top: 1px solid rgba(255,255,255,0.07);
+  padding-top: 1rem;
+}
+
+.help-link {
+  color: var(--color-glow);
+  text-decoration: none;
+}
+
+.help-link:hover {
+  text-decoration: underline;
+}
+
+
+.settings-view {
+  display: flex;
+  justify-content: center;
+  padding: 2rem 1rem;
+}
+
+.settings-card {
+  background-color: var(--color-panel);
+  border: var(--border-cartoon);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-cartoon);
+  padding: 2rem;
+  max-width: 560px;
+  width: 100%;
+}
+
+.settings-title {
+  font-family: 'Bangers', cursive;
+  font-size: 2rem;
+  letter-spacing: 0.08em;
+  color: var(--color-glow);
+  margin: 0 0 1.5rem;
+}
+
+.settings-section {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  border: 1px solid #1e3050;
+  border-radius: var(--radius-button);
+  background-color: #0d1b2a;
+}
+
+.settings-section-title {
+  font-family: 'Bangers', cursive;
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  color: var(--color-accent);
+  margin: 0 0 0.75rem;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+}
+
+.settings-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.settings-label {
+  font-size: 0.85rem;
+  color: var(--color-text);
+  min-width: 90px;
+}
+
+.settings-slider {
+  flex: 1;
+  accent-color: var(--color-glow);
+  cursor: pointer;
+}
+
+.settings-value {
+  font-size: 0.8rem;
+  color: var(--color-text-dim);
+  font-variant-numeric: tabular-nums;
+  min-width: 3rem;
+  text-align: right;
+}
+

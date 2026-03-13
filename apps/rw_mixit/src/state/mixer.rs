@@ -12,11 +12,14 @@ pub enum DeckId { A, B }
 #[allow(dead_code)]
 #[derive(Clone)]
 pub struct MixerState {
-    pub crossfader:    RwSignal<f32>,
-    pub master_volume: RwSignal<f32>,
-    pub bpm_a:         RwSignal<Option<f64>>,
-    pub bpm_b:         RwSignal<Option<f64>>,
-    pub sync_master:   RwSignal<Option<DeckId>>,
+    pub crossfader:       RwSignal<f32>,
+    pub master_volume:    RwSignal<f32>,
+    pub bpm_a:            RwSignal<Option<f64>>,
+    pub bpm_b:            RwSignal<Option<f64>>,
+    pub sync_master:      RwSignal<Option<DeckId>>,
+    /// When `true`, crossfader uses linear gains; when `false` (default), uses
+    /// equal-power (cos/sin) curve for smoother perceived loudness.
+    pub crossfader_curve_linear: RwSignal<bool>,
 }
 
 // Same false-positive reason as DeckId and MixerState above.
@@ -29,6 +32,7 @@ impl MixerState {
             bpm_a:         RwSignal::new(None),
             bpm_b:         RwSignal::new(None),
             sync_master:   RwSignal::new(None),
+            crossfader_curve_linear: RwSignal::new(false),
         }
     }
 }

@@ -195,3 +195,164 @@ type requiring a browser). Extract it as a `pub(crate) fn crossfader_gains(val:
 f32) -> (f32, f32)` so the math properties (boundary values, constant-power
 invariant, symmetry) can all be covered with plain `#[test]` functions. Reserve
 `#[wasm_bindgen_test]` for node construction and actual `AudioParam` updates.
+
+---
+
+## Lessons from Feature 001 — Scratch Realism Improvement
+
+### Track actual buffer state, not gesture direction, in position integrators
+
+When integrating a running position estimate during scratch, branch on the actual
+playback state (`scratch_in_reverse`) not on the user's gesture direction
+(`d_angle < 0`). If a reversed buffer is unavailable, the forward buffer
+continues playing forward even during a backward drag — using gesture direction
+would subtract from position while audio moves forward. This pattern applies to
+any stateful audio gesture that may have a "no-op fallback path".
+
+### Reversed AudioBuffer seek offset is `duration - position`, not `position`
+
+When swapping from a forward buffer at position T to a reversed buffer, the
+correct start offset into the reversed buffer is `duration - T`. The reversed
+buffer plays index 0 (= the last original frame) first. Starting at `T` would
+land at a completely unrelated point in the track. Easy to get backwards.
+
+### AudioBuffer.clone() in web-sys is a cheap JS reference copy
+
+`AudioBuffer` is a JS wrapper type. `.clone()` copies the JS object handle, not
+the PCM audio data (~50 MB per 5-minute stereo track). Use `.clone()` freely to
+satisfy the borrow checker when passing buffers out of `self` fields into
+expressions that also need `&mut self`. No performance concern.
+
+---
+
+## Lessons from Feature 002 — Compact Responsive Layout
+
+### `Closure::forget()` must be conditional on successful `set_timeout`
+
+When creating a `Closure::<dyn FnMut()>` to pass to
+`set_timeout_with_callback_and_timeout_and_arguments_0`, the `.forget()` call
+**must** be inside the `if let Ok(handle) = ...` success branch — not after it
+unconditionally. If `set_timeout` fails (returns `Err`) and `.forget()` is
+still called, the closure leaks permanently: the browser never invokes it, so
+the allocation is never reclaimed, and on every subsequent resize event another
+closure leaks. The rule: only forget a closure when the browser has taken
+ownership of it by accepting the timeout registration.
+
+---
+
+## Lessons from M12 — Compact Responsive Layout
+
+### `min-height: 100vh` vs `height: 100vh` — silent content clipping
+
+`min-height: 100vh` on the app root lets the root div grow taller than the
+viewport when its content overflows. Paired with `overflow: hidden` on
+`html/body`, any overflow is silently clipped — the user sees nothing, but
+controls at the bottom of the page are invisible and unreachable. The correct
+pattern for a no-scroll app is `height: 100vh` (exact constraint) on the root
+and `height: 100%` on `html/body`. Flex children with `flex: 1` still fill the
+full viewport height; the difference is that the root can no longer grow taller
+than the viewport.
+
+### Flex column overflow requires `min-height: 0` on ALL links in the chain
+
+A flex column child inherits `min-height: auto` by default. This prevents the
+flex algorithm from shrinking the element below its intrinsic content height —
+so even if the parent has a hard `height` constraint, the child overflows it.
+Every element in the chain (`#root → .deck-row → .deck`) must have
+`min-height: 0` for the height constraint to propagate. Missing `min-height: 0`
+on even one link silently breaks the constraint.
+
+### `overflow-y: auto` as a safety net in flexible layouts
+
+CSS height breakpoints that progressively shrink content are best-effort — they
+reduce overflow but cannot guarantee zero overflow at all screen sizes and font
+zoom levels. Pairing the deck column (`overflow-y: auto`) with the exact-height
+root (`height: 100vh`) ensures a scrollbar appears within the deck panel when
+the content is taller than the available space, keeping all controls reachable.
+This is preferable to either (a) page-level scrolling (whole UI shifts) or
+(b) `overflow: hidden` (controls disappear).
+
+### `input[type=range]` has a browser-default `min-width` that breaks flex layouts
+
+`<input type="range">` has a browser-default `min-width` of roughly 129px.
+When used as a `flex: 1` child (or any flex child expected to shrink) without
+`min-width: 0`, it refuses to shrink below that width. In a narrow flex container
+it overflows the container and pushes sibling elements outside the visible panel.
+Fix: add `min-width: 0` to the range input or its wrapper (e.g. `.crossfader`,
+`.master-vol`) so the flex algorithm can shrink it properly.
+
+### `min-height: 100vh` + `overflow: hidden` silently clips bottom content — allow page scroll as fallback
+
+`min-height: 100vh` on the app root lets the root grow taller than the viewport.
+Paired with `overflow: hidden` on `html/body` this silently clips controls at
+the bottom — they are invisible and unreachable. For a "no-scroll" design, use
+`height: 100vh` (exact constraint) instead. However at very compressed sizes
+(below all CSS breakpoints, e.g. single-column view on a tiny screen) it is
+acceptable to fall back to page-level scrolling rather than clipping. The final
+pattern: `overflow-y: auto` on `body` + `min-height: 100vh` on `#rw-mixit-root`.
+This lets the page scroll as a last resort while keeping the exact-height
+constraint at normal viewport sizes.
+
+---
+
+## Lessons from Feature 003 — In-App User Guide
+
+### `round_trip_all_routes` as a route completeness guard
+
+The `round_trip_all_routes` test in `src/routing.rs` maintains an explicit array
+of every `Route` variant and asserts `from_hash(to_hash(r)) == r` for each one.
+Because the array is hand-maintained, adding a new variant to the `Route` enum
+without updating the array causes a compile-time pattern-match exhaustion error
+(if the `to_hash` / `from_hash` match arms are missing) or a test gap (the
+new variant is not exercised and the round-trip is untested). Either way the
+issue surfaces immediately and locally — not as a runtime routing bug in
+production. Replicate this pattern in any module where enum coverage is
+critical: a small, explicit test that enumerates every variant doubles as a
+completeness contract and acts as a lint that forces the implementer to update
+the test alongside the enum.
+
+### `#![allow(...)]` at module level in a `mod wasm_tests {}` block
+
+Applying `#![allow(clippy::let_unit_value, clippy::unwrap_used)]` as an
+**inner attribute** (`#![...]`, not `#[...]`) at the top of a
+`#[cfg(test)] mod wasm_tests { ... }` block suppresses intentional test-code
+patterns — unit-value bindings produced by `view!`, and `unwrap()` on DOM
+queries — without adding any lints to production code. The `#!` scoping means
+the allow applies only within that module. This is cleaner than per-function
+`#[allow(...)]` annotations when the same lint fires in every test function in
+the module, and preferable to a workspace-level allow in `Cargo.toml`.
+
+---
+
+## Lessons from Feature 004 — Waveform Scrub Seek
+
+### RwSignal<T> is Copy — eliminates Rc for shared drag-end handlers
+
+When an event handler closure captures only Leptos signals (and no non-Copy
+heap types), two independent closures for on:mouseup and on:mouseleave can
+both capture the same signal directly by value — no Rc<dyn Fn()> wrapper
+needed. This is a simpler pattern than the 
+udge_end_rc workaround in
+controls.rs. Reserve Rc<dyn Fn()> for closures that also capture
+Rc<RefCell<...>> or other non-Copy types.
+
+### style:<prop> reactive inline style is cleaner than class-toggling for cursor changes
+
+For element properties that change based on a single signal (e.g., cursor
+style during a drag), style:cursor=move || if flag.get() { "grabbing" } else {
+"grab" } in a Leptos iew! is simpler than toggling a CSS class. No
+additional CSS rule is required, the update is reactive, and it avoids the
+potential selector collision of .element.class rules.
+
+### Canvas width attribute ≠ CSS display width — always use getBoundingClientRect() for mouse hit-testing
+
+HtmlCanvasElement::width() returns the canvas **buffer** resolution (the HTML
+width attribute, e.g. 600). MouseEvent::offset_x() returns the cursor
+position in **CSS display pixels**. When CSS width: 100% scales the canvas
+element to a different size than its buffer, these two coordinate spaces diverge
+and all pixel-to-time calculations silently produce wrong (tiny) offsets.
+
+Fix: use canvas_el.get_bounding_client_rect().width() (CSS display width) as
+the denominator in any pixel-to-time formula — it is always in the same
+coordinate space as offset_x. The web-sys "DomRect" feature must be listed
+in Cargo.toml for .width() to compile.

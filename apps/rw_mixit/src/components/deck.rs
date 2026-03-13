@@ -13,6 +13,7 @@ use crate::audio::bpm::sync_rate;
 use crate::audio::mixer_audio::MixerAudio;
 use crate::canvas::raf_loop::start_raf_loop;
 use crate::canvas::platter_draw::PLATTER_SIZE;
+use crate::canvas::waveform_draw::seek_from_canvas_x;
 use crate::components::controls::Controls;
 use crate::components::eq::{EqKnobs, FilterKnob, VuMeter};
 use crate::components::fx_panel::FxPanel;
@@ -22,6 +23,8 @@ use crate::components::mixer::Mixer;
 use crate::components::pitch_fader::PitchFader;
 use crate::state::{DeckState, MixerState};
 use crate::state::mixer::DeckId;
+use crate::state::{DeckAContext, DeckBContext};
+use crate::utils::keyboard::register_keyboard_shortcuts;
 
 /// Waveform canvas dimensions (pixels).
 const WAVEFORM_WIDTH:  u32 = 600;
@@ -70,6 +73,24 @@ pub fn DeckView() -> impl IntoView {
         platter_a_ref,
         platter_b_ref,
     );
+
+    // M10 — Register global keyboard shortcuts and keep the listeners alive for
+    // the entire application lifetime.  `std::mem::forget` prevents the
+    // EventListeners from calling removeEventListener on drop — same pattern as
+    // the hashchange listener in app.rs.
+    let kb = register_keyboard_shortcuts(
+        state_a.clone(),
+        audio_a.clone(),
+        state_b.clone(),
+        audio_b.clone(),
+    );
+    std::mem::forget(kb);
+
+    // M11 — Provide state contexts so Settings and About views can access
+    // reactive signals without prop-drilling through app.rs.
+    provide_context(DeckAContext(state_a.clone()));
+    provide_context(DeckBContext(state_b.clone()));
+    provide_context(mixer_state.clone());
 
     view! {
         <div class="deck-row">
@@ -138,6 +159,9 @@ pub fn Deck(
 ) -> impl IntoView {
     let file_input: NodeRef<leptos::html::Input> = NodeRef::new();
 
+    // T11.10 — Slot-in animation: true for 400 ms after a successful file load.
+    let slot_in = RwSignal::new(false);
+
     let on_load_click = {
         move |_: web_sys::MouseEvent| {
             if let Some(input) = file_input.get() {
@@ -204,6 +228,19 @@ pub fn Deck(
                 .expect("AudioDeck was just created in the is_none() block above")
                 .clone();
 
+            // T11.10 — Trigger slot-in animation then auto-clear after 400 ms.
+            slot_in.set(true);
+            let clear_cb = wasm_bindgen::closure::Closure::<dyn FnMut()>::new(move || {
+                slot_in.set(false);
+            });
+            if let Some(w) = web_sys::window() {
+                let _ = w.set_timeout_with_callback_and_timeout_and_arguments_0(
+                    clear_cb.as_ref().unchecked_ref(),
+                    400,
+                );
+            }
+            clear_cb.forget();
+
             let state = state.clone();
             spawn_local(async move {
                 load_audio_file(file, deck_rc, state, ctx, bpm_own).await;
@@ -211,40 +248,56 @@ pub fn Deck(
         }
     };
 
-    // Waveform seek on click: compute click position → time → seek.
-    let on_waveform_click = {
+    // ── Waveform scrub: drag (or click) to seek, regardless of play state ────
+    //
+    // `is_scrubbing` tracks whether a mousedown is currently held on the canvas.
+    // `do_scrub` is wrapped in Rc so it can be captured by both `mousedown` and
+    // `mousemove` handlers without violating the borrow checker (same pattern as
+    // `nudge_end_rc` in controls.rs).
+    let is_scrubbing = RwSignal::new(false);
+
+    let do_scrub: Rc<dyn Fn(f64)> = {
         let state             = state.clone();
         let audio_deck_holder = audio_deck_holder.clone();
-        move |ev: web_sys::MouseEvent| {
-            // Only seek when not playing (cue mode / paused).
-            if state.is_playing.get_untracked() {
-                return;
-            }
+        Rc::new(move |mouse_x: f64| {
             let duration = state.duration_secs.get_untracked();
             if duration <= 0.0 {
                 return;
             }
-            let canvas_el = waveform_ref.get_untracked();
-            let canvas_el = match canvas_el {
+            let canvas_el = match waveform_ref.get_untracked() {
                 Some(c) => c,
-                None => return,
+                None    => return,
             };
-            let canvas_width = canvas_el.width() as f64;
-            let click_x = ev.offset_x() as f64;
-            // The waveform is scrolled so the playhead is at the center.
-            // Clicking at click_x relative to center maps to a time delta.
-            let center_x    = canvas_width / 2.0;
-            let current     = state.current_secs.get_untracked();
-            let secs_per_px = if canvas_width > 0.0 { duration / canvas_width } else { 0.0 };
-            let seek_pos = (current + (click_x - center_x) * secs_per_px).clamp(0.0, duration);
-
+            let canvas_width = canvas_el.get_bounding_client_rect().width();
+            if canvas_width <= 0.0 {
+                return; // element not yet laid out — skip seek
+            }
+            let current      = state.current_secs.get_untracked();
+            let seek_pos     = seek_from_canvas_x(mouse_x, canvas_width, current, duration);
             if let Some(ref deck_rc) = *audio_deck_holder.borrow() {
                 let rate = state.playback_rate.get_untracked() as f32;
                 deck_rc.borrow_mut().seek(seek_pos, rate);
                 state.current_secs.set(seek_pos);
             }
+        })
+    };
+    let do_scrub_down = do_scrub.clone();
+    let do_scrub_move = do_scrub;
+
+    let on_waveform_mousedown = move |ev: web_sys::MouseEvent| {
+        is_scrubbing.set(true);
+        do_scrub_down(ev.offset_x() as f64);
+    };
+
+    let on_waveform_mousemove = move |ev: web_sys::MouseEvent| {
+        if is_scrubbing.get_untracked() {
+            do_scrub_move(ev.offset_x() as f64);
         }
     };
+
+    // Both end-handlers only capture `is_scrubbing` (Copy), so no Rc needed.
+    let on_scrub_end_up  = move |_: web_sys::MouseEvent| { is_scrubbing.set(false); };
+    let on_scrub_end_out = move |_: web_sys::MouseEvent| { is_scrubbing.set(false); };
 
     let deck_class = format!("deck deck-{}", side.to_lowercase());
 
@@ -492,7 +545,24 @@ pub fn Deck(
 
     view! {
         <div class=deck_class>
-            <h2 class="deck-label">{format!("DECK {side}")}</h2>
+            // Deck title row: label centred, load button tucked in the corner.
+            // The hidden file input lives here too so the button can trigger it.
+            <div class="deck-header">
+                // Spacer mirrors the button width so the label stays centred.
+                <div class="deck-header-spacer"></div>
+                <h2 class="deck-label">{format!("DECK {side}")}</h2>
+                // Hidden file input triggered by the icon button below.
+                <input
+                    type="file"
+                    accept=".mp3,.wav,.ogg,.flac,.aac"
+                    style="display:none"
+                    node_ref=file_input
+                    on:change=on_file_change
+                />
+                <button class="btn-load-icon" on:click=on_load_click title="Load Track">
+                    "📂"
+                </button>
+            </div>
             <TrackLabel state=state.clone()/>
 
             // Inline error message — shown when a file fails to load or decode.
@@ -506,7 +576,11 @@ pub fn Deck(
                 width=WAVEFORM_WIDTH
                 height=WAVEFORM_HEIGHT
                 node_ref=waveform_ref
-                on:click=on_waveform_click
+                style:cursor=move || if is_scrubbing.get() { "grabbing" } else { "grab" }
+                on:mousedown=on_waveform_mousedown
+                on:mousemove=on_waveform_mousemove
+                on:mouseup=on_scrub_end_up
+                on:mouseleave=on_scrub_end_out
             />
 
             // Zoom controls (T2.11)
@@ -515,6 +589,7 @@ pub fn Deck(
             // Platter canvas (T3.1–T3.3 / T3.6)
             <canvas
                 class="platter-canvas"
+                class:platter-slot-in=move || slot_in.get()
                 width=PLATTER_SIZE
                 height=PLATTER_SIZE
                 node_ref=platter_ref
@@ -554,18 +629,6 @@ pub fn Deck(
                 playback_rate=state.playback_rate
                 sync_master=sync_master
             />
-
-            // Hidden file input
-            <input
-                type="file"
-                accept=".mp3,.wav,.ogg,.flac,.aac"
-                style="display:none"
-                node_ref=file_input
-                on:change=on_file_change
-            />
-            <button class="btn-load" on:click=on_load_click>
-                "Load Track"
-            </button>
         </div>
     }
 }
