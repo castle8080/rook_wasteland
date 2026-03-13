@@ -2,6 +2,7 @@
 var/
 tmp/
 dist/
+__pycache__/
 
 # Vim
 *.swp
